@@ -16,6 +16,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const { pipeline } = require('stream/promises');
+const { Transform } = require('stream');
 const yazl = require('yazl');
 const yauzl = require('yauzl');
 const cardsLib = require('../core/cards');
@@ -128,9 +129,11 @@ async function createBackup(game, { file, includeMedia = false, password = null,
         const name = `media/${m.songId}${m.ext}`;
         const h = crypto.createHash('sha256');
         const rs = fs.createReadStream(m.originalPath);
-        const finished = new Promise((res, rej) => { rs.on('end', res); rs.on('error', rej); });
-        rs.on('data', (d) => { h.update(d); doneBytes += d.length; onProgress({ phase: 'media', done: doneBytes, total, file: m.fileName }); });
-        zip.addReadStream(rs, name, { compress: false }); // video is already compressed
+        // Hash inside a Transform so no bytes can flow before the zip writer consumes them.
+        const tap = new Transform({ transform(chunk, enc, cb) { h.update(chunk); doneBytes += chunk.length; onProgress({ phase: 'media', done: doneBytes, total, file: m.fileName }); cb(null, chunk); } });
+        const finished = new Promise((res, rej) => { tap.on('end', res); tap.on('error', rej); rs.on('error', rej); });
+        rs.pipe(tap);
+        zip.addReadStream(tap, name, { compress: false }); // video is already compressed
         await Promise.race([finished, done.then(() => { throw new Error('Backup output closed early'); })]);
         m.included = true; m.archivePath = name; m.sha256 = h.digest('hex'); m.size = fs.statSync(m.originalPath).size;
       }
@@ -225,7 +228,7 @@ async function loadBackup(file, { password, tmpDir }) {
     const mediaEntries = entries.filter(e => MEDIA_RE.test(e.fileName));
     for (const e of mediaEntries) {
       const m = (manifest.media || []).find(x => x.archivePath === e.fileName);
-      check('Media manifest', m && game.songs[m.songId] && e.uncompressedSize === m.size && e.uncompressedSize <= LIMITS.mediaFile, m ? `${e.fileName}` : `${e.fileName} not listed in the manifest`);
+      check('Media manifest', m && game.songs[m.songId] && e.uncompressedSize === m.size && e.uncompressedSize <= LIMITS.mediaFile, m ? `${e.fileName} (${e.uncompressedSize} bytes, manifest ${m.size}${game.songs[m.songId] ? '' : ', unknown song'})` : `${e.fileName} not listed in the manifest`);
     }
     if (manifest.type === 'full') checks.push({ label: 'Videos included', ok: true, detail: `${mediaEntries.length} of ${Object.keys(game.songs).length}` });
     return { manifest, game, checks, zip, byName, mediaEntries, cleanup, encrypted: !!header };

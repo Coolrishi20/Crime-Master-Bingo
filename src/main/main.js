@@ -523,7 +523,7 @@ const handlers = {
   },
   'backup:inspect': async ({ file, password }) => {
     const info = await backup.inspectBackup(file, { password, tmpDir: path.join(DATA_DIR, 'tmp') });
-    info.exists = !!readGame(info.manifest.gameId);
+    if (info && info.manifest) info.exists = !!readGame(info.manifest.gameId);
     return info;
   },
   'backup:pickFolder': async () => { const r = await dialog.showOpenDialog(hostWin, { title: 'Where should the restored videos be stored?', properties: ['openDirectory', 'createDirectory'] }); return r.canceled ? null : r.filePaths[0]; },

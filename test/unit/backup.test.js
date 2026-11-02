@@ -16,7 +16,7 @@ function gameWithMedia(nSongs = 45, nCards = 20) {
   const h = makeEngine({ songs: nSongs, cards: nCards });
   Object.values(h.game.songs).forEach((s, i) => {
     const f = path.join(dir, `Artist - Song ${i}.mp4`);
-    fs.writeFileSync(f, crypto.randomBytes(3000 + i));
+    fs.writeFileSync(f, crypto.randomBytes((i % 5 === 0 ? 300000 : 3000) + i)); // some files > 64 KB (multi-chunk streams)
     s.path = f; s.fileName = path.basename(f); const fp = fingerprint(f); s.fingerprint = fp.fp; s.size = fp.size;
   });
   return Object.assign(h, { mediaDir: dir });
