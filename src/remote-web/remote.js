@@ -143,7 +143,7 @@
     $('playIco').textContent = playing || pb.status === 'between' ? '❚❚' : '▶';
     $('playTxt').textContent = playing || pb.status === 'between' ? 'Pause' : (pb.status === 'paused' ? 'Resume' : 'Play');
     if (document.activeElement !== $('vol')) { $('vol').value = g.settings.volume; $('volV').textContent = g.settings.volume; }
-    $('nextUp').textContent = g.next ? 'Up next: ' + g.next.title + ' — ' + g.next.artist : '';
+    renderUpNext();
     $('markBtn').disabled = !cur || cur.played;
     renderProgress(); renderRounds(); renderHistory();
     renderSession();
@@ -162,22 +162,29 @@
     [1, 2, 3].forEach(function (n) {
       var active = g.round.number === n && g.round.status === 'active';
       var done = g.round.number > n || (g.round.number === n && g.round.status === 'ended');
-      var can = (n > g.round.number || (n === g.round.number && g.round.status !== 'active')) && g.status !== 'finished';
+      var can = ((g.round.number === 0 && n === 1) || (g.round.number === n && g.round.status === 'ready') || (n === g.round.number + 1 && g.round.status === 'active')) && g.status !== 'finished';
       var el = document.createElement('button');
       el.className = 'round-btn' + (active ? ' active' : '') + (done ? ' done' : '');
       el.disabled = !can && !active;
       var grid = document.createElement('div'); CMBPatterns.render(grid, CMBPatterns.examples(n)[0], 'pink');
       el.appendChild(grid);
-      var t = document.createElement('div'); t.innerHTML = '<b>ROUND ' + n + '</b><div class="lab">' + CMBPatterns.LABELS[n] + '</div><div class="st">' + (active ? 'IN PLAY' : done ? 'Complete' : can ? 'Tap to start' : '') + '</div>';
+      var t = document.createElement('div'); t.innerHTML = '<b>ROUND ' + n + '</b><div class="lab">' + CMBPatterns.LABELS[n] + '</div><div class="st">' + (active ? 'IN PLAY' : (g.round.number === n && g.round.status === 'ready') ? 'READY — tap to start' : done ? 'Complete' : can ? 'Tap to start' : '') + '</div>';
       el.appendChild(t);
       el.onclick = function () {
         if (active || !can) return;
-        var body = g.round.status === 'active' ? 'This ends Round ' + g.round.number + ' and starts <b>' + CMBPatterns.LABELS[n] + '</b>. Played songs stay marked.' : 'Start <b>' + CMBPatterns.LABELS[n] + '</b>? The TV switches to the new winning pattern' + (n === 1 ? ' and the first song starts.' : '.');
+        var body = g.round.status === 'active' ? 'Round ' + g.round.number + ' is still in play — normally use <b>Complete round</b>. Change to <b>' + CMBPatterns.LABELS[n] + '</b> now anyway? Played songs stay marked.' : 'Start <b>' + CMBPatterns.LABELS[n] + '</b>? The TV switches to the new winning pattern' + (n === 1 ? ' and the first song starts.' : '.');
         confirmIt('Start Round ' + n + '?', body, 'Start Round ' + n).then(function (ok) { if (ok) safe(cmd('startRound', { round: n })).then(function (r) { if (r) { toast('Round ' + n + ' started', 'ok'); if (r.warning) toast(r.warning, 'err'); } }); });
       };
       box.appendChild(el);
     });
-    $('endRound').disabled = g.round.status !== 'active';
+    $('endRound').disabled = !g.round.canComplete;
+    $('endRound').textContent = g.round.number === 3 ? 'Complete game…' : 'Complete round…';
+    var R = g.round, rs = $('roundStatus');
+    if (R.status === 'ready') rs.innerHTML = '<div class="banner ok"><b>Round ' + R.number + ' ready — ' + esc(R.label) + '</b><div class="small">Music is paused until you start it.</div>' + (R.preQualified.length ? '<div class="small" style="margin-top:6px;color:var(--amber)">⚠ ' + R.preQualified.length + ' card(s) already have this pattern (' + R.preQualified.slice(0, 8).join(', ') + (R.preQualified.length > 8 ? '…' : '') + '). Nothing is awarded automatically.</div>' : '') + '<button class="btn primary wide" id="startReady">▶ Start Round ' + R.number + '</button></div>';
+    else if (R.canComplete && R.winners) rs.innerHTML = '<div class="banner ok"><b>🏆 Round ' + R.number + ' has ' + R.winners + ' winner' + (R.winners > 1 ? 's' : '') + '</b><div class="small">Check any other claims, then continue.</div><button class="btn primary wide" id="completeBig">' + (R.number === 3 ? 'Complete game' : 'Complete Round & Continue') + '</button></div>';
+    else rs.innerHTML = '';
+    var sr = $('startReady'); if (sr) sr.onclick = function () { safe(cmd('startRound', { round: R.number })); };
+    var cb = $('completeBig'); if (cb) cb.onclick = completeRound;
     $('pauseGame').textContent = g.gamePaused ? 'Resume game' : 'Pause game';
     $('winners').innerHTML = g.winners.length ? g.winners.map(function (w) { return '<div class="winner"><span class="cn">' + w.cardLabel + '</span><div><b>Round ' + w.round + '</b><div class="muted small">' + esc(w.headline) + '</div></div></div>'; }).join('') : '<div class="muted small">No winners confirmed yet.</div>';
   }
@@ -199,6 +206,32 @@
     $('ckList').innerHTML = s.claims.length ? s.claims.map(function (c) { return '<div class="hist" data-id="' + c.claimId + '"><span class="n" style="width:40px">' + c.cardLabel + '</span><div style="flex:1">' + esc(c.headline) + '</div><span class="chip ' + (SL[c.status][1] === 'ok' ? '' : 'dim') + '" style="margin:0">' + SL[c.status][0] + '</span></div>'; }).join('') : '';
     Array.prototype.forEach.call(document.querySelectorAll('#ckList [data-id]'), function (r) { r.onclick = function () { safe(cmd('viewClaim', { claimId: r.getAttribute('data-id') })).then(function (x) { if (x) { $('ckEntry').classList.add('hidden'); $('ckResult').classList.remove('hidden'); showResult(x); } }); }; });
   }
+  function renderUpNext() {
+    var u = state.upNext || {}; var n = u.next; var box = $('upnext');
+    if (!n) { box.innerHTML = '<div class="eyebrow">Up next · host only</div><div class="muted small">No more songs to play.</div>'; return; }
+    var src = { queue: 'QUEUED', deferred: 'SKIPPED EARLIER', playlist: 'PLAYLIST' }[n.source];
+    box.innerHTML = '<div class="eyebrow">Up next · host only <span class="pill">' + src + '</span></div>' +
+      '<div class="un-title">' + esc(n.title) + '</div><div class="artist" style="font-size:15px">' + esc(n.artist) + '</div>' +
+      '<div class="muted small" style="margin-top:6px;word-break:break-all">' + esc(n.fileName) + '</div>' +
+      '<div class="muted small">' + (n.duration ? fmt(n.duration) + ' · ' : '') + 'starts ' + fmt(n.clipStart) + ' · ' + (n.clipMode === 'full' ? 'full song' : (n.clipLength || '') + ' s clip') + '</div>' +
+      '<div style="margin-top:6px">' + (n.ready ? '<span class="pill ok">READY</span>' : '<span class="pill bad">⚠ ' + esc(n.problem || 'not ready') + '</span>') + '</div>' +
+      '<div class="ctl-row small" style="margin:10px 0 0"><button class="btn" id="unSkip">Skip this one</button><button class="btn" id="unPick">Choose…</button></div>' +
+      (u.custom ? '<button class="btn wide" id="unReset">Back to playlist order</button>' : '') +
+      (u.queue && u.queue.length ? '<div class="muted small" style="margin-top:8px">Queue: ' + u.queue.map(function (q) { return esc(q.title); }).join(' · ') + '</div>' : '');
+    $('unSkip').onclick = function () { safe(cmd('skipNext', { expectSongId: n.songId })); };
+    $('unPick').onclick = openPicker;
+    var rs = $('unReset'); if (rs) rs.onclick = function () { safe(cmd('resetQueue')); };
+  }
+  function openPicker() { $('picker').classList.remove('hidden'); $('pkQ').value = ''; drawPicker(); }
+  function drawPicker() {
+    var q = $('pkQ').value.toLowerCase(); var list = (state.eligible || []).filter(function (s) { return !q || (s.title + ' ' + s.artist).toLowerCase().indexOf(q) >= 0; });
+    $('pkList').innerHTML = list.length ? list.map(function (s) { return '<div class="hist pk"><span class="n">' + s.number + '</span><div style="flex:1;min-width:0"><b>' + esc(s.title) + '</b> <span class="a">— ' + esc(s.artist) + '</span>' + (s.unavailable ? ' <span class="pill bad">unavailable</span>' : '') + (s.queued ? ' <span class="pill">queued</span>' : '') + '</div><button class="btn sm primary" data-next="' + s.songId + '">Next</button><button class="btn sm" data-end="' + s.songId + '">Queue</button></div>'; }).join('') : '<div class="muted small">No songs found.</div>';
+    Array.prototype.forEach.call(document.querySelectorAll('[data-next]'), function (b) { b.onclick = function () { safe(cmd('queueSong', { songId: b.getAttribute('data-next') })).then(function (r) { if (r) { toast('Plays next', 'ok'); $('picker').classList.add('hidden'); } }); }; });
+    Array.prototype.forEach.call(document.querySelectorAll('[data-end]'), function (b) { b.onclick = function () { safe(cmd('queueSong', { songId: b.getAttribute('data-end'), position: 'end' })).then(function (r) { if (r) toast('Added to queue', 'ok'); }); }; });
+  }
+  $('pkQ').oninput = drawPicker;
+  $('pkClose').onclick = function () { $('picker').classList.add('hidden'); };
+
   function renderAudio() {
     var a = state.settings.audio;
     $('muteBtn').textContent = a.muted ? '🔊 Unmute' : '🔇 Mute'; $('muteBtn').className = 'btn' + (a.muted ? ' primary' : '');
@@ -249,7 +282,12 @@
   });
   $('markBtn').onclick = function () { if (!state || !state.current) return; confirmIt('Mark as played?', 'Add “' + esc(state.current.title) + '” to the played list now? It appears in the TV crawler and counts on cards.', 'Mark played').then(function (ok) { if (ok) safe(cmd('markPlayed', { songId: state.current.songId })); }); };
   var volT; $('vol').oninput = function (e) { $('volV').textContent = e.target.value; clearTimeout(volT); volT = setTimeout(function () { safe(cmd('setVolume', { volume: Number(e.target.value) })); }, 120); };
-  $('endRound').onclick = function () { confirmIt('End Round ' + state.round.number + '?', 'Songs stay marked for the next round.', 'End round').then(function (ok) { if (ok) safe(cmd('endRound')); }); };
+  function completeRound() {
+    var R = state.round; var final = R.number === 3;
+    confirmIt(final ? 'Complete the game?' : 'Complete Round ' + R.number + '?', (R.winners ? R.winners + ' confirmed winner(s).' : '<b style="color:var(--amber)">No winner confirmed yet.</b>') + (final ? ' The TV shows “That\'s a wrap!”.' : ' The TV shows the transition to <b>' + CMBPatterns.LABELS[R.number + 1] + '</b>. Music stays paused until you start the next round.'), final ? 'Complete game' : 'Complete & continue')
+      .then(function (ok) { if (!ok) return; safe(cmd('completeRound', { fromRound: R.number })).then(function (r) { if (r && r.needsDecision) toast(r.message, 'err'); else if (r && r.ok && !r.already) toast(final ? "That's a wrap!" : 'Round ' + R.number + ' complete', 'ok'); }); });
+  }
+  $('endRound').onclick = completeRound;
   $('pauseGame').onclick = function () { safe(cmd(state.gamePaused ? 'resumeGame' : 'pauseGame')); };
   $('endGame').onclick = function () { confirmIt('End the game?', 'Playback stops and the game is saved as finished.', 'End game', true).then(function (ok) { if (ok) safe(cmd('endGame')); }); };
   var crT; $('crSpeed').oninput = function (e) { $('crSpeedV').textContent = e.target.value; clearTimeout(crT); crT = setTimeout(function () { safe(cmd('setCrawler', { speed: Number(e.target.value) })); }, 150); };
@@ -302,8 +340,8 @@
     ckInput = ''; drawInput();
     var dup = r.alreadyWinner && r.status !== 'confirmed'; var cls = r.status === 'confirmed' ? 'valid' : dup ? 'dup' : (r.valid ? 'valid' : 'invalid');
     vibrate(r.valid && !dup ? [60, 40, 60] : 250);
-    var h = (r.duplicateEntry ? '<div class="banner">Card already entered in this session — same result shown.</div>' : '') + '<div class="verdict ' + cls + '"><div class="vt">' + (r.status === 'confirmed' ? 'WINNER CONFIRMED' : dup ? 'ALREADY WON' : r.valid ? 'VALID BINGO!' : 'NOT VALID') + '</div><div class="hl">Card ' + r.cardLabel + ' — ' + esc(r.headline) + '</div><div class="rs">' + esc(r.reason) + '</div><div class="rs">Round ' + r.round + ' · ' + esc(r.roundLabel) + (r.qualifiedAtSong ? ' · qualified at song #' + r.qualifiedAtSong : '') + (r.printed ? '' : ' · ⚠ card not marked printed') + '</div></div>';
-    h += '<div class="mini">' + r.grid.map(function (c) { return '<div class="' + (c.winning ? 'w' : c.played ? 'p' : '') + '">' + (c.credit ? '<span style="color:var(--amber)">TC</span>' : '') + '<b>' + esc(c.title) + '</b><span>' + esc(c.artist) + '</span></div>'; }).join('') + '</div>';
+    var h = (r.duplicateEntry ? '<div class="banner">Card already entered in this session — same result shown.</div>' : '') + '<div class="verdict ' + cls + '"><div class="vt">' + (r.status === 'confirmed' ? 'WINNER CONFIRMED' : dup ? 'ALREADY WON' : r.valid ? 'VALID BINGO!' : 'NOT VALID') + '</div><div class="hl">' + esc(r.explanation || ('Card ' + r.cardLabel + ' — ' + r.headline)) + '</div>' + (r.completingSong ? '<div class="rs">🎵 Won on song #' + r.completingSong.n + ': <b style="color:#fff">' + esc(r.completingSong.title) + '</b> — ' + esc(r.completingSong.artist) + '</div>' : '') + (r.best ? '<div class="rs">Closest: <b style="color:#fff">' + esc(r.best.description) + '</b> — ' + r.best.missing + ' more needed (dashed squares)</div>' : '') + '<div class="rs">Round ' + r.round + ' · ' + esc(r.roundLabel) + (r.qualifiedAtSong ? ' · qualified at song #' + r.qualifiedAtSong : '') + (r.printed ? '' : ' · ⚠ card not marked printed') + '</div></div>';
+    h += '<div class="mini">' + r.grid.map(function (c) { return '<div class="' + (c.winning ? 'w' : c.played ? 'p' : '') + (c.needed ? ' nd' : '') + (c.inBest && !c.winning ? ' bs' : '') + (c.completing ? ' cm' : '') + '">' + (c.credit ? '<span style="color:var(--amber)">TC</span>' : '') + '<b>' + esc(c.title) + '</b><span>' + esc(c.artist) + '</span></div>'; }).join('') + '</div>';
     if (r.status === 'pending') h += '<button class="btn success big" style="width:100%" id="ckConfirm">✓ CONFIRM WINNER</button><button class="btn danger wide" id="ckDismiss">Reject claim</button>';
     else if (r.status === 'invalid') h += '<button class="btn danger wide" id="ckReject">Reject claim</button>';
     if (r.status === 'confirmed') h += '<button class="btn wide" id="ckTv">📺 Show winner screen on TV</button>';

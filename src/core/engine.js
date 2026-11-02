@@ -854,7 +854,7 @@ class GameEngine {
   }
 
   findCard(no) { return this.game.cards.find(c => c.no === no); }
-  cardMatchesGame(gameId) { return gameId === this.game.id || (this.game.aliasIds || []).includes(gameId); }
+  cardMatchesGame(gameId) { return gameId === this.game.id || gameId === this.game.cardSetId || (this.game.aliasIds || []).includes(gameId); }
 
   parseCardInput(args) {
     if (args.qr) {

@@ -57,14 +57,16 @@ App.register('cards', {
       <div class="field" style="margin-bottom:12px"><span class="muted small" style="font-weight:700">Which cards?</span>
         <div class="seg" id="ppSel"><button data-v="all" class="on">All ${s.total}</button><button data-v="unprinted">Not yet printed (${unprinted})</button><button data-v="range">Card range…</button></div></div>
       <div id="ppRangeRow" style="display:none;margin-bottom:12px"><label class="field">Card numbers (e.g. 1-50, 75, 101-120)<input type="text" id="ppRange" placeholder="1-${s.total || 100}"></label></div>
-      <div class="row" style="gap:24px;margin-bottom:12px">${toggleHtml('ppQr', 'QR codes', cs.qr)}${toggleHtml('ppBw', 'Black & white (ink saver)', cs.bw)}${toggleHtml('ppLogo', 'Logo', cs.useLogo)}</div>
+      <div class="row" style="gap:24px;margin-bottom:12px">${toggleHtml('ppQr', 'QR codes', cs.qr)}${toggleHtml('ppBw', 'Black & white (ink saver)', cs.bw)}${toggleHtml('ppLogo', 'Logo', cs.useLogo)}${toggleHtml('ppCut', 'Cutting guide', cs.cutLines !== false)}</div>
+      <div class="field" style="margin-bottom:12px"><span class="muted small" style="font-weight:700">Squares show</span><div class="seg" id="ppShow"><button data-v="1" class="${cs.showArtist !== false ? 'on' : ''}">Song title + artist</button><button data-v="0" class="${cs.showArtist === false ? 'on' : ''}">Song title only</button></div></div>
       <label class="field" style="max-width:320px">Card text size: <span id="ppTsV">${Math.round(cs.textScale * 100)}%</span><input type="range" id="ppTs" min="80" max="125" step="5" value="${Math.round(cs.textScale * 100)}"></label>
       <div class="muted" id="ppInfo" style="margin:14px 0"></div>
-      <div class="row"><button class="btn" id="ppPrev" title="Preview never locks the cards">Print preview</button><button class="btn" id="ppPdf">Export PDF…</button><button class="btn primary" id="ppPrint">🖨 Print…</button></div>
+      <div class="row"><button class="btn" id="ppPrev" title="Preview never locks the cards">🔍 Print preview</button><button class="btn" id="ppPdf">Export PDF…</button><button class="btn primary" id="ppPrint">🖨 Print…</button></div>
       <p class="muted tiny" style="margin-top:12px">A4 portrait, two cards per sheet (top &amp; bottom halves) with a dashed cut line. Print at <b>100% / Actual size</b> — do not use “fit to page” or multiple pages per sheet. Long titles shrink automatically; set a shorter “Printed title” in the Music Library if needed.</p>
       <div id="ppResult"></div>`;
-    let sel = 'all';
-    const opts = () => ({ id: gameId, qr: $('#ppQr', box).checked, bw: $('#ppBw', box).checked, useLogo: $('#ppLogo', box).checked, textScale: Number($('#ppTs', box).value) / 100, range: sel === 'range' ? $('#ppRange', box).value : null, onlyUnprinted: sel === 'unprinted' });
+    let sel = 'all'; let showArtist = cs.showArtist !== false;
+    $$('#ppShow button', box).forEach(b => b.onclick = () => { showArtist = b.dataset.v === '1'; $$('#ppShow button', box).forEach(x => x.classList.toggle('on', x === b)); });
+    const opts = () => ({ id: gameId, qr: $('#ppQr', box).checked, bw: $('#ppBw', box).checked, useLogo: $('#ppLogo', box).checked, cutLines: $('#ppCut', box).checked, showArtist, textScale: Number($('#ppTs', box).value) / 100, range: sel === 'range' ? $('#ppRange', box).value : null, onlyUnprinted: sel === 'unprinted' });
     const info = () => {
       let n = s.total; if (sel === 'unprinted') n = unprinted;
       if (sel === 'range') { try { n = (($('#ppRange', box).value || '').split(/[,\s]+/).filter(Boolean).reduce((a, p) => { const m = /^(\d+)(?:-(\d+))?$/.exec(p); if (!m) return a; const x = +m[1], y = m[2] ? +m[2] : x; return a + Math.abs(y - x) + 1; }, 0)); } catch (e) { n = 0; } }
@@ -73,15 +75,15 @@ App.register('cards', {
     $$('#ppSel button', box).forEach(b => b.onclick = () => { sel = b.dataset.v; $$('#ppSel button', box).forEach(x => x.classList.toggle('on', x === b)); $('#ppRangeRow', box).style.display = sel === 'range' ? 'block' : 'none'; info(); });
     $('#ppRange', box).oninput = info;
     $('#ppTs', box).oninput = (e) => { $('#ppTsV', box).textContent = e.target.value + '%'; };
-    const saveOpts = () => { const o = opts(); api('settings:update', { cards: { qr: o.qr, bw: o.bw, useLogo: o.useLogo, textScale: o.textScale } }).then(st => { App.settings = st; }); };
+    const saveOpts = () => { const o = opts(); api('settings:update', { cards: { qr: o.qr, bw: o.bw, useLogo: o.useLogo, textScale: o.textScale, showArtist: o.showArtist, cutLines: o.cutLines } }).then(st => { App.settings = st; }); };
     const busy = (on, label) => { $$('button', box).forEach(b => { b.disabled = on; }); $('#ppResult', box).innerHTML = on ? `<div class="badge pink" style="margin-top:10px">${label}</div>` : ''; };
     const done = (r, verb) => {
       if (!r) return;
-      $('#ppResult', box).innerHTML = `<div class="check-row" style="margin-top:12px"><span class="ic ${r.overflow ? 'warn' : 'ok'}">${r.overflow ? '!' : '✓'}</span><div class="grow"><b>${verb}: ${r.cards} cards on ${r.sheets} A4 sheets</b><div class="muted small">${r.file ? esc(r.file) : ''}${r.overflow ? ` · ${r.overflow} song title(s) were too long and were shortened — set a Printed title for them` : ' · all text fits'}</div></div>${r.file ? '<button class="btn sm" id="ppOpen">Open</button><button class="btn sm" id="ppShow">Show in folder</button>' : ''}</div>`;
+      $('#ppResult', box).innerHTML = `<div class="check-row" style="margin-top:12px"><span class="ic ${r.overflow ? 'warn' : 'ok'}">${r.overflow ? '!' : '✓'}</span><div class="grow"><b>${verb}: ${r.cards} cards on ${r.sheets} A4 sheets</b><div class="muted small">${r.file ? esc(r.file) : ''}${r.overflow ? ` · ⚠ ${r.overflow} title(s) too long to print in full: ${esc((r.warnings || []).slice(0, 4).map(w => w.title).join(', '))} — set a shorter Printed title before locking` : ' · all text fits'}</div></div>${r.file ? '<button class="btn sm" id="ppOpen">Open</button><button class="btn sm" id="ppShow">Show in folder</button>' : ''}</div>`;
       if (r.file && $('#ppOpen', box)) { $('#ppOpen', box).onclick = () => api('shell:open', r.file); $('#ppShow', box).onclick = () => api('shell:showItem', r.file); }
       if (after) after();
     };
-    $('#ppPrev', box).onclick = async () => { saveOpts(); busy(true, 'Building preview…'); try { const r = await api('cards:exportPdf', Object.assign(opts(), { preview: true })); busy(false); done(r, 'Preview'); } catch (e) { busy(false); } };
+    $('#ppPrev', box).onclick = async () => { saveOpts(); busy(true, 'Opening print preview…'); try { const r = await api('cards:preview', opts()); busy(false); if (r && r.warnings && r.warnings.length) toast(`${r.warnings.length} title(s) are too long to print at a readable size — see the preview`, 'err', 6000); } catch (e) { busy(false); } };
     const lockOk = async () => {
       if (s.locked) return true;
       return modal({ title: 'LOCK BINGO CARDS?', body: `<p><b style="color:#fff">Once these cards have been issued, their songs and arrangements cannot be changed. This ensures printed cards always match Bingo verification.</b></p><p class="muted small">Card numbers, the 25 songs on each card, their positions and the printed titles are fixed for this game. You can still add extra cards with unused numbers later. Music Library edits will not affect this game.</p>`, buttons: [{ label: 'Cancel', value: false }, { label: '🔒 Confirm & Lock', kind: 'primary', value: true }], dismissValue: false });

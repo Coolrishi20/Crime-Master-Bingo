@@ -198,9 +198,10 @@
     var panel = $('pattern');
     panel.className = panel.className.replace(/\bpos-\S+/g, '').trim() + ' pos-' + (state.patternPosition || 'top-right');
     panel.classList.toggle('ended', r.status === 'ended');
-    $('ptRound').textContent = r.number === 0 ? 'ROUND 1' : 'ROUND ' + r.number;
+    panel.classList.toggle('ready', r.status === 'ready');
+    $('ptRound').textContent = (r.status === 'ready' ? 'NEXT · ' : '') + (r.number === 0 ? 'ROUND 1' : 'ROUND ' + r.number);
     $('ptLabel').textContent = CMBPatterns.LABELS[n];
-    $('ptSub').textContent = r.number === 0 ? 'Get ready to play!' : (r.status === 'ended' ? 'Round complete' : CMBPatterns.SHORT[n]);
+    $('ptSub').textContent = r.number === 0 ? 'Get ready to play!' : (r.status === 'ended' ? 'Round complete' : r.status === 'ready' ? 'Starting soon!' : CMBPatterns.SHORT[n]);
     if (patternRound !== n) {
       patternRound = n; patternIdx = 0;
       clearInterval(patternTimer);
@@ -244,8 +245,27 @@
 
   /* ------------------------------------------------------------- winner / wrong-claim screens */
   var toTimer = null, confettiRaf = null;
+  var ROUND_MSG = {
+    1: { title: 'ROUND 1 COMPLETE', msg: 'One Line conquered! Time for TWO PARALLEL LINES!' },
+    2: { title: 'ROUND 2 COMPLETE', msg: "Two lines down. Now it's FULL HOUSE!" },
+    3: { title: 'FULL HOUSE!', msg: "That's a wrap! Thanks for playing Crime Master Bingo." }
+  };
   function showTakeover(p) {
     var el = $('takeover');
+    if (p.type === 'round') {
+      var m = ROUND_MSG[p.from] || ROUND_MSG[1];
+      el.className = 'round' + (p.final ? ' final' : '');
+      $('toEyebrow').textContent = p.final ? 'GAME COMPLETE' : 'ROUND ' + p.from + ' \u00b7 ' + p.fromLabel + ' \u2713';
+      $('toTitle').textContent = p.final ? "THAT'S A WRAP!" : m.title;
+      $('toCard').className = 'to-card';
+      $('toSub').textContent = p.final ? 'FULL HOUSE!' : 'NEXT: ROUND ' + p.to + ' \u2014 ' + p.toLabel;
+      $('toMsg').textContent = m.msg;
+      CMBPatterns.render($('toGrid'), p.final ? CMBPatterns.examples(3)[0] : (p.pattern || CMBPatterns.examples(p.to)[0]), '');
+      startConfetti();
+      clearTimeout(toTimer);
+      toTimer = setTimeout(function () { el.classList.add('hidden'); stopConfetti(); }, (p.seconds || 9) * 1000);
+      return;
+    }
     el.className = p.type === 'winner' ? 'winner' : 'wrong';
     $('toEyebrow').textContent = 'ROUND ' + p.round + ' \u00b7 ' + p.label;
     $('toTitle').textContent = p.type === 'winner' ? 'BINGO!' : 'NOT A BINGO';

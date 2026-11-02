@@ -45,7 +45,8 @@ App.register('host', {
             <div class="statusline" id="hgStatus"></div>
           </div>
           <div class="panel" style="margin-bottom:16px">
-            <h2>Rounds <span class="row" style="gap:8px"><button class="btn sm" id="rEnd">End round</button><button class="btn sm" id="rPause">Pause game</button><button class="btn sm danger" id="rEndGame">End game</button></span></h2>
+            <h2>Rounds <span class="row" style="gap:8px"><button class="btn sm" id="rComplete">Complete round…</button><button class="btn sm" id="rPause">Pause game</button><button class="btn sm danger" id="rEndGame">End game</button></span></h2>
+            <div id="rStatus"></div>
             <div class="round-btns" id="rBtns"></div>
             <div class="muted small" id="rRule" style="margin-top:10px"></div>
           </div>
@@ -61,6 +62,7 @@ App.register('host', {
             <div class="row" style="margin-top:10px"><button class="btn primary" id="bFreeze">❄ Freeze claims</button><button class="btn sm" id="bScan">📷 Scan QR</button></div>
             <div class="muted tiny" style="margin-top:8px">Freezing pauses the music and locks the list of songs that count, so several cards can be checked fairly against the same moment.</div>
           </div>
+          <div class="panel" style="margin-bottom:16px" id="hgUpNext"></div>
           <div class="panel" style="margin-bottom:16px"><h2>Winners</h2><div id="hgWinners"></div></div>
           <div class="panel" style="margin-bottom:16px"><h2>Recent claims</h2><div id="hgClaims"></div></div>
           <div class="panel"><h2>Technical credits</h2><div id="hgCredits"></div><button class="btn sm" id="hgCreditBtn" style="margin-top:10px">Grant technical credit…</button></div>
@@ -88,7 +90,7 @@ App.register('host', {
     $('#hgCreditBtn', el).onclick = () => App.creditDialog();
     $('#hgProg', el).onclick = (e) => { const p = g().playback; const dur = (g().current && g().current.duration) || 0; if (!dur) return; const r = e.currentTarget.getBoundingClientRect(); App.cmd('seek', { position: dur * (e.clientX - r.left) / r.width }); };
     $('#hgAud', el).onclick = () => { if (g().audienceConnected) api('audience:fullscreen'); else api('audience:open'); };
-    $('#rEnd', el).onclick = async () => { const r = g().round; if (await confirmBox(`End Round ${r.number}?`, 'Songs stay marked. You can start the next round when you are ready.', 'End round')) App.cmd('endRound'); };
+    $('#rComplete', el).onclick = () => App.completeRound();
     $('#rPause', el).onclick = () => App.cmd(g().gamePaused ? 'resumeGame' : 'pauseGame');
     $('#rEndGame', el).onclick = async () => { if (await confirmBox('End the game?', 'Playback stops and the game is saved as finished. All cards, songs played and winners are kept in Game History.', 'End game', true)) App.cmd('endGame'); };
     $$('#hgTabs button', el).forEach(b => b.onclick = () => { this.tab = b.dataset.t; this.drawTab(); });
@@ -136,7 +138,7 @@ App.register('host', {
     $('#hgCredits', el).innerHTML = (g.credits || []).length ? g.credits.map(c => `<div class="hist-item"><div class="t"><b>${esc(c.title)}</b> <span>— ${esc(c.artist)}</span><div class="tiny muted">${esc(c.reason)} · ${new Date(c.at).toLocaleTimeString()}</div></div><span class="badge ${c.status === 'active' ? 'warn' : ''}">${c.status === 'active' ? 'COUNTS' : 'REVERSED'}</span>${c.status === 'active' ? `<button class="btn sm ghost" data-rev="${c.id}">Reverse</button>` : ''}</div>`).join('') : '<div class="muted small">None. Use this only when a video cannot be played — the song then counts on every card.</div>';
     $$('[data-rev]', el).forEach(b => b.onclick = () => App.reverseCredit(b.dataset.rev));
     $('#rPause', el).textContent = g.gamePaused ? 'Resume game' : 'Pause game';
-    $('#rEnd', el).disabled = g.round.status !== 'active';
+    $('#rComplete', el).disabled = !g.round.canComplete;
     const st = $('#hgStatus', el); st.className = 'statusline';
     if (g.lastError) { st.textContent = '⚠ ' + g.lastError; st.classList.add('err'); }
     else if (!g.audienceConnected) { st.textContent = '⚠ The audience window is closed — the TV will not play anything. Click “Open audience window”.'; st.classList.add('warn'); }
@@ -145,7 +147,7 @@ App.register('host', {
     else if (pb.status === 'between') st.textContent = 'Next song starting…';
     else if (pb.status === 'finished') st.textContent = 'Every song has been played.';
     else st.textContent = g.round.number === 0 ? 'Press START ROUND 1 when the room is ready.' : '';
-    this.drawRounds(); this.updateProgress(); this.drawWinners(); this.drawTab();
+    this.drawRounds(); this.updateProgress(); this.drawWinners(); this.drawTab(); this.drawUpNext();
     if (cur && this.thumbFor !== cur.songId) { this.thumbFor = cur.songId; this.loadThumb(cur.songId); }
   },
 
@@ -170,21 +172,54 @@ App.register('host', {
   },
 
   drawRounds() {
-    const g = App.game; const box = $('#rBtns', this.el);
+    const g = App.game; const box = $('#rBtns', this.el); const R = g.round;
     box.innerHTML = [1, 2, 3].map(n => {
-      const active = g.round.number === n && g.round.status === 'active';
-      const done = g.round.number > n || (g.round.number === n && g.round.status === 'ended');
-      const can = n > g.round.number || (n === g.round.number && g.round.status !== 'active');
-      return `<button class="round-btn ${active ? 'active' : ''} ${done ? 'done' : ''}" data-r="${n}" ${can && g.status !== 'finished' ? '' : 'disabled'}>${patternGridHtml(CMBPatterns.examples(n)[0])}<div><b>ROUND ${n}</b><span>${CMBPatterns.LABELS[n]}</span><div class="tiny muted">${active ? 'IN PLAY' : done ? 'Complete' : (can ? 'Click to start' : '')}</div></div></button>`;
+      const active = R.number === n && R.status === 'active';
+      const ready = R.number === n && R.status === 'ready';
+      const done = R.number > n || (R.number === n && R.status === 'ended');
+      const isNext = (R.number === 0 && n === 1) || ready || (n === R.number + 1 && R.status === 'active');
+      return `<button class="round-btn ${active ? 'active' : ''} ${ready ? 'ready' : ''} ${done ? 'done' : ''}" data-r="${n}" ${isNext && g.status !== 'finished' ? '' : 'disabled'}>${patternGridHtml(CMBPatterns.examples(n)[0])}<div><b>ROUND ${n}</b><span>${CMBPatterns.LABELS[n]}</span><div class="tiny muted">${active ? 'IN PLAY' : ready ? 'READY — click to start' : done ? 'Complete' : (isNext ? 'Next' : '')}</div></div></button>`;
     }).join('');
     $$('[data-r]', box).forEach(b => b.onclick = async () => {
       const n = Number(b.dataset.r);
-      const msg = g.round.status === 'active' ? `This ends Round ${g.round.number} and starts Round ${n} — <b>${CMBPatterns.LABELS[n]}</b>. Songs already played stay marked.` : `Start Round ${n} — <b>${CMBPatterns.LABELS[n]}</b>? The TV will show the new winning pattern${n === 1 ? ' and the first song will start' : ''}.`;
-      if (!await confirmBox(`Start Round ${n}?`, msg, `Start Round ${n}`)) return;
+      if (R.status === 'active' && n === R.number + 1) {
+        // manual change without the transition flow
+        if (!await confirmBox(`Skip to Round ${n}?`, `Round ${R.number} is still in play. Use <b>Complete Round & Continue</b> to finish it properly. Change to Round ${n} — <b>${CMBPatterns.LABELS[n]}</b> now anyway? Songs stay marked.`, `Change to Round ${n}`, true)) return;
+      } else if (!await confirmBox(`Start Round ${n}?`, `Start Round ${n} — <b>${CMBPatterns.LABELS[n]}</b>? The TV shows the new winning pattern and the music ${n === 1 ? 'starts' : 'resumes'}.`, `Start Round ${n}`)) return;
       if (n === 1 && !g.audienceConnected) await api('audience:open');
       const r = await App.cmd('startRound', { round: n }); if (r && r.warning) toast(r.warning, 'err');
     });
-    $('#rRule', this.el).textContent = g.round.rule || 'Round 1: any full row or column. Round 2: two rows or two columns. Round 3: full house. Diagonals never count.';
+    const st = $('#rStatus', this.el);
+    if (R.status === 'ready') {
+      st.innerHTML = `<div class="banner" style="margin:4px 0 12px"><div class="grow"><h3>Round ${R.number} is ready — ${esc(R.label)}</h3><div class="muted small">Music is paused. Start when the room is ready.</div>${R.preQualified.length ? `<div class="small" style="color:var(--amber);margin-top:6px">⚠ ${R.preQualified.length} card${R.preQualified.length > 1 ? 's' : ''} already ${R.preQualified.length > 1 ? 'have' : 'has'} ${esc(R.label)} (${R.preQualified.slice(0, 12).join(', ')}${R.preQualified.length > 12 ? '…' : ''}). Nothing is awarded automatically — they win when they claim and you confirm.</div>` : ''}</div><button class="btn primary lg" id="rStartReady">▶ Start Round ${R.number}</button></div>`;
+      $('#rStartReady', st).onclick = async () => { if (!g.audienceConnected) await api('audience:open'); App.cmd('startRound', { round: R.number }); };
+    } else if (R.canComplete && R.winners > 0) {
+      st.innerHTML = `<div class="banner" style="margin:4px 0 12px;border-color:var(--green);background:var(--green-soft)"><div class="grow"><h3>🏆 Round ${R.number} has ${R.winners} confirmed winner${R.winners > 1 ? 's' : ''}</h3><div class="muted small">Check any other claims first. When you're ready, complete the round — the TV shows the round transition and the next pattern.</div></div><button class="btn primary lg" id="rCompleteBig">${R.number === 3 ? 'Complete Game' : 'Complete Round & Continue'}</button></div>`;
+      $('#rCompleteBig', st).onclick = () => App.completeRound();
+    } else st.innerHTML = '';
+    $('#rRule', this.el).textContent = R.rule || 'Round 1: any full row or column. Round 2: two rows or two columns. Round 3: full house. Diagonals never count.';
+  },
+
+  drawUpNext() {
+    const g = App.game; const box = $('#hgUpNext', this.el); if (!box) return;
+    const u = g.upNext || {}; const n = u.next;
+    const src = n ? ({ queue: 'QUEUED BY HOST', deferred: 'PREVIOUSLY SKIPPED', playlist: 'PLAYLIST ORDER' })[n.source] : '';
+    box.innerHTML = `<h2>Up next <span class="badge">HOST ONLY</span></h2>
+      ${n ? `<div class="row" style="align-items:flex-start;gap:12px">${n.thumb ? `<img class="thumb" style="width:96px;height:54px" src="${fileUrl(n.thumb)}">` : '<div class="thumb" style="width:96px;height:54px"></div>'}
+        <div class="grow" style="min-width:0"><div class="eyebrow">${src} · song ${n.number}</div><div style="font-weight:800;font-size:16px;color:#fff">${esc(n.title)}</div><div class="muted">${esc(n.artist)}</div>
+        <div class="tiny muted" style="margin-top:4px;word-break:break-all">${esc(n.fileName)}</div>
+        <div class="tiny muted">${n.duration ? 'Length ' + fmtTime(n.duration) + ' · ' : ''}starts at ${fmtTime(n.clipStart)} · ${n.clipMode === 'full' ? 'full song' : (n.clipLength ? n.clipLength + ' s clip' : '')}</div>
+        <div style="margin-top:6px">${n.ready ? `<span class="badge ok">READY</span>${n.levelling === 'done' ? ' <span class="badge">levelled</span>' : ''}` : `<span class="badge bad">⚠ ${esc(n.problem || 'not ready')}</span>`}</div></div></div>
+        <div class="row" style="margin-top:12px"><button class="btn sm" id="unSkip">Skip this one</button><button class="btn sm" id="unPick">Choose another…</button>${u.custom ? '<button class="btn sm ghost" id="unReset">Back to playlist order</button>' : ''}${!n.ready ? `<button class="btn sm primary" id="unRelink">Relink</button>` : ''}</div>`
+        : '<div class="muted small">No more songs to play.</div>'}
+      ${u.queue && u.queue.length ? `<div class="eyebrow" style="margin-top:12px">Queue (${u.queue.length})</div>${u.queue.map(q => `<div class="hist-item"><div class="t"><b>${esc(q.title)}</b> <span>— ${esc(q.artist)}</span></div><button class="btn sm ghost" data-unq="${q.songId}">✕</button></div>`).join('')}` : ''}
+      ${u.deferred && u.deferred.length ? `<div class="tiny muted" style="margin-top:8px">${u.deferred.length} skipped song(s) will come back later.</div>` : ''}`;
+    if (!n) return;
+    $('#unSkip', box).onclick = () => App.cmd('skipNext', { expectSongId: n.songId });
+    $('#unPick', box).onclick = () => App.pickNextSong();
+    if ($('#unReset', box)) $('#unReset', box).onclick = () => App.cmd('resetQueue');
+    if ($('#unRelink', box)) $('#unRelink', box).onclick = () => App.relinkSong(n.songId);
+    $$('[data-unq]', box).forEach(b => b.onclick = () => App.cmd('unqueueSong', { songId: b.dataset.unq }));
   },
 
   drawWinners() {
@@ -211,7 +246,8 @@ App.register('host', {
         if (r && r.needsCorrection && await confirmBox('Correction affects results', esc(r.message) + '<br><br>Frozen claim sessions keep their snapshot. Confirmed winners stay confirmed but are flagged for review.', 'Apply correction', true)) App.cmd('unmarkPlayed', { songId: b.dataset.un, acknowledge: true });
       });
     } else if (this.tab === 'order') {
-      box.innerHTML = `<div class="muted small" style="margin-bottom:8px">Shuffled order, saved before the game started. Host only — never shown on the TV.</div><div class="hist-list">${g.order.map(o => `<div class="hist-item ${o.index === g.playback.index ? 'current' : ''} ${o.playedNo ? 'done' : ''} ${o.skipped ? 'skipped' : ''}"><span class="n">${o.index + 1}</span><div class="t"><b>${esc(o.title)}</b> <span>— ${esc(o.artist)}</span></div>${o.playedNo ? `<span class="badge ${o.credit ? 'warn' : 'ok'}">${o.credit ? 'TC ' : '#'}${o.playedNo}</span>` : (o.unavailable ? '<span class="badge bad">unavailable</span>' : (o.skipped ? '<span class="badge warn">skipped</span>' : ''))}<button class="btn sm ghost" data-play="${o.index}" title="Play now">▶</button>${o.playedNo ? '' : `<button class="btn sm ghost" data-mk="${o.songId}" title="Mark as played">✓</button>`}</div>`).join('')}</div>`;
+      box.innerHTML = `<div class="muted small" style="margin-bottom:8px">Shuffled order, saved before the game started. Host only — never shown on the TV.</div><div class="hist-list">${g.order.map(o => `<div class="hist-item ${o.index === g.playback.index ? 'current' : ''} ${o.playedNo ? 'done' : ''} ${o.skipped ? 'skipped' : ''}"><span class="n">${o.index + 1}</span><div class="t"><b>${esc(o.title)}</b> <span>— ${esc(o.artist)}</span></div>${o.playedNo ? `<span class="badge ${o.credit ? 'warn' : 'ok'}">${o.credit ? 'TC ' : '#'}${o.playedNo}</span>` : (o.unavailable ? '<span class="badge bad">unavailable</span>' : (o.skipped ? '<span class="badge warn">skipped</span>' : ''))}<button class="btn sm ghost" data-q="${o.songId}" title="Play next (queue)">⤴</button><button class="btn sm ghost" data-play="${o.index}" title="Play now">▶</button>${o.playedNo ? '' : `<button class="btn sm ghost" data-mk="${o.songId}" title="Mark as played">✓</button>`}</div>`).join('')}</div>`;
+      $$('[data-q]', box).forEach(b => b.onclick = () => App.cmd('queueSong', { songId: b.dataset.q }));
       $$('[data-play]', box).forEach(b => b.onclick = async () => { if (await confirmBox('Play this song now?', 'The current song (if unfinished) is skipped without counting.', 'Play now')) App.cmd('jumpTo', { index: Number(b.dataset.play) }); });
       $$('[data-mk]', box).forEach(b => b.onclick = async () => { if (await confirmBox('Mark as played?', 'Add this song to the official played list?', 'Mark played')) App.cmd('markPlayed', { songId: b.dataset.mk }); });
     } else if (this.tab === 'crawler') {

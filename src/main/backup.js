@@ -259,6 +259,7 @@ async function restoreBackup(file, { password, mode, mediaDir, tmpDir, exists: g
       if (mode !== 'separate') return { conflict: true, gameId: originalId, gameName: game.name, message: 'This game already exists on this laptop.' };
       let newId; do { newId = 'G' + crypto.randomBytes(3).toString('hex').toUpperCase(); } while (gameExists(newId));
       game.aliasIds = Array.from(new Set([...(game.aliasIds || []), originalId])); // printed QR codes still identify this card set
+      game.cardSetId = game.cardSetId || originalId; // reprints keep the original QR identity
       game.restoredFrom = originalId;
       game.id = newId;
       game.name = game.name + ' (restored copy)';

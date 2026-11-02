@@ -90,7 +90,7 @@ input { font-family: inherit; }
 .verdict .hl { font-weight: 800; margin-top: 6px; }
 .verdict .rs { color: var(--lav); font-size: 14px; margin-top: 4px; }
 .mini { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; margin-bottom: 12px; }
-.mini div { min-height: 58px; border-radius: 8px; background: var(--deep); border: 1px solid #352560; padding: 4px; font-size: 10px; line-height: 1.15; display: flex; flex-direction: column; justify-content: center; text-align: center; overflow: hidden; word-break: break-word; }
+.mini div { min-height: 58px; border-radius: 8px; background: var(--deep); border: 1px solid #352560; padding: 4px; font-size: 10px; line-height: 1.15; display: flex; flex-direction: column; justify-content: center; text-align: center; overflow: hidden; overflow-wrap: break-word; word-break: normal; hyphens: auto; }
 .mini div b { font-size: 10.5px; }
 .mini div span { color: var(--lav); font-size: 9px; }
 .mini .p { background: rgba(196,176,255,.25); border-color: var(--lilac); }
@@ -105,3 +105,73 @@ input { font-family: inherit; }
 #mBtns { display: flex; flex-direction: column; gap: 10px; }
 .toast { position: fixed; left: 14px; right: 14px; top: calc(12px + env(safe-area-inset-top)); background: var(--panel2); border-left: 4px solid var(--pink); padding: 14px; border-radius: 12px; font-weight: 700; z-index: 50; box-shadow: 0 10px 30px rgba(0,0,0,.4); }
 .toast.err { border-color: var(--red); } .toast.ok { border-color: var(--green); }
+
+/* ---- v1.1: Up Next, picker, explainable checks ---- */
+.pill { display: inline-block; padding: 3px 9px; border-radius: 99px; background: var(--panel2); color: var(--lilac); font-size: 11px; font-weight: 800; letter-spacing: .05em; vertical-align: middle; }
+.pill.ok { background: rgba(53,214,143,.16); color: var(--green); }
+.pill.bad { background: rgba(255,84,112,.16); color: var(--red); }
+.un-title { font-family: var(--display); font-size: 26px; line-height: 1.05; text-transform: uppercase; margin-top: 4px; word-break: break-word; }
+.banner.ok { border-color: var(--green); color: #fff; background: rgba(53,214,143,.12); }
+.banner .wide { margin-top: 10px; }
+.search { width: 100%; background: var(--deep); border: 1px solid var(--border); color: #fff; border-radius: 14px; padding: 14px; font-size: 16px; outline: none; }
+.hist.pk { align-items: center; }
+.hist.pk .btn.sm, .btn.sm { padding: 9px 10px; font-size: 13px; border-radius: 10px; flex: none; }
+.mini .nd { border: 2px dashed var(--pink); background: repeating-linear-gradient(135deg, rgba(255,79,162,.12) 0 6px, transparent 6px 12px); }
+.mini .bs { border: 2px dashed rgba(255,79,162,.7); }
+.mini .cm { box-shadow: 0 0 0 3px var(--amber); }
+.tab.two .col { min-width: 0; }
+
+/* ---- Galaxy Fold / very narrow cover screens (≈ 280–360 px) ---- */
+@media (max-width: 360px) {
+  html, body { font-size: 15px; }
+  .screen { padding: 10px 10px 160px; }
+  #gName { font-size: 18px; }
+  .now .title { font-size: 26px; }
+  .now .artist { font-size: 15px; }
+  .stats b { font-size: 22px; }
+  .ctl { height: 74px; border-radius: 16px; }
+  .ctl span { font-size: 24px; }
+  .ctl-row { gap: 7px; }
+  .btn { padding: 12px 8px; font-size: 13px; }
+  .card { padding: 13px; border-radius: 15px; }
+  #bingoFab { height: 54px; font-size: 21px; left: 10px; right: 10px; }
+  #tabs button { font-size: 11px; }
+  .keypad button { height: 52px; font-size: 24px; }
+  .ck-display { font-size: 50px; }
+  .mini { gap: 3px; }
+  .mini div { min-height: 50px; font-size: 8.5px; padding: 3px 2px; }
+  .mini div b { font-size: 9px; }
+  .mini div span { font-size: 8px; }
+  .verdict .vt { font-size: 30px; }
+  .sheet-head { font-size: 24px; }
+  .round-btn .lab { font-size: 19px; }
+  .ck-foot .btn { font-size: 12px; padding: 12px 6px; }
+  .un-title { font-size: 22px; }
+}
+
+/* ---- Unfolded Galaxy Fold / tablets (≈ 600 px and wider): two columns ---- */
+@media (min-width: 600px) {
+  .screen { max-width: 980px; padding: 16px 22px 150px; }
+  .tab.two { display: grid; grid-template-columns: 1.1fr 1fr; gap: 16px; align-items: start; }
+  #tab-rounds, #tab-history { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
+  #tab-rounds.hidden, #tab-history.hidden, .tab.two.hidden { display: none !important; }
+  #tab-rounds #roundStatus { grid-column: 1 / -1; }
+  #bingoFab { max-width: 640px; }
+  .sheet { padding-left: 22px; padding-right: 22px; }
+  /* checker: keypad on the left, card + verdict on the right */
+  #checker { display: grid; grid-template-columns: minmax(230px, 280px) minmax(0, 1fr); grid-template-rows: auto auto auto 1fr; column-gap: 20px; align-content: start; }
+  #checker .sheet-head, #checker #ckPaused { grid-column: 1 / -1; }
+  #checker #ckList { grid-column: 1; grid-row: 3; }
+  #checker #ckEntry, #checker #ckEntry.hidden { display: block !important; grid-column: 1; grid-row: 4; }
+  #checker #ckResult { grid-column: 2; grid-row: 3 / span 2; }
+  #checker #ckResult.hidden { display: block !important; }
+  #checker #ckResult:empty::before { content: 'Enter a card number to check it. The result appears here.'; color: var(--lav); display: block; padding: 30px 10px; text-align: center; border: 2px dashed var(--border); border-radius: 16px; }
+  .mini div { min-height: 64px; font-size: 10px; }
+  .mini div b { font-size: 10.5px; }
+  .mini div span { font-size: 9.5px; }
+  .keypad button { height: 56px; }
+  .ck-foot { justify-content: flex-end; }
+  .ck-foot .btn { flex: 0 1 220px; }
+  #picker #pkList { columns: 2; column-gap: 16px; }
+  #picker .hist { break-inside: avoid; }
+}

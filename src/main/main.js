@@ -35,7 +35,7 @@ function defaultSettings() {
     appearance: { logo: null, scale: 1, theme: 'crime-master' },
     video: { displayId: null, fullscreen: true, aspect: 'contain', audioDeviceId: 'default' },
     gameDefaults: defaultGameSettings(),
-    cards: { textScale: 1, qr: true, bw: false, useLogo: true },
+    cards: { textScale: 1, qr: true, bw: false, useLogo: true, showArtist: true, cutLines: true },
     remote: { port: 8787, autoStart: true, devices: [] },
     lastGameId: null,
     cleanShutdown: true
@@ -118,9 +118,24 @@ function onTick() {
   }, 1000);
 }
 
+/** Host-only readiness details for Up Next (thumbnail, file present, levelling analysed). */
+function enrichUpNext(st, forPhone) {
+  const n = st.upNext && st.upNext.next;
+  if (!n) return st;
+  const gs = engine.game.songs[n.songId];
+  const lib = library.get(n.songId);
+  const exists = !!(gs && gs.path && fs.existsSync(gs.path));
+  n.fileFound = exists;
+  if (!exists) { n.ready = false; n.problem = n.problem || 'Video file missing — relink it before it is due'; }
+  n.levelling = lib && lib.audio ? lib.audio.status : 'pending';
+  if (lib && lib.status === 'unsupported') { n.ready = false; n.problem = n.problem || ('Video cannot be played: ' + (lib.statusNote || 'unsupported')); }
+  if (!forPhone && lib && lib.thumb) n.thumb = lib.thumb;
+  return st;
+}
+
 function fullHostState() {
   if (!engine) return { game: null };
-  const st = engine.hostState();
+  const st = enrichUpNext(engine.hostState(), false);
   st.order = engine.orderView();
   st.cardNumbers = { min: engine.game.cards.length ? Math.min(...engine.game.cards.map(c => c.no)) : null, max: engine.game.cards.length ? Math.max(...engine.game.cards.map(c => c.no)) : null };
   st.playlistName = engine.game.playlistName;
@@ -129,8 +144,9 @@ function fullHostState() {
 
 function remoteState() {
   if (!engine) return { game: null };
-  const st = engine.hostState();
+  const st = enrichUpNext(engine.hostState(), true);
   st.audienceConnected = engine.audienceConnected;
+  st.eligible = engine.eligibleSongs();
   return { game: st };
 }
 
@@ -211,12 +227,6 @@ function openAudienceWindow(opts = {}) {
   sendHost('audience', { open: true });
 }
 
-function openPreview(file) {
-  if (previewWin && !previewWin.isDestroyed()) previewWin.close();
-  previewWin = new BrowserWindow({ width: 900, height: 1100, title: 'Print Preview — Crime Master Bingo', backgroundColor: '#1a1033', webPreferences: { plugins: true, contextIsolation: true } });
-  previewWin.setMenuBarVisibility(false);
-  previewWin.loadURL(pathToFileURL(file).href + '#view=FitH');
-}
 
 /* ======================================================================= card printing */
 function cardsForPrint(game, numbers) {
@@ -224,7 +234,8 @@ function cardsForPrint(game, numbers) {
   return game.cards.filter(c => !set || set.has(c.no)).sort((a, b) => a.no - b.no);
 }
 
-async function renderPrintJob(game, opts, mode) {
+/** Build the print job (the saved, locked card data + visual options). Never changes cards. */
+async function buildPrintJob(game, opts) {
   const numbers = opts.range ? cardsLib.parseRange(opts.range) : (opts.onlyUnprinted ? game.cards.filter(c => !c.printed).map(c => c.no) : null);
   const list = cardsForPrint(game, numbers);
   if (!list.length) throw new Error('No cards match that selection. Generate cards first, or check the card range.');
@@ -234,16 +245,25 @@ async function renderPrintJob(game, opts, mode) {
   Object.keys(labels).forEach(id => { songs[id] = { t: labels[id].title, a: labels[id].artist }; });
   const qrs = {};
   if (cardOpts.qr) {
-    for (const c of list) qrs[c.no] = await QRCode.toString(cardsLib.qrPayload(game.id, c.no), { type: 'svg', margin: 0, errorCorrectionLevel: 'M', color: { dark: '#000000', light: '#ffffff' } });
+    // QR identifies the card set: a restored separate copy keeps the original id so reprints match the printed cards
+    for (const c of list) qrs[c.no] = await QRCode.toString(cardsLib.qrPayload(game.cardSetId || game.id, c.no), { type: 'svg', margin: 0, errorCorrectionLevel: 'M', color: { dark: '#000000', light: '#ffffff' } });
   }
   let logo = null;
   const logoPath = game.logo || settings.appearance.logo;
   if (cardOpts.useLogo && logoPath && fs.existsSync(logoPath)) logo = 'data:image/' + (path.extname(logoPath).slice(1).replace('jpg', 'jpeg') || 'png') + ';base64,' + fs.readFileSync(logoPath).toString('base64');
   const job = {
-    game: { id: game.id, name: game.name, date: game.date, venue: game.venue, total: game.cards.length },
-    cards: list.map(c => ({ no: c.no, cells: c.cells })), songs, qrs, logo,
-    bw: !!cardOpts.bw, textScale: Number(cardOpts.textScale) || 1, rounds: [1, 2, 3].map(n => ({ n, label: rules.ROUNDS[n].label, short: rules.ROUNDS[n].short }))
+    game: { id: game.cardSetId || game.id, internalId: game.id, name: game.name, date: game.date, venue: game.venue, total: game.cards.length },
+    cards: list.map(c => ({ no: c.no, cells: c.cells, batch: c.batch || 1 })), songs, qrs, logo,
+    bw: !!cardOpts.bw, textScale: Number(cardOpts.textScale) || 1, showArtist: cardOpts.showArtist !== false, cutLines: cardOpts.cutLines !== false,
+    rounds: [1, 2, 3].map(n => ({ n, label: rules.ROUNDS[n].label, short: rules.ROUNDS[n].short, pattern: rules.patternExamples(n)[0] })),
+    locked: !!game.cardsLocked,
+    opts: { qr: !!cardOpts.qr, bw: !!cardOpts.bw, useLogo: !!cardOpts.useLogo, textScale: Number(cardOpts.textScale) || 1, showArtist: cardOpts.showArtist !== false, cutLines: cardOpts.cutLines !== false }
   };
+  return { job, list };
+}
+
+async function renderPrintJob(game, opts, mode) {
+  const { job, list } = await buildPrintJob(game, opts);
   const win = new BrowserWindow({ show: mode === 'print' && false, width: 794, height: 1123, webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, sandbox: false } });
   try {
     await win.loadFile(path.join(RENDERER, 'print', 'print.html'));
@@ -403,21 +423,35 @@ const handlers = {
     const g = getGameObj(id); const c = g.cards.find(x => x.no === Number(no)); if (!c) throw new Error('No such card');
     return { no: c.no, label: cardsLib.formatCardNo(c.no), printed: c.printed, cells: c.cells.map(sid => ({ title: g.songs[sid].printTitle || g.songs[sid].displayTitle || g.songs[sid].title, artist: g.songs[sid].artist })) };
   },
+  /** Interactive A4 print preview (pages, zoom, find card, QR check, print / reprint / PDF). Never locks. */
+  'cards:preview': async (opts) => {
+    const g = getGameObj(opts.id);
+    const { job } = await buildPrintJob(g, Object.assign({}, opts, { range: opts.range || null }));
+    job.preview = true; job.gameKey = g.id;
+    if (previewWin && !previewWin.isDestroyed()) previewWin.destroy();
+    previewWin = new BrowserWindow({ width: 1100, height: 980, title: 'Print Preview — Crime Master Bingo', backgroundColor: '#1a1033', parent: IS_TEST ? undefined : hostWin, show: false,
+      webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, sandbox: false } });
+    previewWin.setMenuBarVisibility(false);
+    await previewWin.loadFile(path.join(RENDERER, 'print', 'print.html'), { query: { preview: '1' } });
+    const ready = new Promise((resolve) => ipcMain.once('print:ready:' + previewWin.webContents.id, (e, info) => resolve(info)));
+    previewWin.webContents.send('print:job', job);
+    if (!IS_TEST || process.env.CMB_SHOW) previewWin.show();
+    const info = await ready;
+    return { cards: job.cards.length, sheets: Math.ceil(job.cards.length / 2), overflow: info.overflow, warnings: info.warnings, minFont: info.minFont };
+  },
   'cards:exportPdf': async (opts) => {
     const g = getGameObj(opts.id);
     let file = opts.file;
-    if (!file && !opts.preview) {
+    if (!file) {
       const r = await dialog.showSaveDialog(hostWin, { title: 'Export bingo cards as PDF', defaultPath: `${g.name.replace(/[^\w -]/g, '')}-cards.pdf`, filters: [{ name: 'PDF', extensions: ['pdf'] }] });
       if (r.canceled) return null;
       file = r.filePath;
     }
-    if (!file) file = path.join(DATA_DIR, 'exports', `preview-${g.id}.pdf`);
-    if (!opts.preview) requireLockConsent(g, opts);
+    requireLockConsent(g, opts);
     const out = await renderPrintJob(g, opts, 'pdf');
-    if (!opts.preview) issueCards(g, out.numbers, 'laptop');
+    issueCards(g, out.numbers, 'laptop');
     fs.writeFileSync(file + '.partial', out.pdf); fs.renameSync(file + '.partial', file);
-    if (opts.preview) openPreview(file);
-    return { file, cards: out.count, sheets: Math.ceil(out.count / 2), overflow: out.info.overflow, minFont: out.info.minFont };
+    return { file, cards: out.count, sheets: Math.ceil(out.count / 2), overflow: out.info.overflow, warnings: out.info.warnings, minFont: out.info.minFont };
   },
   'cards:print': async (opts) => {
     const g = getGameObj(opts.id);

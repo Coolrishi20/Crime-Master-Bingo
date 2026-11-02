@@ -49,7 +49,7 @@ test('claim view: completing song, best pattern, needed squares, explanation', (
   let r = eng.dispatch('addClaim', { cardNo: card.no });
   assert.ok(!r.valid); assert.strictEqual(r.best.missing, 1);
   assert.strictEqual(r.grid.filter(c => c.needed).length, 1);
-  assert.match(r.explanation, /needs 1 more song/);
+  assert.match(r.explanation, /^Not a Bingo! Card #\d{3} has no complete row or column yet\.$/);
   eng.dispatch('dismissClaim', { claimId: r.claimId }); eng.dispatch('closeSession', {});
   play(eng, [line[4]]);
   r = eng.dispatch('addClaim', { cardNo: card.no });

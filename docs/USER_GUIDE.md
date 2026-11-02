@@ -58,7 +58,19 @@ The wizard has nine steps:
 ### Print the cards — *Bingo Cards & Printing*
 - Every A4 sheet holds **two complete cards** (top and bottom) with a dashed
   **CUT HERE** line. 100 cards = 50 sheets.
-- **Print preview** never changes anything.
+- **🔍 Print preview** opens real A4 pages and never changes or locks anything. In the
+  preview you can:
+  - go page by page (◀ ▶ or PageUp/PageDown) and zoom (− + Fit);
+  - **Find** a card by its number;
+  - click **Check QR codes**, which scans every QR code on screen and confirms each one
+    matches its card;
+  - **Print all**, **Print range** (e.g. `1-50, 75`), **Reprint card** (one number), or
+    **Export PDF**.
+  Song titles too long to print in full are outlined in red and listed at the top. Set
+  a shorter **Printed title** for them in the Music Library before locking.
+- **Squares show**: choose *Song title + artist* or *Song title only*. **Cutting
+  guide** turns the dashed cut line on or off. These visual options never change which
+  songs are on a card.
 - **Export PDF…** or **Print…** asks: **LOCK BINGO CARDS?** After you confirm, the
   cards are *issued*. Their numbers, songs, positions and printed titles can never
   change, so printed cards always match the checker. (Before locking, a game is a
@@ -111,9 +123,34 @@ and the laptop always keeps working on its own if the phone disconnects.
 Diagonals never count. Players keep the same card for all three rounds and songs stay
 marked.
 
-Start each round from the laptop (**Rounds** panel) or the phone (**Rounds** tab). The
-TV pattern changes automatically. **End round**, **Pause game**, **End game** are next
-to it.
+Start Round 1 from the laptop (**Rounds** panel) or the phone (**Rounds** tab). Rounds
+always go in order: 1 → 2 → 3.
+
+**Moving to the next round.** As soon as you confirm a winner, a green banner appears on
+the laptop and phone: *"Round 1 has 1 confirmed winner"*.
+1. Check any other claims first.
+2. Press **Complete Round & Continue**. It refuses while a valid claim is still
+   undecided.
+3. The TV plays the round-complete animation (*"ROUND 1 COMPLETE — One Line conquered!
+   Time for TWO PARALLEL LINES!"*) and shows the next pattern.
+4. The music stays **paused** and the round shows as **READY**.
+5. Press **▶ Start Round 2** when the room is ready.
+
+All marks and winners are kept. If any cards already have the next round's pattern, you
+get a host-only warning listing them. Nothing is awarded automatically; they still have
+to claim. Completing Round 3 ends the night with *"FULL HOUSE! That's a wrap!"*. A
+double press, or the laptop and phone pressing at once, never skips a round.
+
+### Up Next (host only)
+The laptop's **Up next** panel and the phone's **Play** tab show the next song: title,
+artist, file name, length, start point, clip length, and whether it's **READY** (a red
+warning if the file is missing or can't play, with **Relink**).
+- **Skip this one**: it comes back later; it is never lost or counted.
+- **Choose…**: pick any unplayed song to **play next** or **add to the queue**. On the
+  laptop, the Play order tab's ⤴ button does the same.
+- **Back to playlist order**: clears your changes.
+The TV never shows what's coming next. Looking at Up Next never plays or counts a
+song.
 
 ### Playback controls (laptop and phone)
 Play/Pause · Next (asks *skip without counting* or *mark played & next* if the song
@@ -138,9 +175,15 @@ When someone shouts BINGO, press **CHECK BINGO** on the phone (or **Freeze claim
    **frozen**. Songs that finish later can't change any claim in this session.
 2. Enter each card number that called (keypad, or **📷 Scan QR**). You can enter
    several: 045, 127, 382…
-3. Each card shows **VALID BINGO!** or **NOT VALID**, the reason (e.g. *"Diagonals do
-   not count"*, *"One row plus one column is not enough"*), and the 5×5 card with
-   played songs and the winning line highlighted.
+3. Each card shows **VALID BINGO!** or **NOT VALID** with a plain-English explanation,
+   e.g. *"Not a Bingo! Card #142 has completed one line but requires two parallel lines
+   for Round 2."* You also see:
+   - the exact printed 5×5 card, with played (credited) squares lit and unplayed ones
+     dark;
+   - for a valid card, the winning line(s) in pink and the **song that completed the
+     win**, outlined in gold;
+   - for an invalid card, the **closest pattern** and how many more songs it needs. The
+     missing squares are dashed. Unplayed songs are never shown on the TV.
 4. **Confirm winner** or **Reject claim** for each card. Several winners in the same
    round are fine, and confirming one never cancels another valid card. Entered a
    number by mistake? **Remove** it (it stays in the log).
@@ -230,7 +273,12 @@ clip you play, so a quiet intro won't fool it.
 
 ---
 
-## 8. Troubleshooting
+## 8. Phone tips — including Galaxy Fold
+The remote fits any phone. On a **Galaxy Fold's cover screen** it switches to a compact
+layout. **Unfolded**, it uses two columns: playback beside Up Next, and the BINGO keypad
+beside the card result. Add it to your home screen for an app-style icon.
+
+## 9. Troubleshooting
 
 | Problem | Fix |
 |---|---|

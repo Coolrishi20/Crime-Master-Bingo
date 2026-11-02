@@ -176,7 +176,7 @@ function explainClaim(cardLabel, round, result, best) {
   const a = result.analysis; const def = ROUNDS[round];
   const card = 'Card #' + cardLabel;
   if (result.valid) return `${card} — ${result.headline}. Valid for Round ${round} (${def.label}).`;
-  const closest = best && best.missing > 0 ? ` Closest: ${best.description} ${best.lines.length > 1 ? 'need' : 'needs'} ${plural2(best.missing, 'more song')}.` : '';
+  const closest = ''; // the closest pattern is shown separately (best.description / best.missing)
   const lines = a.rows.length + a.cols.length;
   if (round === 1) {
     if (a.diagonals.length) return `Not a Bingo! ${card} only has a diagonal line — diagonals don't count in Round 1.${closest}`;

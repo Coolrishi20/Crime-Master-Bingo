@@ -57,7 +57,13 @@ const pdfText = (f, first, last) => execFileSync('pdftotext', ['-f', String(firs
   ok(g.cards === 100, 'Generate 100 unique cards');
   const sum = await inv('cards:summary', { id: g.id });
   ok(sum.problems.length === 0 && !sum.locked, 'Cards valid and in DRAFT state');
-  const prev = await inv('cards:exportPdf', { id: g.id, preview: true });
+  const prev = await inv('cards:preview', { id: g.id });
+  ok(prev.sheets === 50 && prev.overflow === 0, 'Interactive print preview opens: 50 A4 pages, no overflow');
+  const pvw = await waitFor(async () => app.windows().find(w => w.url().includes('print.html')), 10000);
+  const qrRes = await pvw.evaluate(() => window.__checkQr());
+  ok(/All 100 QR codes scanned and match/.test(qrRes), 'Every printed QR code decodes to its own card number (v1.1 preview check)', qrRes);
+  ok(await pvw.evaluate(() => { document.getElementById('pvFind').value = '57'; document.getElementById('pvGo').click(); return !!document.querySelector('.card[data-card="57"].hl'); }), 'Print preview finds a card by number');
+  await pvw.close();
   ok(!(await inv('cards:summary', { id: g.id })).locked, 'Print preview does NOT lock cards');
   let lockErr = null; try { await inv('cards:exportPdf', { id: g.id, file: path.join(OUT, 'x.pdf') }); } catch (e) { lockErr = e.message; }
   ok(/LOCK_REQUIRED/.test(lockErr || ''), 'Final export requires the LOCK confirmation');
@@ -140,6 +146,7 @@ const pdfText = (f, first, last) => execFileSync('pdftotext', ['-f', String(firs
   const enter = async (n) => { await phone.click('#ckAgain').catch(() => {}); for (const d of String(n)) await phone.click(`#keypad button:text-is("${d}")`); await phone.click('#ckGo'); await phone.waitForSelector('#ckResult .verdict'); return phone.textContent('#ckResult .verdict .vt'); };
   ok((await enter(cardA.no)) === 'VALID BINGO!', `Card ${cardA.no} valid on the phone`);
   ok(await phone.evaluate(() => document.querySelectorAll('#ckResult .mini .w').length === 5), 'Winning squares highlighted on the phone');
+  ok(/Valid for Round 1/.test(await phone.textContent('#ckResult .hl')) && /Won on song #/.test(await phone.textContent('#ckResult')), 'Phone explains the win and names the completing song (v1.1)');
   await phone.click('#ckConfirm'); await tapConfirm();
   ok(!!(await waitFor(async () => (await inv('game:state')).game.winners.length === 1, 5000)), 'First winner confirmed from the phone');
   ok(!!(await waitFor(() => aud.evaluate(() => { const t = document.getElementById('takeover'); return t.classList.contains('winner') && !t.classList.contains('hidden') && document.getElementById('toTitle').textContent === 'BINGO!'; }), 4000)), 'TV winner screen appears (no card number by default)');
@@ -150,6 +157,7 @@ const pdfText = (f, first, last) => execFileSync('pdftotext', ['-f', String(firs
   const frozenSet = new Set(frozen.history.map(h => h.songId));
   const bad = full.cards.find(c => c.no > 10 && !rules.checkCard(c.cells, frozenSet, 1).valid);
   ok((await enter(bad.no)) === 'NOT VALID', 'An invalid card is rejected with a reason');
+  ok(/^Not a Bingo! Card #\d{3}/.test(await phone.textContent('#ckResult .hl')) && /more needed/.test(await phone.textContent('#ckResult')) && (await phone.$$('#ckResult .mini .nd')).length > 0, 'Invalid claim explains why, the closest pattern and the squares still needed (v1.1)');
   await phone.click('#ckReject');
   ok(!!(await waitFor(() => aud.evaluate(() => document.getElementById('takeover').classList.contains('wrong') && document.getElementById('toTitle').textContent === 'NOT A BINGO'), 4000)), 'TV shows the “Not a Bingo” screen after rejection');
   const audText = await aud.evaluate(() => document.body.innerText);
@@ -158,8 +166,27 @@ const pdfText = (f, first, last) => execFileSync('pdftotext', ['-f', String(firs
   ok(!!(await waitFor(async () => { const s = (await inv('game:state')).game; return !s.session && s.playback.status === 'playing' && s.playback.index === posBefore.index; }, 5000)), 'Session closed; music resumes the same song');
 
   /* 31-34: Round 2 from the phone */
+  /* v1.1 Up Next from the phone */
+  const un1 = (await inv('game:state')).game.upNext.next;
+  ok(!!un1 && !(await aud.evaluate(() => document.body.innerText)).includes(un1.title), 'Up Next is host-only (never on the TV)');
+  await phone.click('#unSkip');
+  ok(!!(await waitFor(async () => { const u = (await inv('game:state')).game.upNext; return u.next && u.next.songId !== un1.songId && u.deferred.some(d => d.songId === un1.songId); }, 5000)), 'Phone skips the proposed next song; it stays eligible for later');
+  await phone.click('#unPick'); await phone.waitForSelector('#picker:not(.hidden)');
+  const pickId = await phone.getAttribute('#pkList [data-next] >> nth=5', 'data-next');
+  await phone.click('#pkList [data-next] >> nth=5');
+  ok(!!(await waitFor(async () => (await inv('game:state')).game.upNext.next.songId === pickId, 5000)), 'Phone queues a chosen song to play next');
+  await phone.click('#unReset');
+  ok(!!(await waitFor(async () => !(await inv('game:state')).game.upNext.custom, 5000)), 'Phone returns Up Next to the playlist order');
+
+  /* v1.1 round transition: Complete Round & Continue from the phone */
   await phone.click('#tabs button[data-tab=rounds]');
-  await phone.click('#roundBtns .round-btn >> nth=1'); await tapConfirm();
+  await phone.waitForSelector('#completeBig');
+  await phone.click('#completeBig'); await tapConfirm();
+  ok(!!(await waitFor(() => aud.evaluate(() => document.getElementById('takeover').className === 'round' && /ROUND 1 COMPLETE/.test(document.getElementById('toTitle').textContent)), 5000)), 'TV plays the Round 1 complete transition');
+  const rd = (await inv('game:state')).game;
+  ok(rd.round.number === 2 && rd.round.status === 'ready' && rd.playback.status === 'paused', 'Round 2 ready; music waits for the host');
+  await phone.click('#startReady');
+  ok(!!(await waitFor(async () => { const x = (await inv('game:state')).game; return x.round.status === 'active' && x.playback.status === 'playing'; }, 5000)), 'Host starts Round 2 from the phone; music resumes');
   ok(!!(await waitFor(() => aud.textContent('#ptLabel').then(t => t === 'TWO PARALLEL LINES'), 5000)), 'TV switches to the Two Parallel Lines pattern');
   const hl = (await inv('game:state')).game.history.length;
   ok(!!(await waitFor(() => aud.evaluate((n) => window.__audience.ticker.queue.items.length === n, hl), 5000)), 'Crawler keeps every previously played song', `${hl} songs`);
@@ -178,7 +205,8 @@ const pdfText = (f, first, last) => execFileSync('pdftotext', ['-f', String(firs
 
   /* 35-38: Round 3, full house */
   await phone.click('#tabs button[data-tab=rounds]');
-  await phone.click('#roundBtns .round-btn >> nth=2'); await tapConfirm();
+  await phone.click('#endRound'); await tapConfirm();
+  await phone.waitForSelector('#startReady'); await phone.click('#startReady');
   ok(!!(await waitFor(() => aud.textContent('#ptLabel').then(t => t === 'FULL HOUSE'), 5000)), 'TV switches to the Full House pattern');
   const cardC = full.cards[20];
   for (const id of cardC.cells) await host.evaluate((sid) => App.cmd('markPlayed', { songId: sid }), id);

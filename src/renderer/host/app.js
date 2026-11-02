@@ -114,6 +114,30 @@
       }
       if (r && r.ok) toast('Credit reversed (audit record kept)', 'ok');
     },
+    /** Complete the current round (transition) — pending claims must be resolved first. */
+    async completeRound() {
+      const g = this.game; if (!g) return; const R = g.round;
+      const final = R.number === 3;
+      const msg = (R.winners ? `Round ${R.number} has ${R.winners} confirmed winner${R.winners > 1 ? 's' : ''}.` : `<b style="color:var(--amber)">No winner has been confirmed in Round ${R.number}.</b>`) +
+        (final ? ' This ends the game with the “That\'s a wrap!” screen.' : ` The TV shows the round transition and the <b>${esc(CMBPatterns.LABELS[R.number + 1])}</b> pattern. Music stays paused until you start Round ${R.number + 1}. All marks are kept.`);
+      if (!await confirmBox(final ? 'Complete the game?' : `Complete Round ${R.number}?`, msg, final ? 'Complete Game' : 'Complete Round & Continue')) return;
+      const r = await this.cmd('completeRound', { fromRound: R.number });
+      if (r && r.needsDecision) { toast(r.message, 'err', 6000); this.openChecker(); return; }
+      if (r && r.ok && !r.already) toast(final ? 'Game complete — that\'s a wrap!' : `Round ${R.number} complete. Round ${R.number + 1} is ready.`, 'ok', 5000);
+    },
+    /** Pick any unplayed song for Up Next. */
+    async pickNextSong() {
+      const g = this.game; if (!g) return;
+      const played = new Set(g.history.map(h => h.songId)); const cur = g.current && g.current.songId;
+      const list = g.order.filter(o => !played.has(o.songId) && o.songId !== cur);
+      const body = document.createElement('div');
+      body.innerHTML = `<input type="search" id="pkQ" placeholder="Search title or artist…" style="width:100%;margin-bottom:10px"><div class="hist-list" id="pkL" style="max-height:55vh"></div><p class="muted tiny">Previewing a song never plays or counts it. Skipped songs stay available.</p>`;
+      const draw = () => { const q = body.querySelector('#pkQ').value.toLowerCase(); body.querySelector('#pkL').innerHTML = list.filter(o => !q || (o.title + ' ' + o.artist).toLowerCase().includes(q)).map(o => `<div class="hist-item"><span class="n">${o.index + 1}</span><div class="t"><b>${esc(o.title)}</b> <span>— ${esc(o.artist)}</span>${o.unavailable ? ' <span class="badge bad">unavailable</span>' : ''}</div><button class="btn sm primary" data-next="${o.songId}">Play next</button><button class="btn sm" data-end="${o.songId}">Add to queue</button></div>`).join('') || '<div class="muted small">No songs found.</div>';
+        $$('[data-next]', body).forEach(b => b.onclick = async () => { await this.cmd('queueSong', { songId: b.dataset.next }); closeTopModal(); toast('Queued to play next', 'ok'); });
+        $$('[data-end]', body).forEach(b => b.onclick = async () => { await this.cmd('queueSong', { songId: b.dataset.end, position: 'end' }); toast('Added to the queue', 'ok'); }); };
+      body.querySelector('#pkQ').oninput = draw; draw();
+      await modal({ title: 'Choose the next song', size: 'mid', body, buttons: [{ label: 'Close', value: null }] });
+    },
     async relinkSong(songId) {
       const g = this.game; if (!g) return;
       let r = await api('games:relinkSong', { id: g.gameId, songId });
@@ -235,5 +259,5 @@
   function toggleHtml(id, label, checked) { return `<label class="toggle"><input type="checkbox" id="${id}" ${checked ? 'checked' : ''}><span class="sw"></span>${esc(label)}</label>`; }
   function patternGridHtml(cells, cls = 'pink') { return `<div class="pgrid ${cls}">${cells.map(c => `<i class="${c ? 'on' : ''}"></i>`).join('')}</div>`; }
 
-  Object.assign(window, { App, $, $$, esc, api, apiQuiet, fileUrl, fmtTime, pad3, toast, modal, confirmBox, promptBox, toggleHtml, cleanErr, patternGridHtml, probeVideo });
+  Object.assign(window, { closeTopModal, App, $, $$, esc, api, apiQuiet, fileUrl, fmtTime, pad3, toast, modal, confirmBox, promptBox, toggleHtml, cleanErr, patternGridHtml, probeVideo });
 })();

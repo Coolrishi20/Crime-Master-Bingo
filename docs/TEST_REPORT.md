@@ -1,21 +1,23 @@
-# Crime Master Bingo — Test report
-
-Generated on 2026-11-02 from the `claude/crime-master-bingo-v1` branch.
+# Crime Master Bingo — Test report (v1.1.0)
 
 ## Summary
 
 | Suite | Result |
 |---|---|
-| Unit & integration (`npm test`) | **85 / 85 passed** |
-| End-to-end acceptance, from source (`npm run test:e2e`) | **71 / 71 passed** |
-| End-to-end acceptance, against the **packaged** app build | **71 / 71 passed** |
-| Windows build (`electron-builder --win nsis portable`) | Installer + portable EXE built (≈103 MB each) |
+| Unit & integration (`npm test`) | **101 / 101 passed** |
+| End-to-end acceptance, from source (`test/e2e/acceptance.js`) | **83 / 83 passed** |
+| End-to-end acceptance, against the **packaged** app | **83 / 83 passed** |
+| Printing QA (`test/e2e/print-counts.js`) | **12 / 12 passed** |
+| Windows build (`electron-builder --win nsis portable`) | Installer + portable EXE 1.1.0 built |
 
-The end-to-end test drives the real Electron app with 50 royalty-free generated music videos,
-the real TV (audience) window with real video playback, and a phone browser (Chromium, iPhone
-viewport) paired over the local network. It follows the 40-step acceptance scenario from the
-specification plus the four feature upgrades, including a forced crash (SIGKILL) and a restore
-onto a second, empty data folder ("different laptop").
+The end-to-end test drives the real app with 50 royalty-free generated music videos:
+- the real TV window with real playback;
+- a phone browser (Chromium, iPhone-sized viewport) paired over the local network;
+- a forced crash (SIGKILL);
+- a restore onto a second, empty data folder (a "different laptop").
+
+v1.1 added checks for explainable verification, round transitions, Up Next and the print preview's QR check.
+Printing QA renders up to 999 cards and decodes printed QR codes from rasterised PDF pages.
 
 ## End-to-end acceptance checks
 
@@ -29,6 +31,9 @@ PASS  Duplicate song refused in a playlist
 PASS  Playlist of 40+ accepted  — 50 songs
 PASS  Generate 100 unique cards
 PASS  Cards valid and in DRAFT state
+PASS  Interactive print preview opens: 50 A4 pages, no overflow
+PASS  Every printed QR code decodes to its own card number (v1.1 preview check)  — ✓ All 100 QR codes scanned and match their card numbers
+PASS  Print preview finds a card by number
 PASS  Print preview does NOT lock cards
 PASS  Final export requires the LOCK confirmation
 PASS  PDF has 50 A4 sheets for 100 cards
@@ -43,13 +48,13 @@ PASS  Wrong PIN refused
 PASS  Phone paired via QR link + PIN
 PASS  Round 1 started from the phone; laptop is playing
 PASS  TV is playing the music video
-PASS  Correct title overlay on the TV  — Neon Heart
+PASS  Correct title overlay on the TV  — Crimson Shadows
 PASS  Correct artist overlay on the TV
 PASS  Round 1 winning pattern shown on the TV
 PASS  Phone never plays audio or video
-PASS  Levelling gain applied through the single Web Audio chain  — 3 dB
+PASS  Levelling gain applied through the single Web Audio chain  — 2.7 dB
 PASS  Song completes and enters the official history
-PASS  Played song appears in the crawler below the video  — Neon Heart
+PASS  Played song appears in the crawler below the video  — Crimson Shadows
 PASS  Crawler is below the video, not covering it
 PASS  More songs play and are added in order
 PASS  Pause from the phone pauses the laptop
@@ -59,18 +64,27 @@ PASS  Claims frozen from the phone
 PASS  Freezing paused playback mid-song
 PASS  Card 5 valid on the phone
 PASS  Winning squares highlighted on the phone
+PASS  Phone explains the win and names the completing song (v1.1)
 PASS  First winner confirmed from the phone
 PASS  TV winner screen appears (no card number by default)
 PASS  Second card still valid against the same snapshot after a winner was confirmed
 PASS  Multiple winners confirmed in one session
 PASS  An invalid card is rejected with a reason
+PASS  Invalid claim explains why, the closest pattern and the squares still needed (v1.1)
 PASS  TV shows the “Not a Bingo” screen after rejection
 PASS  TV never shows card numbers or claim details
 PASS  Session closed; music resumes the same song
+PASS  Up Next is host-only (never on the TV)
+PASS  Phone skips the proposed next song; it stays eligible for later
+PASS  Phone queues a chosen song to play next
+PASS  Phone returns Up Next to the playlist order
+PASS  TV plays the Round 1 complete transition
+PASS  Round 2 ready; music waits for the host
+PASS  Host starts Round 2 from the phone; music resumes
 PASS  TV switches to the Two Parallel Lines pattern
-PASS  Crawler keeps every previously played song  — 12 songs
+PASS  Crawler keeps every previously played song  — 13 songs
 PASS  Technical credit granted from the phone with confirmation
-PASS  Crawler labels it “TECHNICAL CREDIT — Title / Artist”  — 13TECHNICAL CREDIT — Summer Echoes/DJ Placeholder◆
+PASS  Crawler labels it “TECHNICAL CREDIT — Title / Artist”  — 14TECHNICAL CREDIT — Dancing Rhythm/The Sample Band◆
 PASS  TV switches to the Full House pattern
 PASS  Full House valid
 PASS  Full House winner confirmed and session closed from the phone
@@ -78,7 +92,7 @@ PASS  Phone reconnects automatically after a network drop
 PASS  Phone controls still work after reconnecting (mute)
 PASS  Game ended from the phone
 PASS  Card mappings identical after reopening
-PASS  Song history identical after reopening  — 31 entries
+PASS  Song history identical after reopening  — 36 entries
 PASS  Winners, progress and lock preserved
 PASS  Unexpected shutdown detected → RESUME LAST GAME offered
 PASS  Frozen claim session restored after the crash, playback paused
@@ -92,7 +106,26 @@ PASS  Claims verify on the restored game (Full House card, already a winner)
 PASS  QR from another game rejected on the restored game
 PASS  Restored laptop does not trust the old phone (fresh pairing needed)
 
-71 passed, 0 failed
+83 passed, 0 failed
+```
+
+## Printing QA
+
+```
+PASS  999 unique cards generated
+PASS  1 card(s) → 1 A4 page(s)  — 1 pages, 0.7 s, overflow 0
+PASS  2 card(s) → 1 A4 page(s)  — 1 pages, 0.8 s, overflow 0
+PASS  3 card(s) → 2 A4 page(s)  — 2 pages, 0.7 s, overflow 0
+PASS  100 card(s) → 50 A4 page(s)  — 50 pages, 3.4 s, overflow 0
+PASS  500 card(s) → 250 A4 page(s)  — 250 pages, 14.3 s, overflow 0
+PASS  999 card(s) → 500 A4 page(s)  — 500 pages, 41.7 s, overflow 0
+PASS  Every card number 001–999 printed once, in order
+PASS  Accented characters and punctuation printed correctly
+PASS  Winning-pattern legend on every card  — 999 legends
+PASS  QR codes on printed pages decode to the right game and card  — 11/11 sampled cards
+PASS  Card 457 reprinted after a restart with different visual settings has the identical 25 songs
+
+12 passed, 0 failed
 ```
 
 ## Unit & integration tests
@@ -183,17 +216,35 @@ PASS  Restored laptop does not trust the old phone (fresh pairing needed)
 ✓ crawler queue loops the FULL history in order and extends without reset
 ✓ store: atomic writes with .bak recovery from a corrupted file
 ✓ remote: PIN pairing, token auth, revocation, duplicate-command protection and ordering
+✓ all five rows and all five columns win Round 1
+✓ every pair of parallel lines (adjacent or not) wins Round 2; mixed pairs never do
+✓ best progress picks the closest qualifying pattern and the missing squares
+✓ explanations match the spec wording
+✓ claim view: completing song, best pattern, needed squares, explanation
+✓ scanning the same winning card repeatedly never creates a second winner
+✓ confirmed winner → host can complete the round; next round waits for the host
+✓ rounds cannot be skipped; Round 3 completion finishes the event (no Round 4)
+✓ cards that already satisfy the next round are reported to the host, never auto-awarded
+✓ crash during/after a transition restores the ready round without duplicates
+✓ Up Next shows metadata; previewing never plays or counts a song
+✓ queue a specific song, skip the proposed next, then return to the playlist order
+✓ queue refuses played or current songs; never plays a song twice
+✓ deferred songs come back after the rest; excluded songs never play until included
+✓ queue and skipped songs survive a restart
+✓ missing next video is flagged, not hidden
 ```
 
-## What was not tested here
+## Phone layouts checked
 
-- **Real Windows hardware.** The Windows EXEs were built on Linux (with Wine) and the identical packaged
-  app was tested on Linux. Windows-only items still need a check on a real laptop: HDMI audio output,
-  the Windows Firewall prompt, display detection with a real TV, and the installer itself.
-- **Real phones.** The phone remote was tested in mobile Chromium. Please try it once on an iPhone (Safari)
-  and an Android phone on your venue Wi-Fi.
-- **Physical printing.** PDFs were verified as A4 with two cards per sheet, 50 sheets for 100 cards and no text
-  overflow. A real print-and-cut test is still recommended.
-- **Live QR scanning on phones** needs HTTPS, so over the local http:// connection the phone takes a
-  photo of the QR code instead (works on iOS and Android); typing the number always works.
-- The EXEs are **not code-signed**, so Windows SmartScreen will warn on first run.
+Screenshots were taken at three sizes, with no clipped controls and no horizontal scrolling:
+- 344 × 882 (Galaxy Fold cover screen): compact layout;
+- 690 × 830 (Fold unfolded): two-column layout, keypad beside the result;
+- 390 × 844 (typical phone).
+
+## Not tested here (please check on the real kit)
+
+- **Real Windows hardware.** The EXEs were built with Wine on Linux; the identical packaged app was tested on Linux. Still to check on a real laptop: HDMI sound, the firewall prompt, display detection, and the installer upgrading 1.0 → 1.1.
+- **Real phones.** Tested in mobile Chromium. Please try a real Galaxy Fold (both screens) and an iPhone (Safari).
+- **Physical printing.** PDFs were verified as A4, with the correct page counts and readable, decodable QR codes. A real print-and-cut test is recommended.
+- **Non-Latin titles.** Devanagari and Japanese titles print correctly (checked visually), but PDF text extraction can't verify them automatically.
+- **Large print runs.** Exporting 999 cards (500 pages) takes about a minute.

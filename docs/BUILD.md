@@ -26,16 +26,17 @@ The EXEs are not code-signed. To sign them, set `CSC_LINK` / `CSC_KEY_PASSWORD`
 
 ### Automatic builds on GitHub
 `.github/workflows/build-windows.yml` runs the unit tests, then builds both EXEs on a
-real Windows machine. Run it by hand from the **Actions** tab (*Build Windows app →
-Run workflow*), or push a tag like `v1.0.0`. Tag builds are attached to the GitHub
-Release automatically.
+real Windows machine. **Every push to `main` publishes a release automatically** for the version in
+`package.json` (e.g. `v1.1.0`), once per version. Bump the version to release again. It
+can also be run by hand from the **Actions** tab (*Build Windows app → Run workflow*).
 
 ## Tests
 ```bash
-npm test          # 85 unit/integration tests (rules, cards, engine, claim sessions,
+npm test          # 101 unit/integration tests (rules, cards, engine, claim sessions,
                   # credit & locking, loudness, backup/restore, crawler, storage, remote)
 npm run test:e2e  # makes 50 royalty-free sample videos, then runs the full acceptance
-                  # scenario in the real app + a phone browser (71 checks)
+                  # scenario in the real app + a phone browser (83 checks)
+xvfb-run -a node test/e2e/print-counts.js sample-videos   # printing QA (1/2/3/100/500/999 cards, QR decoding, reprints)
 ```
 To run the acceptance test against a packaged build, set `CMB_APP_EXE` to the built
 executable.
