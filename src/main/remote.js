@@ -16,7 +16,8 @@ const MIME = { '.woff2': 'font/woff2', '.html': 'text/html; charset=utf-8', '.js
 const REMOTE_ACTIONS = new Set([
   'play', 'pause', 'togglePlay', 'stop', 'next', 'skip', 'previous', 'replay', 'seek', 'setVolume', 'markPlayed',
   'startRound', 'endRound', 'pauseGame', 'resumeGame', 'endGame', 'setCrawler',
-  'openChecker', 'closeChecker', 'checkClaim', 'confirmClaim', 'dismissClaim', 'revokeWinner', 'setClipMode'
+  'openChecker', 'closeChecker', 'checkClaim', 'confirmClaim', 'dismissClaim', 'revokeWinner', 'setClipMode',
+  'freezeClaims', 'addClaim', 'viewClaim', 'removeClaim', 'closeSession', 'grantCredit', 'reverseCredit', 'setAudio'
 ]);
 
 function sha(s) { return crypto.createHash('sha256').update(String(s)).digest('hex'); }
@@ -189,7 +190,7 @@ class RemoteServer {
       try {
         if (!REMOTE_ACTIONS.has(msg.action)) throw new Error('Action not allowed from the phone: ' + msg.action);
         const result = await this.opts.dispatch(msg.action, msg.args || {}, `phone:${c.deviceName || 'phone'}`);
-        ack = { type: 'ack', id, ok: !(result && result.ok === false && !result.needsConfirm), result };
+        ack = { type: 'ack', id, ok: true, result }; // decisions/needsConfirm/validation messages travel in result
       } catch (e) { ack = { type: 'ack', id, ok: false, error: e.message, code: e.code }; }
       entry.done = true; entry.ack = ack;
       entry.waiters.forEach(w => this.send(w, ack));

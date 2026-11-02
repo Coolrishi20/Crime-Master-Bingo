@@ -11,6 +11,9 @@ const { RemoteServer } = require('./remote');
 const { GameEngine, createGame, defaultGameSettings } = require('../core/engine');
 const cardsLib = require('../core/cards');
 const rules = require('../core/rules');
+const locking = require('../core/locking');
+const { AudioAnalyser } = require('./audio');
+const backup = require('./backup');
 
 const ROOT = path.join(__dirname, '..', '..');
 const RENDERER = path.join(__dirname, '..', 'renderer');
@@ -20,7 +23,7 @@ const IS_TEST = !!process.env.CMB_TEST;
 if (process.env.CMB_NO_SANDBOX) app.commandLine.appendSwitch('no-sandbox');
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 
-let store, library, settings, remote;
+let store, library, settings, remote, analyser;
 let hostWin = null, audienceWin = null, previewWin = null;
 let engine = null;          // engine for the active game
 let powerBlock = null;
@@ -77,8 +80,10 @@ function activateGame(game) {
       sendHost('event', { name, payload });
       if (remote) remote.broadcast({ type: 'event', name, payload });
     },
-    tick: () => onTick()
+    tick: () => onTick(),
+    gainFor: (song, clip, audio) => (analyser ? analyser.gain(song, clip, audio) : { gainDb: 0, status: 'pending' })
   });
+  scanGameMedia();
   engine.audienceConnected = !!(audienceWin && !audienceWin.isDestroyed() && audienceReady);
   settings.lastGameId = game.id;
   saveSettings();
@@ -87,6 +92,20 @@ function activateGame(game) {
   if (audienceReady) engine.playerReady();
   return engine;
 }
+
+/** Find game videos that are missing or flagged unplayable (never auto-credited). */
+function scanGameMedia() {
+  if (!engine) return;
+  const map = {};
+  Object.values(engine.game.songs).forEach(s => {
+    if (!s.path || !fs.existsSync(s.path)) map[s.id] = 'Video file missing — relink it or grant Technical Credit';
+    else { const l = library.get(s.id); if (l && l.status === 'unsupported') map[s.id] = 'Video cannot be played: ' + (l.statusNote || 'unsupported'); }
+  });
+  const before = JSON.stringify(engine.hostState().unavailable);
+  engine.setUnavailable(map);
+  if (JSON.stringify(engine.hostState().unavailable) !== before) onEngineChanged('state');
+}
+setInterval(() => { try { scanGameMedia(); } catch (e) { /* */ } }, 20000);
 
 function onTick() {
   if (!tickTimer) tickTimer = setTimeout(() => { tickTimer = null; if (engine) sendHost('tick', { position: engine.game.playback.position, index: engine.game.playback.index, status: engine.game.playback.status }); }, 250);
@@ -210,7 +229,8 @@ async function renderPrintJob(game, opts, mode) {
   if (!list.length) throw new Error('No cards match that selection. Generate cards first, or check the card range.');
   const cardOpts = Object.assign({}, settings.cards, opts);
   const songs = {};
-  Object.values(game.songs).forEach(s => { songs[s.id] = { t: s.printTitle || s.displayTitle || s.title, a: s.artist }; });
+  const labels = locking.labelsFor(game);
+  Object.keys(labels).forEach(id => { songs[id] = { t: labels[id].title, a: labels[id].artist }; });
   const qrs = {};
   if (cardOpts.qr) {
     for (const c of list) qrs[c.no] = await QRCode.toString(cardsLib.qrPayload(game.id, c.no), { type: 'svg', margin: 0, errorCorrectionLevel: 'M', color: { dark: '#000000', light: '#ffffff' } });
@@ -238,11 +258,16 @@ async function renderPrintJob(game, opts, mode) {
   } finally { if (!win.isDestroyed()) win.destroy(); }
 }
 
-function markPrinted(game, numbers) {
-  const set = new Set(numbers); const now = new Date().toISOString();
-  game.cards.forEach(c => { if (set.has(c.no)) { c.printed = true; c.printedAt = c.printedAt || now; } });
-  saveGame(game);
+/** Issue cards: lock the game (transactional — written atomically before returning). */
+function issueCards(game, numbers, source) {
+  locking.lockGame(game, numbers, source || 'laptop');
+  if (engine && engine.game === game) engine.audit('cards-issued', { cards: numbers.length, from: Math.min(...numbers), to: Math.max(...numbers) }, source);
+  else { game.audit = game.audit || []; game.audit.push({ at: new Date().toISOString(), gameId: game.id, action: 'cards-issued', cards: numbers.length, source: source || 'laptop' }); }
+  store.writeNow('games/' + game.id, game);
   if (engine && engine.game === game) onEngineChanged('state');
+}
+function requireLockConsent(game, opts) {
+  if (!game.cardsLocked && !opts.confirmLock) { const e = new Error('LOCK_REQUIRED'); e.code = 'LOCK_REQUIRED'; throw e; }
 }
 
 function getGameObj(id) { if (engine && engine.game.id === id) return engine.game; const g = readGame(id); if (!g) throw new Error('Game not found'); return GameEngine.normalise(g); }
@@ -385,24 +410,69 @@ const handlers = {
       file = r.filePath;
     }
     if (!file) file = path.join(DATA_DIR, 'exports', `preview-${g.id}.pdf`);
+    if (!opts.preview) requireLockConsent(g, opts);
     const out = await renderPrintJob(g, opts, 'pdf');
-    fs.writeFileSync(file, out.pdf);
-    if (!opts.preview) markPrinted(g, out.numbers);
+    if (!opts.preview) issueCards(g, out.numbers, 'laptop');
+    fs.writeFileSync(file + '.partial', out.pdf); fs.renameSync(file + '.partial', file);
     if (opts.preview) openPreview(file);
     return { file, cards: out.count, sheets: Math.ceil(out.count / 2), overflow: out.info.overflow, minFont: out.info.minFont };
   },
   'cards:print': async (opts) => {
     const g = getGameObj(opts.id);
+    requireLockConsent(g, opts);
     const out = await renderPrintJob(g, opts, 'print');
-    if (out.printed) markPrinted(g, out.numbers);
+    if (out.printed) issueCards(g, out.numbers, 'laptop');
     return { printed: out.printed, reason: out.reason, cards: out.count, sheets: Math.ceil(out.count / 2) };
   },
-  'cards:markPrinted': ({ id, range, printed }) => {
-    const g = getGameObj(id); const nums = new Set(cardsLib.parseRange(range));
-    g.cards.forEach(c => { if (nums.has(c.no)) { c.printed = !!printed; c.printedAt = printed ? (c.printedAt || new Date().toISOString()) : null; } });
+  'cards:regenerate': ({ id, count }) => {
+    const g = getGameObj(id);
+    if (g.cardsLocked) throw new Error('These cards have been issued (LOCKED) and can never be regenerated. You can still add extra cards with unused numbers.');
+    if (g.round && g.round.number > 0) throw new Error('The game has started — cards can no longer be regenerated.');
+    const n = Number(count) || g.cards.length || 100;
+    g.cards = cardsLib.generateCards(g.order, n, []);
     saveGame(g); if (engine && engine.game === g) onEngineChanged('state');
-    return true;
+    return { total: g.cards.length };
   },
+  'games:rebuildFromPlaylist': ({ id }) => {
+    const g = getGameObj(id);
+    if (g.cardsLocked) throw new Error('This game is LOCKED — it can never be rebuilt from an edited playlist. Create a new game instead.');
+    if (g.round && g.round.number > 0) throw new Error('The game has started.');
+    const v = library.validatePlaylist(g.playlistId);
+    if (!v.ok) throw new Error(`The playlist needs ${v.needed} more playable unique song(s).`);
+    const fresh = createGame({ name: g.name, date: g.date, venue: g.venue, logo: g.logo, songs: v.songs, playlistId: v.playlistId, playlistName: v.name, settings: g.settings });
+    g.songs = fresh.songs; g.order = fresh.order; g.playlistName = v.name;
+    g.cards = cardsLib.generateCards(g.order, g.cards.length || 100, []);
+    g.playback = { index: -1, status: 'idle', position: 0 };
+    saveGame(g);
+    if (engine && engine.game.id === g.id) activateGame(g);
+    return gameSummary(g);
+  },
+  'games:relinkSong': async ({ id, songId, file, confirm }) => {
+    const g = getGameObj(id);
+    const s = g.songs[songId]; if (!s) throw new Error('Song not in this game');
+    if (!file) {
+      const r = await dialog.showOpenDialog(hostWin, { title: `Locate “${s.title} — ${s.artist}”`, properties: ['openFile'], filters: [{ name: 'Music videos', extensions: ['mp4', 'm4v', 'mov', 'webm', 'mkv', 'ogv'] }] });
+      if (r.canceled) return null; file = r.filePaths[0];
+    }
+    const res = backup.relinkOne(g, songId, file, { confirm });
+    if (res.needsConfirm) return Object.assign(res, { file });
+    if (engine && engine.game === g) { engine.audit('media-relinked', { songId, title: s.title, path: file, match: res.match }, 'laptop'); scanGameMedia(); }
+    saveGame(g); if (engine && engine.game === g) onEngineChanged('state');
+    return res;
+  },
+  'games:relinkScan': async ({ id, folder }) => {
+    const g = getGameObj(id);
+    if (!folder) { const r = await dialog.showOpenDialog(hostWin, { title: 'Folder containing the music videos', properties: ['openDirectory'] }); if (r.canceled) return null; folder = r.filePaths[0]; }
+    return backup.scanForMatches(g, folder);
+  },
+  'games:relinkApply': ({ id, matches }) => {
+    const g = getGameObj(id);
+    const applied = backup.applyMatches(g, matches);
+    saveGame(g);
+    if (engine && engine.game === g) { engine.audit('media-relinked', { count: applied }, 'laptop'); scanGameMedia(); onEngineChanged('state'); }
+    return { applied, missing: backup.missingMedia(g).length };
+  },
+  'games:missing': ({ id }) => backup.missingMedia(getGameObj(id)),
   'shell:open': (p) => shell.openPath(p),
   'shell:showItem': (p) => { shell.showItemInFolder(p); return true; },
 
@@ -426,6 +496,44 @@ const handlers = {
     return { title: s.title, artist: s.artist };
   },
   'displays:list': () => screen.getAllDisplays().map(d => ({ id: d.id, label: d.label || `Display ${d.id}`, width: d.size.width, height: d.size.height, primary: d.id === screen.getPrimaryDisplay().id })),
+
+  /* audio levelling */
+  'audio:status': () => (analyser ? analyser.status() : { available: false }),
+  'audio:pause': () => { analyser.setPaused(true); return analyser.status(); },
+  'audio:resume': () => { analyser.setPaused(false); return analyser.status(); },
+  'audio:reanalyse': ({ ids }) => { analyser.reanalyse(ids || library.songs().map(s => s.id)); return analyser.status(); },
+
+  /* backup & restore */
+  'backup:estimate': ({ id, includeMedia }) => backup.estimate(getGameObj(id), !!includeMedia),
+  'backup:create': async ({ id, includeMedia, password, file, overwrite }) => {
+    const g = getGameObj(id);
+    if (engine && engine.game.id === id) store.flush();
+    if (!file) {
+      const r = await dialog.showSaveDialog(hostWin, { title: 'Save game backup', defaultPath: `${g.name.replace(/[^\w -]/g, '')}-${g.date}${includeMedia ? '-full' : ''}.cmbbackup`, filters: [{ name: 'Crime Master Bingo backup', extensions: ['cmbbackup'] }] });
+      if (r.canceled) return null; file = r.filePath; overwrite = true; // the system dialog already asked about overwriting
+    }
+    if (fs.existsSync(file) && !overwrite) throw new Error('A file with that name already exists.');
+    return backup.createBackup(JSON.parse(JSON.stringify(g)), { file, includeMedia: !!includeMedia, password: password || null, appVersion: app.getVersion(), onProgress: (p) => sendHost('backup-progress', p) });
+  },
+  'backup:pickFile': async () => {
+    const r = await dialog.showOpenDialog(hostWin, { title: 'Choose a Crime Master Bingo backup', properties: ['openFile'], filters: [{ name: 'Crime Master Bingo backup', extensions: ['cmbbackup'] }] });
+    return r.canceled ? null : r.filePaths[0];
+  },
+  'backup:inspect': async ({ file, password }) => {
+    const info = await backup.inspectBackup(file, { password, tmpDir: path.join(DATA_DIR, 'tmp') });
+    info.exists = !!readGame(info.manifest.gameId);
+    return info;
+  },
+  'backup:pickFolder': async () => { const r = await dialog.showOpenDialog(hostWin, { title: 'Where should the restored videos be stored?', properties: ['openDirectory', 'createDirectory'] }); return r.canceled ? null : r.filePaths[0]; },
+  'backup:restore': async ({ file, password, mode, mediaDir }) => {
+    const res = await backup.restoreBackup(file, {
+      password, mode, mediaDir, tmpDir: path.join(DATA_DIR, 'tmp'),
+      exists: (gid) => !!readGame(gid),
+      save: (game) => store.writeNow('games/' + game.id, game),
+      onProgress: (p) => sendHost('backup-progress', p)
+    });
+    return res;
+  },
 
   /* remote */
   'remote:info': async () => remoteInfo(),
@@ -455,8 +563,12 @@ function audienceAppSettings() {
 
 function summariseValidation(v) { return { total: v.total, uniquePlayable: v.uniquePlayable, needed: v.needed, ok: v.ok, problems: v.problems }; }
 
+/** Library relink → update the active game only when it is provably the same video. */
 function relinkInGames(song) {
-  if (engine && engine.game.songs[song.id] && engine.game.songs[song.id].path !== song.path) { engine.game.songs[song.id].path = song.path; saveGame(engine.game); }
+  if (!engine) return;
+  const gs = engine.game.songs[song.id];
+  if (!gs || gs.path === song.path) return;
+  if (!gs.fingerprint || gs.fingerprint === song.fingerprint) { gs.path = song.path; saveGame(engine.game); scanGameMedia(); onEngineChanged('state'); }
 }
 
 async function remoteInfo() {
@@ -490,7 +602,7 @@ function preflight() {
   const g = engine.game;
   const missing = Object.values(g.songs).filter(s => !fs.existsSync(s.path));
   add('songs', 'Playlist size', g.order.length >= cardsLib.MIN_SONGS, `${g.order.length} unique songs (minimum ${cardsLib.MIN_SONGS})`);
-  add('media', 'Media files', missing.length === 0, missing.length ? `${missing.length} file(s) missing: ${missing.slice(0, 3).map(s => s.title).join(', ')} — relink them in the Music Library` : 'All video files found');
+  add('media', 'Media files', missing.length === 0, missing.length ? `${missing.length} file(s) missing: ${missing.slice(0, 3).map(s => s.title).join(', ')} — use “Relink videos” (the printed song identity never changes)` : 'All video files found');
   const lib = library.songs().filter(s => g.songs[s.id]);
   const bad = lib.filter(s => s.status === 'unsupported');
   add('codecs', 'Playable formats', bad.length === 0, bad.length ? `${bad.length} song(s) flagged unsupported` : 'All videos passed the playback check');
@@ -502,6 +614,13 @@ function preflight() {
   const t1 = rules.checkCard(fake, new Set(fake.slice(10, 15)), 1).valid;
   const t2 = !rules.checkCard(fake, new Set(['x0', 'x6', 'x12', 'x18', 'x24']), 1).valid;
   const t3 = !rules.checkCard(fake, new Set([...fake.slice(0, 5), 'x5', 'x10', 'x15', 'x20']), 2).valid;
+  add('lock', 'Card lock', true, g.cardsLocked ? `LOCKED / ISSUED${g.lockedAt ? ' on ' + new Date(g.lockedAt).toLocaleString() : ''} — cards can never change` : 'DRAFT — cards lock automatically when you export the final PDF or print', true);
+  const lockProblems = locking.verifyLock(g);
+  if (lockProblems.length) add('lockcheck', 'Locked snapshot', false, lockProblems.join(' '));
+  const st = analyser ? analyser.status() : { available: false };
+  const gSongs = library.songs().filter(s => g.songs[s.id]);
+  const analysed = gSongs.filter(s => s.audio && s.audio.status === 'done').length;
+  add('audio', 'Volume levelling', !g.settings.audio.levelling || (st.available && analysed === gSongs.length), !g.settings.audio.levelling ? 'Automatic levelling is OFF' : (!st.available ? 'ffmpeg not found — songs will play at their original volume' : `${analysed}/${gSongs.length} songs analysed${analysed < gSongs.length ? ' (analysis continues in the background)' : ''}`), true);
   add('verify', 'Winner verification', t1 && t2 && t3, 'Rules self-test: line valid, diagonal rejected, row+column rejected');
   const aud = !!(audienceWin && !audienceWin.isDestroyed());
   add('audience', 'Audience window', aud && audienceReady, aud ? (audienceWin.isFullScreen() ? 'Open and fullscreen' : 'Open (press F to go fullscreen on the TV)') : 'Not open — click "Open audience window"');
@@ -534,6 +653,7 @@ else {
     settings = loadSettings();
     library = new Library(store);
     library.checkFiles();
+    analyser = new AudioAnalyser({ dataDir: DATA_DIR, library, resourcesPath: process.resourcesPath, onChange: () => sendHost('library-audio', analyser.status()) });
     // Crash detection: cleanShutdown is cleared while running and set on normal exit.
     const lastGame = settings.lastGameId ? readGame(settings.lastGameId) : null;
     if (lastGame && lastGame.status !== 'finished') {
