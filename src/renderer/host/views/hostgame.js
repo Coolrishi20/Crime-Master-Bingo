@@ -228,7 +228,14 @@ App.register('host', {
         <label class="field">Artist size: ${o.artistSize}px<input type="range" min="20" max="80" value="${o.artistSize}" data-o="artistSize"></label>
         <label class="field">Background opacity: ${Math.round(o.opacity * 100)}%<input type="range" min="0" max="100" value="${Math.round(o.opacity * 100)}" data-o="opacity"></label>
         <label class="field">Show for (0 = whole song): ${o.duration}s<input type="range" min="0" max="60" step="5" value="${o.duration}" data-o="duration"></label></div>
-        <div class="row" style="margin-top:12px">${toggleHtml('ovOn', 'Show title & artist on TV', o.enabled)}</div>`;
+        <div class="row" style="margin-top:12px">${toggleHtml('ovOn', 'Show title & artist on TV', o.enabled)}</div>
+        <h2 style="margin-top:18px">TV winner &amp; wrong-claim screens</h2>
+        <div class="row" style="gap:22px">${toggleHtml('tvW', 'Winner screen when a winner is confirmed', g.settings.tvScreens.winner)}${toggleHtml('tvR', '“Not a Bingo” screen when a claim is rejected', g.settings.tvScreens.wrongClaim)}${toggleHtml('tvC', 'Show the card number on the TV', g.settings.tvScreens.showCardNumber)}</div>
+        <label class="field" style="max-width:260px;margin-top:10px">Show for ${g.settings.tvScreens.seconds} seconds<input type="range" min="3" max="20" value="${g.settings.tvScreens.seconds}" id="tvS"></label>`;
+      $('#tvW', box).onchange = (e) => App.cmd('setTvScreens', { winner: e.target.checked });
+      $('#tvR', box).onchange = (e) => App.cmd('setTvScreens', { wrongClaim: e.target.checked });
+      $('#tvC', box).onchange = (e) => App.cmd('setTvScreens', { showCardNumber: e.target.checked });
+      $('#tvS', box).onchange = (e) => App.cmd('setTvScreens', { seconds: Number(e.target.value) });
       $$('[data-c]', box).forEach(i => i.onchange = () => App.cmd('setCrawler', { [i.dataset.c]: i.tagName === 'SELECT' ? i.value : Number(i.value) }));
       $$('[data-o]', box).forEach(i => i.onchange = () => App.cmd('setOverlay', { [i.dataset.o]: i.tagName === 'SELECT' ? i.value : (i.dataset.o === 'opacity' ? Number(i.value) / 100 : Number(i.value)) }));
       $('#crP', box).onclick = () => App.cmd('setCrawler', { togglePause: true });

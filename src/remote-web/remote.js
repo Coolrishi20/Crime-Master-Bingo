@@ -306,11 +306,15 @@
     h += '<div class="mini">' + r.grid.map(function (c) { return '<div class="' + (c.winning ? 'w' : c.played ? 'p' : '') + '">' + (c.credit ? '<span style="color:var(--amber)">TC</span>' : '') + '<b>' + esc(c.title) + '</b><span>' + esc(c.artist) + '</span></div>'; }).join('') + '</div>';
     if (r.status === 'pending') h += '<button class="btn success big" style="width:100%" id="ckConfirm">✓ CONFIRM WINNER</button><button class="btn danger wide" id="ckDismiss">Reject claim</button>';
     else if (r.status === 'invalid') h += '<button class="btn danger wide" id="ckReject">Reject claim</button>';
+    if (r.status === 'confirmed') h += '<button class="btn wide" id="ckTv">📺 Show winner screen on TV</button>';
+    if (r.status === 'rejected' || r.status === 'invalid') h += '<button class="btn wide" id="ckTvW">📺 Show “Not a Bingo” on TV</button>';
     if (r.status !== 'confirmed') h += '<button class="btn wide" id="ckRemove">Remove (entered by mistake)</button>';
     $('ckResult').innerHTML = h;
     var c = $('ckConfirm');
     if (c) c.onclick = function () { confirmIt('Confirm card ' + r.cardLabel + '?', 'Record card ' + r.cardLabel + ' as a Round ' + r.round + ' winner. The TV will celebrate (without showing the card).', 'Confirm winner').then(function (ok) { if (!ok) return; safe(cmd('confirmClaim', { claimId: r.claimId })).then(function (x) { if (x) { toast('Winner confirmed!', 'ok'); showResult(x); } }); }); };
     var d = $('ckDismiss'); if (d) d.onclick = function () { safe(cmd('dismissClaim', { claimId: r.claimId })).then(function () { toast('Claim dismissed'); d.remove(); if (c) c.remove(); }); };
+    var tv = $('ckTv'); if (tv) tv.onclick = function () { safe(cmd('showTvScreen', { claimId: r.claimId, type: 'winner' })); };
+    var tvw = $('ckTvW'); if (tvw) tvw.onclick = function () { safe(cmd('showTvScreen', { claimId: r.claimId, type: 'wrong' })); };
     var rm = $('ckRemove'); if (rm) rm.onclick = function () { safe(cmd('removeClaim', { claimId: r.claimId })).then(function () { toast('Claim removed'); $('ckAgain').onclick(); }); };
     var j = $('ckReject'); if (j) j.onclick = function () { safe(cmd('dismissClaim', { claimId: r.claimId })).then(function () { toast('Claim rejected'); j.remove(); }); };
   }

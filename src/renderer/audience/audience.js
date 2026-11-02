@@ -240,7 +240,44 @@
 
   window.cmb.on('audience-state', applyState);
   window.cmb.on('app-settings', applyAppSettings);
-  window.cmb.on('event', function (e) { if (e && e.name === 'celebrate') celebrate(); });
+  window.cmb.on('event', function (e) { if (!e) return; if (e.name === 'celebrate') celebrate(); if (e.name === 'tvScreen') showTakeover(e.payload); });
+
+  /* ------------------------------------------------------------- winner / wrong-claim screens */
+  var toTimer = null, confettiRaf = null;
+  function showTakeover(p) {
+    var el = $('takeover');
+    el.className = p.type === 'winner' ? 'winner' : 'wrong';
+    $('toEyebrow').textContent = 'ROUND ' + p.round + ' \u00b7 ' + p.label;
+    $('toTitle').textContent = p.type === 'winner' ? 'BINGO!' : 'NOT A BINGO';
+    $('toCard').textContent = p.cardLabel ? 'CARD ' + p.cardLabel : '';
+    $('toCard').className = 'to-card' + (p.cardLabel ? ' show' : '');
+    if (p.type === 'winner') {
+      $('toSub').textContent = p.winners > 1 ? p.winners + ' WINNERS!' : 'WE HAVE A WINNER!';
+      $('toMsg').textContent = p.round < 3 ? 'Keep your cards — songs stay marked for the next round.' : 'Full house! Congratulations!';
+      CMBPatterns.render($('toGrid'), p.pattern || CMBPatterns.examples(p.round)[0], '');
+      startConfetti();
+    } else {
+      $('toSub').textContent = 'KEEP PLAYING!';
+      $('toMsg').textContent = "Sorry — that card doesn't have a winning pattern yet. Check the played songs below and keep listening!";
+      CMBPatterns.render($('toGrid'), CMBPatterns.examples(p.round)[0], 'pink');
+      stopConfetti();
+    }
+    clearTimeout(toTimer);
+    toTimer = setTimeout(function () { el.classList.add('hidden'); stopConfetti(); }, (p.seconds || 7) * 1000);
+  }
+  function startConfetti() {
+    var cv = $('confetti'); var ctx = cv.getContext('2d');
+    cv.width = cv.clientWidth; cv.height = cv.clientHeight;
+    var colors = ['#ffffff', '#ff4fa2', '#c4b0ff', '#ffc857', '#35d68f'];
+    var parts = []; for (var i = 0; i < 180; i++) parts.push({ x: Math.random() * cv.width, y: -Math.random() * cv.height, w: 6 + Math.random() * 10, h: 8 + Math.random() * 14, vy: 2 + Math.random() * 4, vx: -1.5 + Math.random() * 3, r: Math.random() * 6, vr: -0.2 + Math.random() * 0.4, c: colors[i % colors.length] });
+    stopConfetti();
+    (function tick() {
+      ctx.clearRect(0, 0, cv.width, cv.height);
+      parts.forEach(function (q) { q.y += q.vy; q.x += q.vx; q.r += q.vr; if (q.y > cv.height + 20) { q.y = -20; q.x = Math.random() * cv.width; } ctx.save(); ctx.translate(q.x, q.y); ctx.rotate(q.r); ctx.fillStyle = q.c; ctx.fillRect(-q.w / 2, -q.h / 2, q.w, q.h); ctx.restore(); });
+      confettiRaf = requestAnimationFrame(tick);
+    })();
+  }
+  function stopConfetti() { if (confettiRaf) cancelAnimationFrame(confettiRaf); confettiRaf = null; var cv = $('confetti'); cv.getContext('2d').clearRect(0, 0, cv.width, cv.height); }
 
   window.cmb.invoke('player:ready').then(function (r) {
     applyAppSettings(r.appSettings);

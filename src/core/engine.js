@@ -33,6 +33,7 @@ function defaultGameSettings() {
     volume: 85,
     pauseOnClaim: true,
     winnerAnimation: true,
+    tvScreens: { winner: true, wrongClaim: true, showCardNumber: false, seconds: 7 },
     overlay: { enabled: true, position: 'bottom-left', titleSize: 64, artistSize: 38, opacity: 0.78, duration: 0 },
     crawler: { speed: 4, fontSize: 30, height: 72, separator: 'diamond', paused: false },
     audio: defaultAudio(),
@@ -74,6 +75,7 @@ class GameEngine {
     game.settings.overlay = Object.assign({}, d.overlay, (game.settings.overlay || {}));
     game.settings.crawler = Object.assign({}, d.crawler, (game.settings.crawler || {}));
     game.settings.audio = Object.assign({}, d.audio, (game.settings.audio || {}));
+    game.settings.tvScreens = Object.assign({}, d.tvScreens, (game.settings.tvScreens || {}));
     game.playback = Object.assign({ index: -1, status: 'idle', position: 0, recovered: false }, game.playback || {});
     game.played = game.played || [];
     game.skipped = game.skipped || [];
@@ -278,7 +280,7 @@ class GameEngine {
   dispatch(action, args = {}, source = 'desktop') {
     const fn = this.actions[action];
     if (!fn) throw new Error(`Unknown action: ${action}`);
-    const allowedWhenFinished = ['openChecker', 'closeChecker', 'checkClaim', 'freezeClaims', 'addClaim', 'closeSession', 'confirmClaim', 'dismissClaim', 'removeClaim', 'viewClaim', 'setCrawler', 'setOverlay', 'reopenGame', 'setVolume', 'setAudio', 'reverseCredit'];
+    const allowedWhenFinished = ['showTvScreen', 'setTvScreens', 'openChecker', 'closeChecker', 'checkClaim', 'freezeClaims', 'addClaim', 'closeSession', 'confirmClaim', 'dismissClaim', 'removeClaim', 'viewClaim', 'setCrawler', 'setOverlay', 'reopenGame', 'setVolume', 'setAudio', 'reverseCredit'];
     if (this.game.status === 'finished' && !allowedWhenFinished.includes(action)) {
       throw new Error('This game has ended. Re-open it from Game History to continue.');
     }
@@ -301,6 +303,7 @@ class GameEngine {
       openChecker: this.aFreeze, checkClaim: this.aAddClaim, closeChecker: this.aCloseSession,
       // technical credit
       grantCredit: this.aGrantCredit, reverseCredit: this.aReverseCredit,
+      showTvScreen: this.aShowTvScreen, setTvScreens: this.aSetTvScreens,
       updateSong: this.aUpdateSong
     };
   }
@@ -820,6 +823,7 @@ class GameEngine {
     this.audit('winner-confirmed', { sessionId: claim.sessionId, claimId: claim.id, cardNo: claim.cardNo, round: claim.round, headline: res.headline }, source);
     this.log(`WINNER confirmed: card ${formatCardNo(claim.cardNo)}, Round ${claim.round} (${res.headline})`);
     if (this.settings.winnerAnimation) this.event('celebrate', { round: claim.round, label: rules.ROUNDS[claim.round].label });
+    if (this.settings.tvScreens.winner) this.tvScreen('winner', claim, res);
     this.touch('claims');
     return this.claimView(claim);
   }
@@ -830,6 +834,7 @@ class GameEngine {
     if (claim.status === 'confirmed') throw new Error('Use "Undo winner" to remove a confirmed winner.');
     claim.status = claim.valid ? 'dismissed' : 'rejected';
     claim.decidedAt = this.nowIso();
+    if (claim.status === 'rejected' && this.settings.tvScreens.wrongClaim && !args.quiet) this.tvScreen('wrong', claim);
     this.audit('claim-' + claim.status, { sessionId: claim.sessionId, claimId: claim.id, cardNo: claim.cardNo }, source);
     this.log(`Claim for card ${formatCardNo(claim.cardNo)} ${claim.status}`);
     this.touch('claims');
@@ -837,6 +842,39 @@ class GameEngine {
   }
 
   /** Remove an accidentally entered card from the session (kept in the audit trail). */
+  /**
+   * TV winner / wrong-claim screen. Only round, pattern and (if the host enabled it)
+   * the card number are sent — never the card's songs or other claim details.
+   */
+  tvScreen(type, claim, res) {
+    const t = this.settings.tvScreens;
+    const session = this.game.claimSessions.find(s => s.id === claim.sessionId);
+    const winnersInSession = session ? session.claimIds.map(id => this.game.claims.find(c => c.id === id)).filter(c => c && c.status === 'confirmed').length : 1;
+    const payload = { type, round: claim.round, label: rules.ROUNDS[claim.round].label, seconds: Math.max(3, Math.min(30, Number(t.seconds) || 7)), winners: winnersInSession };
+    if (t.showCardNumber) payload.cardLabel = formatCardNo(claim.cardNo);
+    if (type === 'winner' && res) payload.pattern = Array.from({ length: 25 }, (_, i) => res.winningCells.includes(i));
+    this.event('tvScreen', payload);
+  }
+
+  aShowTvScreen(args) {
+    const claim = this.game.claims.find(c => c.id === args.claimId);
+    if (!claim) throw new Error('Claim not found');
+    const type = args.type === 'wrong' ? 'wrong' : 'winner';
+    if (type === 'winner' && claim.status !== 'confirmed') throw new Error('Only a confirmed winner can be shown as a winner.');
+    if (type === 'wrong' && claim.valid) throw new Error('This claim is valid.');
+    const res = type === 'winner' ? rules.checkCard(this.findCard(claim.cardNo).cells, new Set(this.sessionPlayedIds(this.game.claimSessions.find(s => s.id === claim.sessionId))), claim.round) : null;
+    this.tvScreen(type, claim, res);
+    return { ok: true };
+  }
+
+  aSetTvScreens(args) {
+    const t = this.settings.tvScreens;
+    ['winner', 'wrongClaim', 'showCardNumber'].forEach(k => { if (args[k] != null) t[k] = !!args[k]; });
+    if (args.seconds != null) t.seconds = Math.max(3, Math.min(30, Number(args.seconds)));
+    this.touch('state', false);
+    return { ok: true, tvScreens: t };
+  }
+
   aRemoveClaim(args, source) {
     const claim = this.game.claims.find(c => c.id === args.claimId);
     if (!claim) throw new Error('Claim not found');
@@ -967,7 +1005,7 @@ class GameEngine {
       credits: g.credits.map(c => ({ id: c.id, songId: c.songId, title: c.title, artist: c.artist, reason: c.reason, at: c.at, status: c.status })),
       unavailable: Object.keys(this.unavailable).filter(id => this.song(id) && !played.has(id)).map(id => ({ songId: id, title: this.song(id).title, artist: this.song(id).artist, reason: this.unavailable[id] })),
       creditReasons: CREDIT_REASONS,
-      settings: { clipMode: this.settings.clipMode, volume: this.settings.volume, autoAdvance: this.settings.autoAdvance, autoAdvanceGap: this.settings.autoAdvanceGap, pauseOnClaim: this.settings.pauseOnClaim, crawler: this.settings.crawler, overlay: this.settings.overlay, audio: this.settings.audio, patternPosition: this.settings.patternPosition, winnerAnimation: this.settings.winnerAnimation, defaultStart: this.settings.defaultStart },
+      settings: { clipMode: this.settings.clipMode, volume: this.settings.volume, autoAdvance: this.settings.autoAdvance, autoAdvanceGap: this.settings.autoAdvanceGap, pauseOnClaim: this.settings.pauseOnClaim, crawler: this.settings.crawler, overlay: this.settings.overlay, audio: this.settings.audio, patternPosition: this.settings.patternPosition, winnerAnimation: this.settings.winnerAnimation, tvScreens: this.settings.tvScreens, defaultStart: this.settings.defaultStart },
       audienceConnected: this.audienceConnected,
       lastError: this.lastError
     };

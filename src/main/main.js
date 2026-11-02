@@ -77,7 +77,7 @@ function activateGame(game) {
     changed: (kind) => onEngineChanged(kind),
     player: (cmd) => { if (cmd.src) cmd.href = pathToFileURL(cmd.src).href; sendAudience('player', cmd); },
     event: (name, payload) => {
-      if (name === 'celebrate') sendAudience('event', { name, payload });
+      if (name === 'celebrate' || name === 'tvScreen') sendAudience('event', { name, payload });
       sendHost('event', { name, payload });
       if (remote) remote.broadcast({ type: 'event', name, payload });
     },

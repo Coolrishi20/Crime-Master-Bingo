@@ -210,3 +210,20 @@ test('Round 2 and Round 3 claims use the right rule', () => {
   r = eng.dispatch('addClaim', { cardNo: c.no });
   assert.ok(r.valid); assert.match(r.headline, /Full House/);
 });
+
+test('TV winner / wrong-claim screens: no card number by default, never any card songs', () => {
+  const { eng, game, calls } = setup();
+  play(eng, row(game.cards[0], 2));
+  const r = eng.dispatch('addClaim', { cardNo: game.cards[0].no });
+  eng.dispatch('confirmClaim', { claimId: r.claimId });
+  const win = calls.events.filter(e => e.n === 'tvScreen').pop().p;
+  assert.strictEqual(win.type, 'winner'); assert.strictEqual(win.cardLabel, undefined);
+  assert.deepStrictEqual(Object.keys(win).sort(), ['label', 'pattern', 'round', 'seconds', 'type', 'winners']);
+  assert.strictEqual(win.pattern.filter(Boolean).length, 5);
+  const bad = eng.dispatch('addClaim', { cardNo: game.cards[9].no });
+  if (!bad.valid) { eng.dispatch('dismissClaim', { claimId: bad.claimId }); assert.strictEqual(calls.events.filter(e => e.n === 'tvScreen').pop().p.type, 'wrong'); }
+  eng.dispatch('setTvScreens', { showCardNumber: true });
+  eng.dispatch('showTvScreen', { claimId: r.claimId, type: 'winner' });
+  assert.strictEqual(calls.events.filter(e => e.n === 'tvScreen').pop().p.cardLabel, String(game.cards[0].no).padStart(3, '0'));
+  assert.throws(() => eng.dispatch('showTvScreen', { claimId: bad.claimId, type: 'winner' }), /confirmed/);
+});
