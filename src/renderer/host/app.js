@@ -66,7 +66,7 @@
 
     async cmd(action, args = {}) {
       try {
-        const r = await window.cmb.invoke('invoke', 'game:cmd', { action, args });
+        const r = await window.cmb.invoke('game:cmd', { action, args });
         return r;
       } catch (e) { toast(cleanErr(e), 'err'); return { ok: false, error: cleanErr(e) }; }
     },
@@ -110,10 +110,10 @@
       if (this.probing) return;
       this.probing = true;
       try {
-        const s = await window.cmb.invoke('invoke', 'library:nextUnchecked');
+        const s = await window.cmb.invoke('library:nextUnchecked');
         if (s) {
           const result = await probeVideo(s.path);
-          await window.cmb.invoke('invoke', 'library:probeResult', { id: s.id, result });
+          await window.cmb.invoke('library:probeResult', { id: s.id, result });
           this.emit('library');
         }
       } catch (e) { console.error(e); }
@@ -149,10 +149,10 @@
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
   function cleanErr(e) { return String(e && e.message || e).replace(/^Error invoking remote method '[^']+': (Error: )?/, ''); }
   async function api(ch, payload) {
-    try { return await window.cmb.invoke('invoke', ch, payload); }
+    try { return await window.cmb.invoke(ch, payload); }
     catch (e) { toast(cleanErr(e), 'err', 6000); throw e; }
   }
-  async function apiQuiet(ch, payload) { return window.cmb.invoke('invoke', ch, payload); }
+  async function apiQuiet(ch, payload) { return window.cmb.invoke(ch, payload); }
   function fileUrl(p) {
     if (!p) return '';
     let s = String(p).replace(/\\/g, '/');

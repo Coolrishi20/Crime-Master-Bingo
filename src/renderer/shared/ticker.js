@@ -23,7 +23,7 @@
   TickerQueue.prototype.next = function () {
     if (!this.items.length) return null;
     if (this.cursor >= this.items.length) this.cursor = 0;
-    var it = this.items[this.cursor];
+    var it = this.items[this.cursor]; it._i = this.cursor;
     this.cursor = (this.cursor + 1) % this.items.length;
     return it;
   };
@@ -75,8 +75,22 @@
     else if (kind === 'extended') {
       // Newest entry flagged so it can be styled; nodes already on screen are untouched.
       this.latestN = items[items.length - 1].n;
+      this.trimInvisible();
     }
     this.start();
+  };
+
+  /* Drop queued nodes that have not yet entered the screen, so a newly added
+     song joins the loop promptly. Only off-screen nodes are removed → no jump. */
+  Ticker.prototype.trimInvisible = function () {
+    var vpw = this.vp.clientWidth || 1920; var x = -this.offset; var keep = 0;
+    for (var i = 0; i < this.widths.length; i++) { if (x < vpw) keep = i + 1; x += this.widths[i]; }
+    var nodes = this.track.children;
+    while (nodes.length > keep) { this.track.removeChild(this.track.lastChild); this.widths.pop(); }
+    var last = this.track.lastChild;
+    this.queue.cursor = last ? (Number(last.getAttribute('data-i')) + 1) % this.queue.items.length : 0;
+    this.trackWidth = this.widths.reduce(function (s, w) { return s + w; }, 0);
+    this.fill();
   };
 
   Ticker.prototype.rebuild = function () {
@@ -89,6 +103,7 @@
   Ticker.prototype.makeNode = function (it) {
     var el = document.createElement('div');
     el.className = 'tk-item' + (it.n === this.latestN ? ' latest' : '');
+    el.setAttribute('data-i', it._i != null ? it._i : 0);
     var num = document.createElement('span'); num.className = 'tk-num'; num.textContent = (it.n < 10 ? '0' : '') + it.n;
     var t = document.createElement('span'); t.className = 'tk-title'; t.textContent = it.title;
     var dash = document.createElement('span'); dash.className = 'tk-dash'; dash.textContent = '—';
@@ -100,7 +115,7 @@
 
   Ticker.prototype.fill = function () {
     if (!this.queue.items.length) return;
-    var need = (this.vp.clientWidth || 1920) * 1.5;
+    var need = (this.vp.clientWidth || 1920) + 40;
     var guard = 0;
     while (this.trackWidth - this.offset < need && guard++ < 400) {
       var it = this.queue.next();

@@ -475,6 +475,7 @@ function createRemote() {
       '/shared/patterns.js': path.join(RENDERER, 'shared', 'patterns.js'),
       '/icon.png': path.join(ROOT, 'assets', 'icon.png')
     },
+    mounts: { '/fonts/': path.join(RENDERER, 'shared', 'fonts') },
     getState: () => remoteState(),
     dispatch: (action, args, source) => dispatch(action, args, source),
     devices: { list: () => settings.remote.devices, save: (list) => { settings.remote.devices = list; saveSettings(); } },

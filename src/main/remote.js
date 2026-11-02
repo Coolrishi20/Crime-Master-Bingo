@@ -11,7 +11,7 @@ const os = require('os');
 const crypto = require('crypto');
 const { WebSocketServer } = require('ws');
 
-const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'application/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.png': 'image/png', '.svg': 'image/svg+xml', '.json': 'application/json', '.webmanifest': 'application/manifest+json' };
+const MIME = { '.woff2': 'font/woff2', '.html': 'text/html; charset=utf-8', '.js': 'application/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.png': 'image/png', '.svg': 'image/svg+xml', '.json': 'application/json', '.webmanifest': 'application/manifest+json' };
 
 const REMOTE_ACTIONS = new Set([
   'play', 'pause', 'togglePlay', 'stop', 'next', 'skip', 'previous', 'replay', 'seek', 'setVolume', 'markPlayed',
@@ -102,7 +102,12 @@ class RemoteServer {
     if (p === '/health') { res.writeHead(200, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ ok: true, app: 'Crime Master Bingo' })); }
     let file = null;
     if (this.opts.extraFiles && this.opts.extraFiles[p]) file = this.opts.extraFiles[p];
-    else {
+    else if (this.opts.mounts && Object.keys(this.opts.mounts).some(m => p.startsWith(m))) {
+      const m = Object.keys(this.opts.mounts).find(x => p.startsWith(x));
+      const base = path.normalize(this.opts.mounts[m]);
+      const resolved = path.normalize(path.join(base, p.slice(m.length)));
+      if (resolved.startsWith(base + path.sep)) file = resolved;
+    } else {
       const resolved = path.normalize(path.join(this.opts.staticDir, p));
       if (resolved.startsWith(path.normalize(this.opts.staticDir) + path.sep)) file = resolved;
     }

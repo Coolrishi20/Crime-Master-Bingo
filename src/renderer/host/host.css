@@ -171,7 +171,7 @@ table.list tr.drag-over td { box-shadow: inset 0 2px 0 var(--pink); }
 .bcell b { color: #fff; font-size: 12.5px; line-height: 1.15; }
 .bcell span { color: var(--lav); font-size: 11px; margin-top: 2px; }
 .bcell .pn { position: absolute; top: 3px; right: 6px; font-size: 10px; color: var(--lav); font-weight: 800; }
-.bcell.played { background: rgba(196,176,255,.22); border-color: var(--lilac); }
+.bcell.played { background: rgba(196,176,255,.38); border-color: var(--lilac); }
 .bcell.played b { color: #fff; }
 .bcell.win { background: var(--pink); border-color: #fff; box-shadow: 0 0 14px rgba(255,79,162,.5); }
 .bcell.win span, .bcell.win .pn { color: #ffe3f1; }
