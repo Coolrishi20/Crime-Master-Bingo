@@ -6,14 +6,22 @@
  * phone remote both call `dispatch(action, args)`; the audience window is the
  * only video/audio player and reports its progress back via `player*` methods.
  *
- * The official played-song history (`game.played`) is the ONE source used by
- * the audience crawler, the host lists, the phone and the bingo checker.
+ * ELIGIBILITY LEDGER — `game.played` is the single authoritative list of songs
+ * that count on cards. Each entry has kind 'played' (actually played) or
+ * 'credit' (host-approved technical credit). The audience crawler, the host
+ * lists, the phone, the bingo checker and claim-session snapshots all read it.
  */
 const crypto = require('crypto');
 const rules = require('./rules');
 const { shuffle, parseQrPayload, formatCardNo } = require('./cards');
+const locking = require('./locking');
 
 const CLIP_MODES = [20, 30, 40, 60, 'full'];
+const CREDIT_REASONS = ['File missing or moved', 'Storage device disconnected', 'Video corrupted', 'Codec not supported', 'Playback failed during the event', 'Other'];
+
+function defaultAudio() {
+  return { levelling: true, targetLufs: -16, ceilingDbtp: -1, maxBoostDb: 9, fadeIn: 0.5, fadeOut: 1.0, muted: false };
+}
 
 function defaultGameSettings() {
   return {
@@ -27,6 +35,7 @@ function defaultGameSettings() {
     winnerAnimation: true,
     overlay: { enabled: true, position: 'bottom-left', titleSize: 64, artistSize: 38, opacity: 0.78, duration: 0 },
     crawler: { speed: 4, fontSize: 30, height: 72, separator: 'diamond', paused: false },
+    audio: defaultAudio(),
     patternPosition: 'top-right'
   };
 }
@@ -36,7 +45,7 @@ function uid(prefix = '') { return prefix + crypto.randomBytes(6).toString('hex'
 class GameEngine {
   /**
    * @param {object} game  persisted game object
-   * @param {object} hooks { persist(game, urgent), changed(kind), player(cmd), event(name,payload), setTimeout, clearTimeout, now }
+   * @param {object} hooks { persist(game, urgent), changed(kind), player(cmd), event(name,payload), gainFor(song, clip, audio), setTimeout, clearTimeout, now }
    */
   constructor(game, hooks = {}) {
     this.game = game;
@@ -46,9 +55,9 @@ class GameEngine {
     this._now = hooks.now || (() => Date.now());
     this.loadToken = 0;
     this.advanceTimer = null;
-    this.checkersOpen = 0;
     this.lastError = null;
     this.audienceConnected = false;
+    this.unavailable = {}; // songId -> reason (missing file / playback failure)
     GameEngine.normalise(game);
     // Crash recovery: never resume straight into playback; restore paused at the saved position.
     const pb = game.playback;
@@ -56,7 +65,7 @@ class GameEngine {
       pb.status = pb.index >= 0 ? 'paused' : 'idle';
       pb.recovered = true;
     }
-    pb.pausedForClaim = false;
+    pb.pausedForClaim = !!this.activeSession();
   }
 
   static normalise(game) {
@@ -64,16 +73,21 @@ class GameEngine {
     game.settings = Object.assign({}, d, game.settings || {});
     game.settings.overlay = Object.assign({}, d.overlay, (game.settings.overlay || {}));
     game.settings.crawler = Object.assign({}, d.crawler, (game.settings.crawler || {}));
+    game.settings.audio = Object.assign({}, d.audio, (game.settings.audio || {}));
     game.playback = Object.assign({ index: -1, status: 'idle', position: 0, recovered: false }, game.playback || {});
     game.played = game.played || [];
     game.skipped = game.skipped || [];
     game.round = game.round || { number: 0, status: 'pending' };
     game.rounds = game.rounds || {};
     game.claims = game.claims || [];
+    game.claimSessions = game.claimSessions || [];
+    game.credits = game.credits || [];
+    game.audit = game.audit || [];
     game.cards = game.cards || [];
     game.status = game.status || 'setup';
     game.log = game.log || [];
     game.version = game.version || 0;
+    locking.migrate(game);
     return game;
   }
 
@@ -81,8 +95,12 @@ class GameEngine {
   get settings() { return this.game.settings; }
   song(id) { return this.game.songs[id]; }
   currentSongId() { const i = this.game.playback.index; return i >= 0 ? this.game.order[i] : null; }
+  /** Set of every eligible song (played + technical credit). */
   playedSet() { return new Set(this.game.played.map(p => p.songId)); }
   isPlayed(id) { return this.game.played.some(p => p.songId === id); }
+  ledgerEntry(id) { return this.game.played.find(p => p.songId === id); }
+  activeSession() { return this.game.claimSessions.find(s => s.status === 'open') || null; }
+  nowIso() { return new Date(this._now()).toISOString(); }
 
   clipFor(song) {
     const s = this.settings;
@@ -97,14 +115,27 @@ class GameEngine {
     return { start, end };
   }
 
+  /** Audio parameters for the player: levelling gain for this exact clip, fades, mute. */
+  audioFor(song, clip) {
+    const a = this.settings.audio;
+    let lev = { gainDb: 0, status: 'off' };
+    if (a.levelling && this.hooks.gainFor) { try { lev = this.hooks.gainFor(song, clip, a) || lev; } catch (e) { lev = { gainDb: 0, status: 'error', note: e.message }; } }
+    return { gainDb: a.levelling ? (lev.gainDb || 0) : 0, levelStatus: a.levelling ? lev.status : 'off', lufs: lev.lufs, fadeIn: Number(a.fadeIn) || 0, fadeOut: Number(a.fadeOut) || 0, muted: !!a.muted };
+  }
+
   log(msg) {
-    this.game.log.push({ at: new Date(this._now()).toISOString(), msg });
-    if (this.game.log.length > 500) this.game.log.splice(0, this.game.log.length - 500);
+    this.game.log.push({ at: this.nowIso(), msg });
+    if (this.game.log.length > 1000) this.game.log.splice(0, this.game.log.length - 1000);
+  }
+
+  /** Append-only audit trail (never pruned). */
+  audit(action, data, source) {
+    this.game.audit.push(Object.assign({ id: uid('a_'), at: this.nowIso(), gameId: this.game.id, action, source: source || 'laptop' }, data));
   }
 
   touch(kind = 'state', urgent = true) {
     this.game.version++;
-    this.game.updatedAt = new Date(this._now()).toISOString();
+    this.game.updatedAt = this.nowIso();
     if (this.hooks.persist) this.hooks.persist(this.game, urgent);
     if (this.hooks.changed) this.hooks.changed(kind);
   }
@@ -126,6 +157,12 @@ class GameEngine {
   }
 
   /* ---------------------------------------------------------- player control */
+  loadCmd(index, position, autoplay) {
+    const song = this.song(this.game.order[index]);
+    const clip = this.clipFor(song);
+    return { cmd: 'load', token: this.loadToken, index, src: song.path, start: position != null ? position : clip.start, clipStart: clip.start, clipEnd: clip.end, autoplay, volume: this.settings.volume, audio: this.audioFor(song, clip) };
+  }
+
   loadIndex(index, { autoplay = true, position = null } = {}) {
     const g = this.game;
     if (index < 0 || index >= g.order.length) throw new Error('No such song in the play order');
@@ -139,9 +176,9 @@ class GameEngine {
     g.playback.clipStart = clip.start;
     g.playback.clipEnd = clip.end;
     g.playback.recovered = false;
-    g.playback.startedAt = new Date(this._now()).toISOString();
+    g.playback.startedAt = this.nowIso();
     this.lastError = null;
-    this.player({ cmd: 'load', token: this.loadToken, index, src: song.path, start: g.playback.position, clipStart: clip.start, clipEnd: clip.end, autoplay, volume: this.settings.volume });
+    this.player(this.loadCmd(index, g.playback.position, autoplay));
   }
 
   /** Called when the audience window (re)connects: restore what it should be showing. */
@@ -149,11 +186,10 @@ class GameEngine {
     this.audienceConnected = true;
     const pb = this.game.playback;
     if (pb.index >= 0 && ['playing', 'loading', 'paused'].includes(pb.status)) {
-      const song = this.song(this.game.order[pb.index]);
-      const clip = this.clipFor(song);
       this.loadToken++;
       const autoplay = pb.status === 'playing' || pb.status === 'loading';
-      this.player({ cmd: 'load', token: this.loadToken, index: pb.index, src: song.path, start: pb.position || clip.start, clipStart: clip.start, clipEnd: clip.end, autoplay, volume: this.settings.volume });
+      const song = this.song(this.game.order[pb.index]);
+      this.player(this.loadCmd(pb.index, pb.position || this.clipFor(song).start, autoplay));
     } else {
       this.player({ cmd: 'clear' });
     }
@@ -189,42 +225,52 @@ class GameEngine {
     this.touch('state');
   }
 
+  /** Playback failure: NEVER counted and NEVER auto-credited — the host decides. */
   playerError(token, message) {
     if (token !== this.loadToken) return;
     const id = this.currentSongId();
     const s = id ? this.song(id) : null;
     this.lastError = `Could not play "${s ? s.title : 'song'}": ${message}`;
     this.log(this.lastError);
+    if (id) {
+      this.unavailable[id] = 'Playback failed: ' + message;
+      if (!this.game.skipped.includes(id)) this.game.skipped.push(id);
+    }
     this.game.playback.status = 'idle';
-    if (id && !this.game.skipped.includes(id)) this.game.skipped.push(id);
     this.player({ cmd: 'clear' });
-    if (this.hooks.event) this.hooks.event('error', { message: this.lastError });
+    this.event('error', { message: this.lastError + ' — skipped (not counted). You can grant Technical Credit if needed.', songId: id });
     this.scheduleAdvance();
     this.touch('state');
+  }
+
+  setUnavailable(map) {
+    // map: songId -> reason, from the laptop's file checks
+    Object.keys(this.unavailable).forEach(k => { if (!/^Playback failed/.test(this.unavailable[k])) delete this.unavailable[k]; });
+    Object.assign(this.unavailable, map || {});
   }
 
   scheduleAdvance() {
     const g = this.game; const s = this.settings;
     const next = this.nextUnplayedIndex(g.playback.index);
     if (next < 0) { g.playback.status = 'finished'; this.log('All songs in the playlist have been played'); return; }
-    if (!s.autoAdvance || g.gamePaused || g.round.number === 0 || g.status === 'finished') return;
+    if (!s.autoAdvance || g.gamePaused || g.round.number === 0 || g.status === 'finished' || this.activeSession()) return;
     const gap = Math.max(0, Number(s.autoAdvanceGap) || 0) * 1000;
     g.playback.status = 'between';
     g.playback.nextAt = this._now() + gap;
     this.advanceTimer = this._setTimeout(() => {
       this.advanceTimer = null;
-      if (g.playback.status !== 'between') return;
+      if (g.playback.status !== 'between' || this.activeSession()) return;
       const n = this.nextUnplayedIndex(g.playback.index);
       if (n >= 0) { this.loadIndex(n, { autoplay: true }); this.touch('state'); }
     }, gap);
   }
 
-  addPlayed(songId, manual) {
-    if (this.isPlayed(songId)) return false; // replays never duplicate the history
-    this.game.played.push({ songId, at: new Date(this._now()).toISOString(), round: this.game.round.number, manual: !!manual });
+  addPlayed(songId, manual, kind = 'played', extra = {}) {
+    if (this.isPlayed(songId)) return false; // replays never duplicate the ledger
+    this.game.played.push(Object.assign({ songId, at: this.nowIso(), round: this.game.round.number, manual: !!manual, kind }, extra));
     this.game.skipped = this.game.skipped.filter(x => x !== songId);
     const s = this.song(songId);
-    this.log(`Played #${this.game.played.length}: ${s.title} — ${s.artist}${manual ? ' (marked by host)' : ''}`);
+    this.log(`${kind === 'credit' ? 'TECHNICAL CREDIT' : 'Played'} #${this.game.played.length}: ${s.title} — ${s.artist}${manual && kind === 'played' ? ' (marked by host)' : ''}`);
     return true;
   }
 
@@ -232,7 +278,8 @@ class GameEngine {
   dispatch(action, args = {}, source = 'desktop') {
     const fn = this.actions[action];
     if (!fn) throw new Error(`Unknown action: ${action}`);
-    if (this.game.status === 'finished' && !['openChecker', 'closeChecker', 'checkClaim', 'setCrawler', 'setOverlay', 'reopenGame', 'setVolume'].includes(action)) {
+    const allowedWhenFinished = ['openChecker', 'closeChecker', 'checkClaim', 'freezeClaims', 'addClaim', 'closeSession', 'confirmClaim', 'dismissClaim', 'removeClaim', 'viewClaim', 'setCrawler', 'setOverlay', 'reopenGame', 'setVolume', 'setAudio', 'reverseCredit'];
+    if (this.game.status === 'finished' && !allowedWhenFinished.includes(action)) {
       throw new Error('This game has ended. Re-open it from Game History to continue.');
     }
     return fn.call(this, args || {}, source);
@@ -246,9 +293,14 @@ class GameEngine {
       setClipMode: this.aClipMode, jumpTo: this.aJumpTo, markPlayed: this.aMarkPlayed, unmarkPlayed: this.aUnmarkPlayed,
       startRound: this.aStartRound, endRound: this.aEndRound, pauseGame: this.aPauseGame, resumeGame: this.aResumeGame,
       endGame: this.aEndGame, reopenGame: this.aReopenGame, reshuffle: this.aReshuffle,
-      setCrawler: this.aSetCrawler, setOverlay: this.aSetOverlay, setGameSettings: this.aSetGameSettings,
-      openChecker: this.aOpenChecker, closeChecker: this.aCloseChecker, checkClaim: this.aCheckClaim,
-      confirmClaim: this.aConfirmClaim, dismissClaim: this.aDismissClaim, revokeWinner: this.aRevokeWinner,
+      setCrawler: this.aSetCrawler, setOverlay: this.aSetOverlay, setGameSettings: this.aSetGameSettings, setAudio: this.aSetAudio,
+      // claim sessions (Claim Freeze)
+      freezeClaims: this.aFreeze, addClaim: this.aAddClaim, viewClaim: this.aViewClaim, confirmClaim: this.aConfirmClaim,
+      dismissClaim: this.aDismissClaim, removeClaim: this.aRemoveClaim, closeSession: this.aCloseSession, revokeWinner: this.aRevokeWinner,
+      // backwards-compatible names
+      openChecker: this.aFreeze, checkClaim: this.aAddClaim, closeChecker: this.aCloseSession,
+      // technical credit
+      grantCredit: this.aGrantCredit, reverseCredit: this.aReverseCredit,
       updateSong: this.aUpdateSong
     };
   }
@@ -344,7 +396,7 @@ class GameEngine {
     const pb = this.game.playback;
     if (pb.index < 0) throw new Error('No song to replay yet.');
     if (this.game.round.number === 0) throw new Error('Start Round 1 first.');
-    this.loadIndex(pb.index, { autoplay: true }); // already-played songs are never re-added to history
+    this.loadIndex(pb.index, { autoplay: true }); // already-played songs are never re-added to the ledger
     this.touch('state');
     return { ok: true };
   }
@@ -368,6 +420,25 @@ class GameEngine {
     return { ok: true, volume: v };
   }
 
+  /** Audio levelling / fades / mute — applied live to the one player on the laptop. */
+  aSetAudio(args) {
+    const a = this.settings.audio;
+    if (args.levelling != null) a.levelling = !!args.levelling;
+    if (args.toggleLevelling) a.levelling = !a.levelling;
+    if (args.muted != null) a.muted = !!args.muted;
+    if (args.toggleMute) a.muted = !a.muted;
+    if (args.targetLufs != null) a.targetLufs = Math.max(-30, Math.min(-8, Number(args.targetLufs)));
+    if (args.maxBoostDb != null) a.maxBoostDb = Math.max(0, Math.min(20, Number(args.maxBoostDb)));
+    if (args.ceilingDbtp != null) a.ceilingDbtp = Math.max(-6, Math.min(0, Number(args.ceilingDbtp)));
+    if (args.fadeIn != null) a.fadeIn = Math.max(0, Math.min(5, Number(args.fadeIn)));
+    if (args.fadeOut != null) a.fadeOut = Math.max(0, Math.min(8, Number(args.fadeOut)));
+    const id = this.currentSongId();
+    if (id) { const s = this.song(id); this.player(Object.assign({ cmd: 'audio', token: this.loadToken }, this.audioFor(s, this.clipFor(s)))); }
+    else this.player({ cmd: 'audio', token: this.loadToken, gainDb: 0, muted: a.muted, fadeIn: a.fadeIn, fadeOut: a.fadeOut });
+    this.touch('state', false);
+    return { ok: true, audio: a };
+  }
+
   aClipMode(args) {
     const m = args.clipMode === 'full' ? 'full' : Number(args.clipMode);
     if (!CLIP_MODES.includes(m)) throw new Error('Clip length must be 20, 30, 40, 60 seconds or full song');
@@ -375,9 +446,10 @@ class GameEngine {
     const pb = this.game.playback;
     const id = this.currentSongId();
     if (id && ['playing', 'paused', 'loading'].includes(pb.status)) {
-      const clip = this.clipFor(this.song(id));
+      const s = this.song(id); const clip = this.clipFor(s);
       pb.clipStart = clip.start; pb.clipEnd = clip.end;
       this.player({ cmd: 'clip', token: this.loadToken, clipStart: clip.start, clipEnd: clip.end });
+      this.player(Object.assign({ cmd: 'audio', token: this.loadToken }, this.audioFor(s, clip)));
     }
     this.touch('state');
     return { ok: true };
@@ -394,21 +466,86 @@ class GameEngine {
     return { ok: true };
   }
 
-  aMarkPlayed(args) {
+  aMarkPlayed(args, source) {
     const id = args.songId || this.currentSongId();
     if (!id || !this.song(id)) throw new Error('No song selected');
     if (this.game.round.number === 0) throw new Error('Start Round 1 first.');
     const added = this.addPlayed(id, true);
+    if (added) this.audit('mark-played', { songId: id, title: this.song(id).title, artist: this.song(id).artist }, source);
     this.touch('state');
     return { ok: true, added };
   }
 
-  aUnmarkPlayed(args) {
+  /** Who would be affected by removing a song from the ledger? */
+  affectedBy(songId) {
+    const g = this.game;
+    const confirmed = g.claims.filter(c => c.status === 'confirmed' && (this.findCard(c.cardNo) || { cells: [] }).cells.includes(songId))
+      .map(c => ({ claimId: c.id, cardNo: c.cardNo, cardLabel: formatCardNo(c.cardNo), round: c.round }));
+    const sessions = g.claimSessions.filter(s => s.status === 'open' && s.snapshot.some(x => x.songId === songId)).map(s => s.id);
+    return { confirmed, sessions };
+  }
+
+  aUnmarkPlayed(args, source) {
     const id = args.songId;
-    const before = this.game.played.length;
+    const entry = this.ledgerEntry(id);
+    if (!entry) return { ok: false, message: 'That song is not in the played history.' };
+    if (entry.kind === 'credit') return this.aReverseCredit(Object.assign({}, args, { creditId: entry.creditId }), source);
+    const aff = this.affectedBy(id);
+    if ((aff.confirmed.length || aff.sessions.length) && !args.acknowledge) {
+      return { ok: false, needsCorrection: true, affected: aff, message: `Removing this song affects ${aff.confirmed.length} confirmed winner(s)${aff.sessions.length ? ' and an open claim session' : ''}. Confirmed results are not changed automatically — confirm the correction to continue.` };
+    }
     this.game.played = this.game.played.filter(p => p.songId !== id);
-    if (this.game.played.length === before) return { ok: false, message: 'That song is not in the played history.' };
+    aff.confirmed.forEach(c => { const cl = this.game.claims.find(x => x.id === c.claimId); if (cl) cl.review = `Song "${this.song(id).title}" was removed from the played list after confirmation — review this result.`; });
+    this.audit('unmark-played', { songId: id, title: this.song(id).title, artist: this.song(id).artist, affected: aff }, source);
     this.log(`Correction: removed "${this.song(id).title}" from the played history`);
+    this.touch('state');
+    return { ok: true };
+  }
+
+  /* ------------------------------------------------------- technical credit */
+  aGrantCredit(args, source) {
+    const g = this.game;
+    const id = args.songId;
+    const s = this.song(id);
+    if (!s) throw new Error('That song is not part of this game.');
+    if (!args.confirm) throw new Error('Technical credit must be explicitly confirmed by the host.');
+    if (g.round.number === 0) throw new Error('Start Round 1 first.');
+    if (this.isPlayed(id)) throw new Error(`"${s.title}" already counts (${this.ledgerEntry(id).kind === 'credit' ? 'technical credit' : 'played'}).`);
+    const reason = String(args.reason || '').trim() || 'Video unavailable';
+    const credit = { id: uid('cr_'), songId: id, title: s.title, artist: s.artist, reason, at: this.nowIso(), round: g.round.number, confirmedBy: source || 'laptop', status: 'active', history: [] };
+    g.credits.push(credit);
+    this.addPlayed(id, true, 'credit', { creditId: credit.id });
+    this.audit('technical-credit', { songId: id, title: s.title, artist: s.artist, reason, creditId: credit.id, hostConfirmed: true }, source);
+    delete this.unavailable[id];
+    // Never play a replacement; continue with the next available video if this was the current one.
+    const pb = g.playback;
+    let advanced = false;
+    if (this.currentSongId() === id && ['playing', 'loading', 'paused', 'stopped', 'idle'].includes(pb.status)) {
+      const wasPlaying = ['playing', 'loading'].includes(pb.status);
+      const n = this.nextUnplayedIndex(pb.index);
+      if (n >= 0) {
+        if (wasPlaying && !this.activeSession() && !g.gamePaused) { this.loadIndex(n, { autoplay: true }); advanced = true; }
+        else { this.player({ cmd: 'clear' }); pb.status = 'idle'; }
+      }
+    }
+    this.touch('state');
+    return { ok: true, creditId: credit.id, advanced };
+  }
+
+  aReverseCredit(args, source) {
+    const g = this.game;
+    const credit = g.credits.find(c => c.id === args.creditId) || g.credits.find(c => c.songId === args.songId && c.status === 'active');
+    if (!credit || credit.status !== 'active') throw new Error('No active technical credit found.');
+    const aff = this.affectedBy(credit.songId);
+    if ((aff.confirmed.length || aff.sessions.length) && !args.acknowledge) {
+      return { ok: false, needsCorrection: true, affected: aff, message: `Reversing this credit affects ${aff.confirmed.length} confirmed winner(s)${aff.sessions.length ? ' and an open claim session (its frozen snapshot will NOT change)' : ''}. Confirmed results stay as they are but will be flagged for review.` };
+    }
+    g.played = g.played.filter(p => !(p.songId === credit.songId && p.kind === 'credit'));
+    credit.status = 'reversed';
+    credit.history.push({ at: this.nowIso(), action: 'reversed', by: source || 'laptop', reason: args.reason || '' });
+    aff.confirmed.forEach(c => { const cl = g.claims.find(x => x.id === c.claimId); if (cl) cl.review = `Technical credit for "${credit.title}" was reversed after this win was confirmed — review this result.`; });
+    this.audit('technical-credit-reversed', { songId: credit.songId, title: credit.title, artist: credit.artist, creditId: credit.id, reason: args.reason || '', affected: aff, hostConfirmed: true }, source);
+    this.log(`Technical credit REVERSED: ${credit.title}`);
     this.touch('state');
     return { ok: true };
   }
@@ -419,16 +556,14 @@ class GameEngine {
     if (![1, 2, 3].includes(n)) throw new Error('Round must be 1, 2 or 3');
     if (n < g.round.number) throw new Error(`Round ${g.round.number} has already started — rounds cannot go backwards.`);
     if (n === g.round.number && g.round.status === 'active') return { ok: true, already: true };
-    if (g.round.number > 0 && g.round.status === 'active') {
-      g.rounds[g.round.number].endedAt = new Date(this._now()).toISOString();
-    }
+    if (this.activeSession()) throw new Error('Close the open claim session before changing rounds.');
+    if (g.round.number > 0 && g.round.status === 'active') g.rounds[g.round.number].endedAt = this.nowIso();
     g.round = { number: n, status: 'active' };
-    g.rounds[n] = Object.assign(g.rounds[n] || {}, { startedAt: new Date(this._now()).toISOString(), startPlayedCount: g.played.length, endedAt: null });
+    g.rounds[n] = Object.assign(g.rounds[n] || {}, { startedAt: this.nowIso(), startPlayedCount: g.played.length, endedAt: null });
     g.status = 'live';
     g.gamePaused = false;
     this.log(`Round ${n} started — ${rules.ROUNDS[n].label}`);
     this.touch('round');
-    // Start or continue the music
     const st = g.playback.status;
     if (args.play !== false && !['playing', 'loading', 'between'].includes(st)) {
       try { this.aPlay({}); } catch (e) { return { ok: true, warning: e.message }; }
@@ -440,7 +575,7 @@ class GameEngine {
     const g = this.game;
     if (g.round.number === 0 || g.round.status !== 'active') throw new Error('No round is in progress.');
     g.round.status = 'ended';
-    g.rounds[g.round.number].endedAt = new Date(this._now()).toISOString();
+    g.rounds[g.round.number].endedAt = this.nowIso();
     this.log(`Round ${g.round.number} ended`);
     this.touch('round');
     return { ok: true };
@@ -468,12 +603,15 @@ class GameEngine {
 
   aEndGame() {
     const g = this.game;
+    const s = this.activeSession();
+    if (s && s.claimIds.some(id => (g.claims.find(c => c.id === id) || {}).status === 'pending')) throw new Error('A claim session still has undecided valid claims — confirm or reject them first.');
+    if (s) { s.status = 'closed'; s.closedAt = this.nowIso(); }
     this.cancelAdvance();
     if (g.playback.index >= 0) this.player({ cmd: 'clear' });
     g.playback.status = 'stopped';
-    if (g.round.number > 0 && g.round.status === 'active') { g.round.status = 'ended'; g.rounds[g.round.number].endedAt = new Date(this._now()).toISOString(); }
+    if (g.round.number > 0 && g.round.status === 'active') { g.round.status = 'ended'; g.rounds[g.round.number].endedAt = this.nowIso(); }
     g.status = 'finished';
-    g.endedAt = new Date(this._now()).toISOString();
+    g.endedAt = this.nowIso();
     this.log('Game ended');
     this.touch('round');
     return { ok: true };
@@ -513,7 +651,7 @@ class GameEngine {
 
   aSetOverlay(args) {
     const o = this.settings.overlay;
-    ['enabled'].forEach(k => { if (args[k] != null) o[k] = !!args[k]; });
+    if (args.enabled != null) o.enabled = !!args.enabled;
     if (args.position && ['bottom-left', 'bottom-center', 'top-left'].includes(args.position)) o.position = args.position;
     if (args.titleSize != null) o.titleSize = Math.max(24, Math.min(140, Number(args.titleSize)));
     if (args.artistSize != null) o.artistSize = Math.max(16, Math.min(100, Number(args.artistSize)));
@@ -534,153 +672,222 @@ class GameEngine {
     return { ok: true };
   }
 
+  /** Per-game song edits. Locked games: printed identity is fixed — only clip points may change. */
   aUpdateSong(args) {
     const s = this.song(args.songId);
     if (!s) throw new Error('Song not in this game');
+    const labelKeys = ['displayTitle', 'title', 'artist', 'printTitle'];
+    if (this.game.cardsLocked && labelKeys.some(k => typeof args[k] === 'string')) throw new Error('Cards for this game are locked — song titles and artists can no longer be changed in this game.');
     ['clipStart', 'clipEnd'].forEach(k => { if (k in args) s[k] = args[k] === null || args[k] === '' ? null : Math.max(0, Number(args[k])); });
-    ['displayTitle', 'title', 'artist'].forEach(k => { if (typeof args[k] === 'string' && args[k].trim()) s[k] = args[k].trim(); });
+    labelKeys.forEach(k => { if (typeof args[k] === 'string' && args[k].trim()) s[k] = args[k].trim(); });
     this.touch('state');
     return { ok: true };
   }
 
-  /* -------------------------------------------------------- bingo checking */
-  aOpenChecker(args, source) {
-    this.checkersOpen++;
-    const pb = this.game.playback;
+  /* -------------------------------------------- CLAIM FREEZE / claim sessions */
+  /**
+   * Freeze claims: pause playback and snapshot the eligibility ledger. Atomic and
+   * idempotent — if a session is already open, it is returned (never two sessions).
+   */
+  aFreeze(args, source) {
+    const g = this.game;
+    const open = this.activeSession();
+    if (open) return { ok: true, sessionId: open.id, existing: true, paused: !!g.playback.pausedForClaim };
+    if (!g.round.number) throw new Error('No round has started yet.');
+    const pb = g.playback;
+    const prevStatus = pb.status;
     let paused = false;
-    if (this.settings.pauseOnClaim && ['playing', 'loading', 'between'].includes(pb.status)) {
-      if (pb.status === 'between') { this.cancelAdvance(); pb.pausedForClaim = 'between'; }
-      else { pb.status = 'paused'; pb.pausedForClaim = true; this.player({ cmd: 'pause' }); }
-      paused = true;
-      this.log(`Music paused for a BINGO check (${source})`);
-    }
-    this.touch('state', false);
-    return { ok: true, paused };
-  }
-
-  aCloseChecker(args) {
-    this.checkersOpen = Math.max(0, this.checkersOpen - 1);
-    const pb = this.game.playback;
-    let resumed = false;
-    if (args.resume && pb.pausedForClaim) {
-      const wasBetween = pb.pausedForClaim === 'between';
-      pb.pausedForClaim = false;
-      if (wasBetween) { pb.status = 'idle'; this.scheduleAdvance(); if (pb.status !== 'between') this.aPlay({}); }
-      else this.aPlay({});
-      resumed = true;
-    } else if (args.resume && pb.status === 'paused') {
-      this.aPlay({}); resumed = true;
-    }
-    this.touch('state', false);
-    return { ok: true, resumed };
+    if (['playing', 'loading'].includes(pb.status)) { pb.status = 'paused'; this.player({ cmd: 'pause' }); paused = true; }
+    else if (pb.status === 'between') { this.cancelAdvance(); paused = true; }
+    pb.pausedForClaim = paused;
+    const session = {
+      id: 'S' + crypto.randomBytes(4).toString('hex').toUpperCase(),
+      status: 'open', openedAt: this.nowIso(), openedBy: source || 'laptop',
+      round: g.round.number, roundStatus: g.round.status,
+      snapshot: g.played.map(p => ({ songId: p.songId, kind: p.kind || 'played' })),
+      playback: { index: pb.index, position: pb.position, status: prevStatus },
+      resumeTo: paused ? (prevStatus === 'between' ? 'between' : 'playing') : null,
+      claimIds: []
+    };
+    g.claimSessions.push(session);
+    this.audit('claim-freeze', { sessionId: session.id, round: session.round, snapshotCount: session.snapshot.length, position: session.playback.position }, source);
+    this.log(`CLAIMS FROZEN (${session.id}) at ${session.snapshot.length} eligible songs — music ${paused ? 'paused' : 'not playing'}`);
+    this.touch('claims', true);
+    return { ok: true, sessionId: session.id, paused };
   }
 
   findCard(no) { return this.game.cards.find(c => c.no === no); }
+  cardMatchesGame(gameId) { return gameId === this.game.id || (this.game.aliasIds || []).includes(gameId); }
 
-  activeCheckRound() {
-    const r = this.game.round;
-    if (r.number === 0) return 0;
-    return r.number;
-  }
-
-  /** Verify a claim. Records it in the claim history; never confirms by itself. */
-  aCheckClaim(args, source) {
-    const g = this.game;
-    let cardNo = null;
+  parseCardInput(args) {
     if (args.qr) {
       const q = parseQrPayload(args.qr);
-      if (!q) return { ok: false, error: 'That QR code is not a Crime Master Bingo card.' };
-      if (q.gameId !== g.id) return { ok: false, error: 'That card belongs to a different game. Only cards printed for this game can win.' };
-      cardNo = q.cardNo;
-    } else {
-      cardNo = parseInt(String(args.cardNo || '').trim(), 10);
+      if (!q) return { error: 'That QR code is not a Crime Master Bingo card.' };
+      if (!this.cardMatchesGame(q.gameId)) return { error: 'That card belongs to a different game. Only cards printed for this game can win.' };
+      return { cardNo: q.cardNo };
     }
-    if (!Number.isInteger(cardNo) || cardNo < 1 || cardNo > 999) return { ok: false, error: 'Enter a card number between 1 and 999.' };
-    const card = this.findCard(cardNo);
-    if (!card) return { ok: false, error: `Card ${formatCardNo(cardNo)} does not exist in this game.` };
-    const round = this.activeCheckRound();
-    if (!round) return { ok: false, error: 'No round has started yet.' };
+    const cardNo = parseInt(String(args.cardNo || '').trim(), 10);
+    if (!Number.isInteger(cardNo) || cardNo < 1 || cardNo > 999) return { error: 'Enter a card number between 1 and 999.' };
+    return { cardNo };
+  }
 
-    const result = this.evaluate(card, round);
-    const alreadyWinner = g.claims.find(c => c.cardNo === cardNo && c.round === round && c.status === 'confirmed');
-    let claim = g.claims.find(c => c.cardNo === cardNo && c.round === round && c.status === 'pending');
-    const record = {
-      cardNo, round, at: new Date(this._now()).toISOString(), source,
-      valid: result.valid, headline: result.headline, reason: result.reason,
-      playedCount: g.played.length, winningCells: result.winningCells
+  /** Add (and check) a claimed card inside the open session — auto-freezes if needed. */
+  aAddClaim(args, source) {
+    const g = this.game;
+    const parsed = this.parseCardInput(args);
+    if (parsed.error) return { ok: false, error: parsed.error };
+    const card = this.findCard(parsed.cardNo);
+    if (!card) return { ok: false, error: `Card ${formatCardNo(parsed.cardNo)} does not exist in this game.` };
+    let session = this.activeSession();
+    if (!session) { this.aFreeze({}, source); session = this.activeSession(); }
+    // Duplicate entry of the same card in this session: show the same result, no new claim.
+    const existing = g.claims.find(c => c.sessionId === session.id && c.cardNo === card.no && c.status !== 'removed');
+    if (existing) return Object.assign(this.claimView(existing), { duplicateEntry: true });
+    const res = this.evaluate(card, session.round, session.snapshot.map(x => x.songId));
+    const alreadyWinner = g.claims.find(c => c.cardNo === card.no && c.round === session.round && c.status === 'confirmed');
+    const claim = {
+      id: uid('c_'), sessionId: session.id, cardNo: card.no, round: session.round, at: this.nowIso(), source,
+      valid: res.valid, headline: res.headline, reason: res.reason, playedCount: session.snapshot.length, winningCells: res.winningCells,
+      status: alreadyWinner ? 'duplicate' : (res.valid ? 'pending' : 'invalid')
     };
-    if (alreadyWinner) {
-      record.status = 'duplicate';
-      claim = Object.assign({ id: uid('c_') }, record);
-      g.claims.push(claim);
-    } else if (claim) {
-      Object.assign(claim, record, { status: result.valid ? 'pending' : 'invalid' });
-    } else {
-      claim = Object.assign({ id: uid('c_') }, record, { status: result.valid ? 'pending' : 'invalid' });
-      g.claims.push(claim);
-    }
-    this.log(`BINGO check: card ${formatCardNo(cardNo)} — ${result.valid ? 'VALID' : 'NOT VALID'} (${result.headline})`);
+    g.claims.push(claim);
+    session.claimIds.push(claim.id);
+    this.audit('claim-check', { sessionId: session.id, claimId: claim.id, cardNo: card.no, valid: res.valid, headline: res.headline }, source);
+    this.log(`BINGO check [${session.id}]: card ${formatCardNo(card.no)} — ${res.valid ? 'VALID' : 'NOT VALID'} (${res.headline})`);
     this.touch('claims', true);
+    return this.claimView(claim);
+  }
+
+  aViewClaim(args) {
+    const c = this.game.claims.find(x => x.id === args.claimId);
+    if (!c) throw new Error('Claim not found');
+    return this.claimView(c);
+  }
+
+  sessionPlayedIds(session) { return session ? session.snapshot.map(x => x.songId) : this.game.played.map(p => p.songId); }
+
+  /** Full result for one claim, always re-computed from its session's frozen snapshot. */
+  claimView(claim) {
+    const g = this.game;
+    const session = g.claimSessions.find(s => s.id === claim.sessionId) || null;
+    const card = this.findCard(claim.cardNo);
+    const ids = this.sessionPlayedIds(session);
+    const res = this.evaluate(card, claim.round, ids, session ? session.snapshot : null);
     return {
-      ok: true, claimId: claim.id, status: claim.status, cardNo, cardLabel: formatCardNo(cardNo), round,
-      roundLabel: rules.ROUNDS[round].label, roundStatus: g.round.status,
-      valid: result.valid, headline: result.headline, reason: result.reason,
-      alreadyWinner: !!alreadyWinner,
-      otherRoundWins: g.claims.filter(c => c.cardNo === cardNo && c.status === 'confirmed' && c.round !== round).map(c => c.round),
-      qualifiedAtSong: result.qualifiedAtSong, playedCount: g.played.length,
-      printed: !!card.printed,
-      grid: result.grid, winningCells: result.winningCells, lines: result.lines
+      ok: true, claimId: claim.id, sessionId: claim.sessionId || null, status: claim.status, cardNo: claim.cardNo, cardLabel: formatCardNo(claim.cardNo), round: claim.round,
+      roundLabel: rules.ROUNDS[claim.round].label, roundStatus: g.round.status,
+      valid: res.valid, headline: res.headline, reason: res.reason,
+      alreadyWinner: claim.status === 'duplicate' || (claim.status !== 'confirmed' && g.claims.some(c => c.cardNo === claim.cardNo && c.round === claim.round && c.status === 'confirmed')),
+      otherRoundWins: g.claims.filter(c => c.cardNo === claim.cardNo && c.status === 'confirmed' && c.round !== claim.round).map(c => c.round),
+      qualifiedAtSong: res.qualifiedAtSong, playedCount: ids.length,
+      printed: !!card.printed, review: claim.review || null,
+      grid: res.grid, winningCells: res.winningCells, lines: res.lines
     };
   }
 
-  evaluate(card, round) {
-    const playedIds = this.game.played.map(p => p.songId);
+  evaluate(card, round, playedIds, snapshot) {
     const set = new Set(playedIds);
     const res = rules.checkCard(card.cells, set, round);
     const win = new Set(res.winningCells);
     const order = new Map(playedIds.map((id, i) => [id, i + 1]));
+    const kinds = new Map((snapshot || this.game.played.map(p => ({ songId: p.songId, kind: p.kind }))).map(x => [x.songId, x.kind || 'played']));
     res.grid = card.cells.map((id, i) => {
       const s = this.song(id) || { title: '?', artist: '' };
-      return { songId: id, title: s.displayTitle || s.title, artist: s.artist, played: set.has(id), playedNo: order.get(id) || null, winning: win.has(i) };
+      const label = (this.game.cardsLocked && this.game.lockedLabels && this.game.lockedLabels[id]) || null;
+      return { songId: id, title: label ? label.title : (s.displayTitle || s.title), artist: s.artist, played: set.has(id), credit: set.has(id) && kinds.get(id) === 'credit', playedNo: order.get(id) || null, winning: win.has(i) };
     });
     res.qualifiedAtSong = res.valid ? rules.qualifiedAt(card.cells, playedIds, round) : null;
     return res;
   }
 
-  aConfirmClaim(args) {
+  aConfirmClaim(args, source) {
     const g = this.game;
     const claim = g.claims.find(c => c.id === args.claimId);
     if (!claim) throw new Error('Claim not found');
     if (claim.status === 'confirmed') return { ok: true, already: true };
+    if (['removed', 'dismissed', 'rejected'].includes(claim.status)) throw new Error('This claim was ' + claim.status + ' — check the card again to re-open it.');
     if (g.claims.some(c => c.cardNo === claim.cardNo && c.round === claim.round && c.status === 'confirmed')) throw new Error(`Card ${formatCardNo(claim.cardNo)} is already a confirmed winner in this round.`);
-    // Re-verify against the current history at the moment of confirmation.
+    const session = g.claimSessions.find(s => s.id === claim.sessionId);
+    if (session && session.status !== 'open') throw new Error('That claim session is closed.');
+    // Re-verify against the SAME frozen snapshot — other winners never invalidate this claim.
     const card = this.findCard(claim.cardNo);
-    const res = rules.checkCard(card.cells, this.playedSet(), claim.round);
-    if (!res.valid) throw new Error('This card no longer meets the winning rule — it cannot be confirmed.');
+    const res = rules.checkCard(card.cells, new Set(this.sessionPlayedIds(session)), claim.round);
+    if (!res.valid) throw new Error('This card does not meet the winning rule for its claim snapshot.');
     claim.status = 'confirmed';
-    claim.confirmedAt = new Date(this._now()).toISOString();
+    claim.confirmedAt = this.nowIso();
+    claim.confirmedBy = source || 'laptop';
     claim.headline = res.headline;
+    this.audit('winner-confirmed', { sessionId: claim.sessionId, claimId: claim.id, cardNo: claim.cardNo, round: claim.round, headline: res.headline }, source);
     this.log(`WINNER confirmed: card ${formatCardNo(claim.cardNo)}, Round ${claim.round} (${res.headline})`);
     if (this.settings.winnerAnimation) this.event('celebrate', { round: claim.round, label: rules.ROUNDS[claim.round].label });
     this.touch('claims');
-    return { ok: true };
+    return this.claimView(claim);
   }
 
-  aDismissClaim(args) {
+  aDismissClaim(args, source) {
     const claim = this.game.claims.find(c => c.id === args.claimId);
     if (!claim) throw new Error('Claim not found');
     if (claim.status === 'confirmed') throw new Error('Use "Undo winner" to remove a confirmed winner.');
     claim.status = claim.valid ? 'dismissed' : 'rejected';
+    claim.decidedAt = this.nowIso();
+    this.audit('claim-' + claim.status, { sessionId: claim.sessionId, claimId: claim.id, cardNo: claim.cardNo }, source);
     this.log(`Claim for card ${formatCardNo(claim.cardNo)} ${claim.status}`);
+    this.touch('claims');
+    return this.claimView(claim);
+  }
+
+  /** Remove an accidentally entered card from the session (kept in the audit trail). */
+  aRemoveClaim(args, source) {
+    const claim = this.game.claims.find(c => c.id === args.claimId);
+    if (!claim) throw new Error('Claim not found');
+    if (claim.status === 'confirmed') throw new Error('A confirmed winner cannot be removed — use "Undo winner".');
+    claim.status = 'removed';
+    claim.removedAt = this.nowIso();
+    this.audit('claim-removed', { sessionId: claim.sessionId, claimId: claim.id, cardNo: claim.cardNo }, source);
     this.touch('claims');
     return { ok: true };
   }
 
-  aRevokeWinner(args) {
+  /**
+   * Close the claim session. Pending (valid, undecided) claims are never dismissed
+   * silently: the host must decide them, or explicitly pass dismissPending.
+   */
+  aCloseSession(args, source) {
+    const g = this.game;
+    const s = this.activeSession();
+    if (!s) {
+      // legacy behaviour: resume if asked
+      if (args.resume && g.playback.status === 'paused' && g.round.number) { try { this.aPlay({}); } catch (e) { /* */ } }
+      return { ok: true, noSession: true };
+    }
+    const pending = s.claimIds.map(id => g.claims.find(c => c.id === id)).filter(c => c && c.status === 'pending');
+    if (pending.length && !args.dismissPending) {
+      return { ok: false, needsDecision: true, pending: pending.map(c => ({ claimId: c.id, cardLabel: formatCardNo(c.cardNo) })), message: `${pending.length} valid claim(s) are still undecided (${pending.map(c => formatCardNo(c.cardNo)).join(', ')}). Confirm or reject them before closing.` };
+    }
+    pending.forEach(c => { c.status = 'dismissed'; c.decidedAt = this.nowIso(); c.note = 'Dismissed by host when closing the claim session'; });
+    s.status = 'closed'; s.closedAt = this.nowIso(); s.closedBy = source || 'laptop';
+    this.audit('claim-session-closed', { sessionId: s.id, claims: s.claimIds.length, dismissedPending: pending.length }, source);
+    this.log(`Claim session ${s.id} closed`);
+    const pb = g.playback;
+    let resumed = false;
+    if (args.resume) {
+      pb.pausedForClaim = false;
+      try {
+        if (s.resumeTo === 'between' || (pb.status === 'idle' && s.resumeTo)) { this.scheduleAdvance(); if (pb.status !== 'between') this.aPlay({}); }
+        else if (pb.status === 'paused') this.aPlay({});
+        resumed = true;
+      } catch (e) { /* nothing to resume */ }
+    } else if (s.resumeTo === 'between' && pb.status === 'idle') { /* stays idle until host plays */ }
+    this.touch('claims');
+    return { ok: true, resumed, sessionId: s.id };
+  }
+
+  aRevokeWinner(args, source) {
     const claim = this.game.claims.find(c => c.id === args.claimId);
     if (!claim || claim.status !== 'confirmed') throw new Error('That claim is not a confirmed winner.');
     claim.status = 'revoked';
-    claim.revokedAt = new Date(this._now()).toISOString();
+    claim.revokedAt = this.nowIso();
+    this.audit('winner-revoked', { claimId: claim.id, cardNo: claim.cardNo, round: claim.round }, source);
     this.log(`Winner REVOKED: card ${formatCardNo(claim.cardNo)}, Round ${claim.round}`);
     this.touch('claims');
     return { ok: true };
@@ -690,12 +897,23 @@ class GameEngine {
   historyView() {
     return this.game.played.map((p, i) => {
       const s = this.song(p.songId) || {};
-      return { n: i + 1, songId: p.songId, title: s.displayTitle || s.title, artist: s.artist, round: p.round, manual: p.manual, at: p.at };
+      return { n: i + 1, songId: p.songId, title: s.displayTitle || s.title, artist: s.artist, round: p.round, manual: p.manual, kind: p.kind || 'played', at: p.at };
     });
   }
 
   winners() {
-    return this.game.claims.filter(c => c.status === 'confirmed').map(c => ({ claimId: c.id, cardNo: c.cardNo, cardLabel: formatCardNo(c.cardNo), round: c.round, headline: c.headline, at: c.confirmedAt }));
+    return this.game.claims.filter(c => c.status === 'confirmed').map(c => ({ claimId: c.id, cardNo: c.cardNo, cardLabel: formatCardNo(c.cardNo), round: c.round, headline: c.headline, at: c.confirmedAt, review: c.review || null }));
+  }
+
+  sessionView() {
+    const s = this.activeSession();
+    if (!s) return null;
+    return {
+      id: s.id, openedAt: s.openedAt, openedBy: s.openedBy, round: s.round, roundLabel: rules.ROUNDS[s.round].label, snapshotCount: s.snapshot.length,
+      position: s.playback.position,
+      claims: s.claimIds.map(id => this.game.claims.find(c => c.id === id)).filter(c => c && c.status !== 'removed')
+        .map(c => ({ claimId: c.id, cardNo: c.cardNo, cardLabel: formatCardNo(c.cardNo), status: c.status, valid: c.valid, headline: c.headline }))
+    };
   }
 
   currentView() {
@@ -703,7 +921,8 @@ class GameEngine {
     const id = this.currentSongId();
     if (!id) return null;
     const s = this.song(id);
-    return { songId: id, index: pb.index, number: pb.index + 1, title: s.displayTitle || s.title, artist: s.artist, played: this.isPlayed(id), duration: s.duration };
+    const e = this.ledgerEntry(id);
+    return { songId: id, index: pb.index, number: pb.index + 1, title: s.displayTitle || s.title, artist: s.artist, played: !!e, credit: !!(e && e.kind === 'credit'), duration: s.duration, unavailable: this.unavailable[id] || null };
   }
 
   /** Audience view: ONLY what the TV may show. No card numbers, no upcoming songs, no claims. */
@@ -718,7 +937,7 @@ class GameEngine {
       song: s ? { title: s.displayTitle || s.title, artist: s.artist, key: `${pb.index}:${this.loadToken}` } : null,
       playbackStatus: pb.status,
       round: { number: g.round.number, status: g.round.status, label: g.round.number ? rules.ROUNDS[g.round.number].label : 'ONE LINE' },
-      history: this.game.played.map((p, i) => { const x = this.song(p.songId) || {}; return { n: i + 1, title: x.displayTitle || x.title, artist: x.artist }; }),
+      history: g.played.map((p, i) => { const x = this.song(p.songId) || {}; return { n: i + 1, title: x.displayTitle || x.title, artist: x.artist, credit: p.kind === 'credit' }; }),
       overlay: this.settings.overlay,
       crawler: this.settings.crawler,
       patternPosition: this.settings.patternPosition
@@ -732,18 +951,23 @@ class GameEngine {
     const remaining = g.order.filter(id => !this.isPlayed(id)).length;
     const nextIdx = this.nextUnplayedIndex(pb.index);
     const next = nextIdx >= 0 ? this.song(g.order[nextIdx]) : null;
+    const played = this.playedSet();
     return {
       gameId: g.id, name: g.name, venue: g.venue, date: g.date, status: g.status, gamePaused: !!g.gamePaused,
-      version: g.version,
+      version: g.version, cardsLocked: !!g.cardsLocked, lockedAt: g.lockedAt || null,
       playback: { status: pb.status, index: pb.index, position: pb.position, clipStart: pb.clipStart, clipEnd: pb.clipEnd, pausedForClaim: !!pb.pausedForClaim, recovered: !!pb.recovered, nextAt: pb.nextAt || null },
       current: this.currentView(),
       next: next ? { title: next.displayTitle || next.title, artist: next.artist, number: nextIdx + 1 } : null,
-      totals: { songs: total, played: g.played.length, remaining, skipped: g.skipped.length, cards: g.cards.length, printed: g.cards.filter(c => c.printed).length },
+      totals: { songs: total, played: g.played.filter(p => p.kind !== 'credit').length, credited: g.played.filter(p => p.kind === 'credit').length, eligible: g.played.length, remaining, skipped: g.skipped.length, cards: g.cards.length, printed: g.cards.filter(c => c.printed).length },
       round: { number: g.round.number, status: g.round.status, label: g.round.number ? rules.ROUNDS[g.round.number].label : null, rule: g.round.number ? rules.ROUNDS[g.round.number].rule : null },
       history: this.historyView(),
       winners: this.winners(),
-      claims: g.claims.slice(-30).reverse().map(c => ({ id: c.id, cardNo: c.cardNo, cardLabel: formatCardNo(c.cardNo), round: c.round, status: c.status, valid: c.valid, headline: c.headline, at: c.at, source: c.source })),
-      settings: { clipMode: this.settings.clipMode, volume: this.settings.volume, autoAdvance: this.settings.autoAdvance, autoAdvanceGap: this.settings.autoAdvanceGap, pauseOnClaim: this.settings.pauseOnClaim, crawler: this.settings.crawler, overlay: this.settings.overlay, patternPosition: this.settings.patternPosition, winnerAnimation: this.settings.winnerAnimation, defaultStart: this.settings.defaultStart },
+      session: this.sessionView(),
+      claims: g.claims.filter(c => c.status !== 'removed').slice(-30).reverse().map(c => ({ id: c.id, sessionId: c.sessionId || null, cardNo: c.cardNo, cardLabel: formatCardNo(c.cardNo), round: c.round, status: c.status, valid: c.valid, headline: c.headline, at: c.at, source: c.source })),
+      credits: g.credits.map(c => ({ id: c.id, songId: c.songId, title: c.title, artist: c.artist, reason: c.reason, at: c.at, status: c.status })),
+      unavailable: Object.keys(this.unavailable).filter(id => this.song(id) && !played.has(id)).map(id => ({ songId: id, title: this.song(id).title, artist: this.song(id).artist, reason: this.unavailable[id] })),
+      creditReasons: CREDIT_REASONS,
+      settings: { clipMode: this.settings.clipMode, volume: this.settings.volume, autoAdvance: this.settings.autoAdvance, autoAdvanceGap: this.settings.autoAdvanceGap, pauseOnClaim: this.settings.pauseOnClaim, crawler: this.settings.crawler, overlay: this.settings.overlay, audio: this.settings.audio, patternPosition: this.settings.patternPosition, winnerAnimation: this.settings.winnerAnimation, defaultStart: this.settings.defaultStart },
       audienceConnected: this.audienceConnected,
       lastError: this.lastError
     };
@@ -751,9 +975,9 @@ class GameEngine {
 
   /** Full play order (desktop only). */
   orderView() {
-    const played = new Map(this.game.played.map((p, i) => [p.songId, i + 1]));
+    const played = new Map(this.game.played.map((p, i) => [p.songId, { n: i + 1, kind: p.kind }]));
     const skipped = new Set(this.game.skipped);
-    return this.game.order.map((id, i) => { const s = this.song(id); return { index: i, songId: id, title: s.displayTitle || s.title, artist: s.artist, playedNo: played.get(id) || null, skipped: skipped.has(id), clipStart: s.clipStart, clipEnd: s.clipEnd, duration: s.duration }; });
+    return this.game.order.map((id, i) => { const s = this.song(id); const p = played.get(id); return { index: i, songId: id, title: s.displayTitle || s.title, artist: s.artist, playedNo: p ? p.n : null, credit: !!(p && p.kind === 'credit'), skipped: skipped.has(id), unavailable: this.unavailable[id] || null, clipStart: s.clipStart, clipEnd: s.clipEnd, duration: s.duration }; });
   }
 }
 
@@ -764,17 +988,18 @@ function createGame({ name, date, venue, logo, songs, playlistId, playlistName, 
   if (ids.length < MIN_SONGS) throw new Error(`A game needs at least ${MIN_SONGS} unique songs — add ${MIN_SONGS - ids.length} more.`);
   const map = {};
   songs.forEach(s => {
-    map[s.id] = { id: s.id, title: s.title, artist: s.artist, displayTitle: s.displayTitle || '', printTitle: s.printTitle || '', path: s.path, duration: s.duration || 0, clipStart: s.clipStart != null ? s.clipStart : null, clipEnd: s.clipEnd != null ? s.clipEnd : null };
+    map[s.id] = { id: s.id, title: s.title, artist: s.artist, displayTitle: s.displayTitle || '', printTitle: s.printTitle || '', path: s.path, fileName: s.fileName || '', size: s.size || 0, fingerprint: s.fingerprint || '', duration: s.duration || 0, clipStart: s.clipStart != null ? s.clipStart : null, clipEnd: s.clipEnd != null ? s.clipEnd : null };
   });
   const st = Object.assign(defaultGameSettings(), settings || {});
+  st.audio = Object.assign(defaultAudio(), (settings && settings.audio) || {});
   const id = 'G' + crypto.randomBytes(3).toString('hex').toUpperCase();
   const game = {
-    id, name: name || 'Music Bingo', date: date || new Date().toISOString().slice(0, 10), venue: venue || '', logo: logo || null,
+    id, schemaVersion: locking.SCHEMA_VERSION, name: name || 'Music Bingo', date: date || new Date().toISOString().slice(0, 10), venue: venue || '', logo: logo || null,
     createdAt: new Date().toISOString(), playlistId, playlistName,
     songs: map, order: st.shuffle ? shuffle(ids) : ids.slice(),
-    settings: st, status: 'setup'
+    settings: st, status: 'setup', cardsLocked: false
   };
   return GameEngine.normalise(game);
 }
 
-module.exports = { GameEngine, createGame, defaultGameSettings, CLIP_MODES };
+module.exports = { GameEngine, createGame, defaultGameSettings, defaultAudio, CLIP_MODES, CREDIT_REASONS };
