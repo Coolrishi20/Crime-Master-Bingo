@@ -15,11 +15,11 @@ App.register('host', {
     el.innerHTML = `
       <div class="console-top">
         <div><div class="eyebrow" id="hgEyebrow">Host · now playing</div><h1 id="hgName"></h1></div>
-        <span class="chip" id="hgRound"></span><span class="grow"></span>
+        <span class="chip" id="hgRound"></span><span class="badge" id="hgLock"></span><span class="grow"></span>
         <div class="songcount" id="hgCount"></div>
         <button class="btn" id="hgAud"></button>
       </div>
-      <div id="hgRecover"></div>
+      <div id="hgRecover"></div><div id="hgSession"></div><div id="hgUnavail"></div>
       <div class="cols main-side">
         <div>
           <div class="panel" style="margin-bottom:16px">
@@ -39,7 +39,9 @@ App.register('host', {
             </div>
             <div class="row" style="margin-top:14px"><span class="muted small" style="font-weight:700">CLIP</span><div class="seg" id="cClip">${[20, 30, 40, 60, 'full'].map(m => `<button data-m="${m}">${m === 'full' ? 'Full' : m + 's'}</button>`).join('')}</div>
               <label class="toggle small">${'<input type="checkbox" id="cAuto"><span class="sw"></span>'}Auto-play next</label>
-              <label class="toggle small"><input type="checkbox" id="cPoc"><span class="sw"></span>Pause music during bingo checks</label></div>
+              <label class="toggle small"><input type="checkbox" id="cLev"><span class="sw"></span>Auto volume levelling</label>
+              <button class="btn sm" id="cMute">🔇 Mute</button></div>
+            <div class="muted tiny" id="hgLevel" style="margin-top:6px"></div>
             <div class="statusline" id="hgStatus"></div>
           </div>
           <div class="panel" style="margin-bottom:16px">
@@ -54,12 +56,14 @@ App.register('host', {
         </div>
         <div>
           <div class="panel" style="margin-bottom:16px;border-color:var(--pink)">
-            <h2>BINGO! check <span class="kbd">B</span></h2>
+            <h2>CHECK BINGO / FREEZE CLAIMS <span class="kbd">B</span></h2>
             <div class="check-box"><input type="text" inputmode="numeric" id="bNo" placeholder="Card no." maxlength="3"><button class="btn primary lg" id="bGo">CHECK</button></div>
-            <div class="row" style="margin-top:10px"><button class="btn sm" id="bScan">📷 Scan card QR with webcam</button><span class="muted tiny grow">Music ${'pauses'} automatically while you check (setting above).</span></div>
+            <div class="row" style="margin-top:10px"><button class="btn primary" id="bFreeze">❄ Freeze claims</button><button class="btn sm" id="bScan">📷 Scan QR</button></div>
+            <div class="muted tiny" style="margin-top:8px">Freezing pauses the music and locks the list of songs that count, so several cards can be checked fairly against the same moment.</div>
           </div>
           <div class="panel" style="margin-bottom:16px"><h2>Winners</h2><div id="hgWinners"></div></div>
-          <div class="panel"><h2>Recent claims</h2><div id="hgClaims"></div></div>
+          <div class="panel" style="margin-bottom:16px"><h2>Recent claims</h2><div id="hgClaims"></div></div>
+          <div class="panel"><h2>Technical credits</h2><div id="hgCredits"></div><button class="btn sm" id="hgCreditBtn" style="margin-top:10px">Grant technical credit…</button></div>
         </div>
       </div>`;
     this.bind();
@@ -78,7 +82,10 @@ App.register('host', {
     let vt; $('#cVol', el).oninput = (e) => { $('#cVolV', el).textContent = e.target.value; clearTimeout(vt); vt = setTimeout(() => App.cmd('setVolume', { volume: Number(e.target.value) }), 80); };
     $$('#cClip button', el).forEach(b => b.onclick = () => App.cmd('setClipMode', { clipMode: b.dataset.m === 'full' ? 'full' : Number(b.dataset.m) }));
     $('#cAuto', el).onchange = (e) => App.cmd('setGameSettings', { autoAdvance: e.target.checked });
-    $('#cPoc', el).onchange = (e) => App.cmd('setGameSettings', { pauseOnClaim: e.target.checked });
+    $('#cLev', el).onchange = (e) => App.cmd('setAudio', { levelling: e.target.checked });
+    $('#cMute', el).onclick = () => App.cmd('setAudio', { toggleMute: true });
+    $('#bFreeze', el).onclick = () => App.openChecker();
+    $('#hgCreditBtn', el).onclick = () => App.creditDialog();
     $('#hgProg', el).onclick = (e) => { const p = g().playback; const dur = (g().current && g().current.duration) || 0; if (!dur) return; const r = e.currentTarget.getBoundingClientRect(); App.cmd('seek', { position: dur * (e.clientX - r.left) / r.width }); };
     $('#hgAud', el).onclick = () => { if (g().audienceConnected) api('audience:fullscreen'); else api('audience:open'); };
     $('#rEnd', el).onclick = async () => { const r = g().round; if (await confirmBox(`End Round ${r.number}?`, 'Songs stay marked. You can start the next round when you are ready.', 'End round')) App.cmd('endRound'); };
@@ -115,7 +122,19 @@ App.register('host', {
     $('#cPlay', el).textContent = playing || pb.status === 'between' ? '❚❚' : '▶';
     $('#cVol', el).value = g.settings.volume; $('#cVolV', el).textContent = g.settings.volume;
     $$('#cClip button', el).forEach(b => b.classList.toggle('on', String(b.dataset.m) === String(g.settings.clipMode)));
-    $('#cAuto', el).checked = g.settings.autoAdvance; $('#cPoc', el).checked = g.settings.pauseOnClaim;
+    $('#cAuto', el).checked = g.settings.autoAdvance; $('#cLev', el).checked = g.settings.audio.levelling;
+    $('#cMute', el).textContent = g.settings.audio.muted ? '🔊 Unmute' : '🔇 Mute'; $('#cMute', el).className = 'btn sm' + (g.settings.audio.muted ? ' primary' : '');
+    $('#hgLevel', el).textContent = g.settings.audio.levelling ? `Levelling to ${g.settings.audio.targetLufs} LUFS · max boost +${g.settings.audio.maxBoostDb} dB · fade in ${g.settings.audio.fadeIn}s / out ${g.settings.audio.fadeOut}s${g.settings.audio.muted ? ' · MUTED' : ''}` : (g.settings.audio.muted ? 'MUTED' : 'Levelling off — songs play at their original loudness');
+    $('#hgLock', el).textContent = g.cardsLocked ? '🔒 CARDS LOCKED' : 'DRAFT CARDS'; $('#hgLock', el).className = 'badge ' + (g.cardsLocked ? 'ok' : 'warn');
+    const ss = g.session;
+    $('#hgSession', el).innerHTML = ss ? `<div class="banner" style="border-color:var(--amber);background:rgba(255,200,87,.12)"><div class="grow"><h3>❄ Claims frozen</h3><div class="muted">Session ${esc(ss.id)} · ${ss.claims.length} card(s) · ${ss.claims.filter(c => c.status === 'pending').length} awaiting a decision · ${ss.snapshotCount} eligible songs frozen</div></div><button class="btn primary lg" id="hgOpenSess">Open claim session</button></div>` : '';
+    if ($('#hgOpenSess', el)) $('#hgOpenSess', el).onclick = () => App.openChecker();
+    const un = g.unavailable || [];
+    $('#hgUnavail', el).innerHTML = un.length ? `<div class="banner" style="border-color:var(--red);background:var(--red-soft)"><div class="grow"><h3>⚠ ${un.length} video${un.length > 1 ? 's' : ''} unavailable</h3>${un.slice(0, 4).map(u => `<div class="row small" style="margin-top:6px"><b>${esc(u.title)}</b><span class="muted">— ${esc(u.artist)} · ${esc(u.reason)}</span><span class="grow"></span><button class="btn sm" data-relink="${u.songId}">Relink</button><button class="btn sm danger" data-credit="${u.songId}">Technical credit…</button></div>`).join('')}${un.length > 4 ? `<div class="muted small">…and ${un.length - 4} more</div>` : ''}</div></div>` : '';
+    $$('[data-relink]', el).forEach(b => b.onclick = () => App.relinkSong(b.dataset.relink));
+    $$('[data-credit]', el).forEach(b => b.onclick = () => App.creditDialog(b.dataset.credit));
+    $('#hgCredits', el).innerHTML = (g.credits || []).length ? g.credits.map(c => `<div class="hist-item"><div class="t"><b>${esc(c.title)}</b> <span>— ${esc(c.artist)}</span><div class="tiny muted">${esc(c.reason)} · ${new Date(c.at).toLocaleTimeString()}</div></div><span class="badge ${c.status === 'active' ? 'warn' : ''}">${c.status === 'active' ? 'COUNTS' : 'REVERSED'}</span>${c.status === 'active' ? `<button class="btn sm ghost" data-rev="${c.id}">Reverse</button>` : ''}</div>`).join('') : '<div class="muted small">None. Use this only when a video cannot be played — the song then counts on every card.</div>';
+    $$('[data-rev]', el).forEach(b => b.onclick = () => App.reverseCredit(b.dataset.rev));
     $('#rPause', el).textContent = g.gamePaused ? 'Resume game' : 'Pause game';
     $('#rEnd', el).disabled = g.round.status !== 'active';
     const st = $('#hgStatus', el); st.className = 'statusline';
@@ -185,10 +204,14 @@ App.register('host', {
     const sc = box.querySelector('.hist-list'); const keep = sc ? sc.scrollTop : 0;
     if (this.tab === 'played') {
       box.innerHTML = `<div class="muted small" style="margin-bottom:8px">The official list — exactly what the TV crawler shows and what BINGO checks use. ${g.history.length} song(s).</div>
-        <div class="hist-list">${g.history.length ? g.history.slice().reverse().map(h => `<div class="hist-item"><span class="n">${String(h.n).padStart(2, '0')}</span><div class="t"><b>${esc(h.title)}</b> <span>— ${esc(h.artist)}</span></div><span class="tiny muted">R${h.round}${h.manual ? ' · marked' : ''}</span><button class="btn sm ghost" data-un="${h.songId}" title="Remove from played list (correction)">✕</button></div>`).join('') : '<div class="muted small">Nothing played yet.</div>'}</div>`;
-      $$('[data-un]', box).forEach(b => b.onclick = async () => { if (await confirmBox('Remove from played list?', 'Only use this to correct a mistake — the song will disappear from the TV crawler and stop counting on cards.', 'Remove', true)) App.cmd('unmarkPlayed', { songId: b.dataset.un }); });
+        <div class="hist-list">${g.history.length ? g.history.slice().reverse().map(h => `<div class="hist-item"><span class="n">${String(h.n).padStart(2, '0')}</span><div class="t">${h.kind === 'credit' ? '<span class="badge warn">TECHNICAL CREDIT</span> ' : ''}<b>${esc(h.title)}</b> <span>— ${esc(h.artist)}</span></div><span class="tiny muted">R${h.round}${h.manual && h.kind !== 'credit' ? ' · marked' : ''}</span><button class="btn sm ghost" data-un="${h.songId}" title="Remove from played list (correction)">✕</button></div>`).join('') : '<div class="muted small">Nothing played yet.</div>'}</div>`;
+      $$('[data-un]', box).forEach(b => b.onclick = async () => {
+        if (!await confirmBox('Remove from played list?', 'Only use this to correct a mistake — the song will disappear from the TV crawler and stop counting on cards.', 'Remove', true)) return;
+        const r = await App.cmd('unmarkPlayed', { songId: b.dataset.un });
+        if (r && r.needsCorrection && await confirmBox('Correction affects results', esc(r.message) + '<br><br>Frozen claim sessions keep their snapshot. Confirmed winners stay confirmed but are flagged for review.', 'Apply correction', true)) App.cmd('unmarkPlayed', { songId: b.dataset.un, acknowledge: true });
+      });
     } else if (this.tab === 'order') {
-      box.innerHTML = `<div class="muted small" style="margin-bottom:8px">Shuffled order, saved before the game started. Host only — never shown on the TV.</div><div class="hist-list">${g.order.map(o => `<div class="hist-item ${o.index === g.playback.index ? 'current' : ''} ${o.playedNo ? 'done' : ''} ${o.skipped ? 'skipped' : ''}"><span class="n">${o.index + 1}</span><div class="t"><b>${esc(o.title)}</b> <span>— ${esc(o.artist)}</span></div>${o.playedNo ? `<span class="badge ok">#${o.playedNo}</span>` : (o.skipped ? '<span class="badge warn">skipped</span>' : '')}<button class="btn sm ghost" data-play="${o.index}" title="Play now">▶</button>${o.playedNo ? '' : `<button class="btn sm ghost" data-mk="${o.songId}" title="Mark as played">✓</button>`}</div>`).join('')}</div>`;
+      box.innerHTML = `<div class="muted small" style="margin-bottom:8px">Shuffled order, saved before the game started. Host only — never shown on the TV.</div><div class="hist-list">${g.order.map(o => `<div class="hist-item ${o.index === g.playback.index ? 'current' : ''} ${o.playedNo ? 'done' : ''} ${o.skipped ? 'skipped' : ''}"><span class="n">${o.index + 1}</span><div class="t"><b>${esc(o.title)}</b> <span>— ${esc(o.artist)}</span></div>${o.playedNo ? `<span class="badge ${o.credit ? 'warn' : 'ok'}">${o.credit ? 'TC ' : '#'}${o.playedNo}</span>` : (o.unavailable ? '<span class="badge bad">unavailable</span>' : (o.skipped ? '<span class="badge warn">skipped</span>' : ''))}<button class="btn sm ghost" data-play="${o.index}" title="Play now">▶</button>${o.playedNo ? '' : `<button class="btn sm ghost" data-mk="${o.songId}" title="Mark as played">✓</button>`}</div>`).join('')}</div>`;
       $$('[data-play]', box).forEach(b => b.onclick = async () => { if (await confirmBox('Play this song now?', 'The current song (if unfinished) is skipped without counting.', 'Play now')) App.cmd('jumpTo', { index: Number(b.dataset.play) }); });
       $$('[data-mk]', box).forEach(b => b.onclick = async () => { if (await confirmBox('Mark as played?', 'Add this song to the official played list?', 'Mark played')) App.cmd('markPlayed', { songId: b.dataset.mk }); });
     } else if (this.tab === 'crawler') {

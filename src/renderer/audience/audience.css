@@ -67,3 +67,5 @@ body.aspect-fill #video { object-fit: fill; }
 .tk-item.latest .tk-title { color: #ffd6ea; }
 .tk-empty { position: absolute; inset: 0; display: flex; align-items: center; padding-left: 1.2em; color: var(--lav); font-size: var(--tk-font, 30px); font-weight: 600; }
 
+.tk-credit { color: var(--amber); font-weight: 800; font-size: .8em; letter-spacing: .06em; }
+.tk-item.credit .tk-title { color: #ffe6b0; }

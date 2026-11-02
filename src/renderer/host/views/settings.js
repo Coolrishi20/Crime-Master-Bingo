@@ -39,6 +39,14 @@ App.register('settings', {
         <div class="panel"><h2>Gameplay</h2><div class="form-grid"><label class="field">Gap between songs (s)<input type="number" id="gG" min="0" max="30" value="${gd.autoAdvanceGap}"></label><label class="field">Volume (%)<input type="number" id="gV" min="0" max="100" value="${gd.volume}"></label></div>
           <div style="display:flex;flex-direction:column;gap:10px;margin-top:12px">${toggleHtml('gS', 'Shuffle playlist for new games', gd.shuffle)}${toggleHtml('gA', 'Auto-play next song', gd.autoAdvance)}${toggleHtml('gP', 'Pause music during bingo verification', gd.pauseOnClaim)}${toggleHtml('gW', 'Winner animation on TV', gd.winnerAnimation)}</div>
           <p class="muted small">Winners are always confirmed by the host. Auto-save is always on (every change is saved immediately, crash-safe).</p></div>
+        <div class="panel"><h2>Audio — automatic volume levelling</h2>
+          <div class="row">${toggleHtml('aLev', 'AUTO VOLUME LEVELLING', gd.audio.levelling)}</div>
+          <div class="form-grid" style="margin-top:12px">
+            <label class="field">Loudness target (LUFS)<select id="aT">${[-12, -14, -16, -18, -20, -23].map(v => `<option value="${v}" ${Number(gd.audio.targetLufs) === v ? 'selected' : ''}>${v} LUFS${v === -16 ? ' (recommended)' : v === -14 ? ' (louder)' : v === -20 ? ' (quieter)' : ''}</option>`).join('')}</select></label>
+            <label class="field">Maximum amplification (dB)<input type="number" id="aB" min="0" max="20" value="${gd.audio.maxBoostDb}"></label>
+            <label class="field">Fade in (seconds, 0 = off)<input type="number" id="aFi" min="0" max="5" step="0.1" value="${gd.audio.fadeIn}"></label>
+            <label class="field">Fade out (seconds, 0 = off)<input type="number" id="aFo" min="0" max="8" step="0.1" value="${gd.audio.fadeOut}"></label></div>
+          <p class="muted small">Every video's loudness is measured once in the background (EBU R128). Playback is then turned up or down so every song sounds equally loud — without touching the original files and never above ${gd.audio.ceilingDbtp} dBTP, so nothing clips. Very quiet videos are boosted by at most the maximum amplification.</p></div>
         <div class="panel"><h2>Mobile remote</h2>${toggleHtml('rA', 'Start the remote service when the app opens', s.remote.autoStart)}<p class="muted small">Address, PIN, paired devices and port: see <a href="#" id="rGo" style="color:var(--pink)">Mobile Host Connection</a>.</p>
           <p class="muted tiny">Data folder: ${esc(App.info.dataDir)}</p></div>
       </div>`;
@@ -54,14 +62,15 @@ App.register('settings', {
         remote: { autoStart: c('#rA') },
         gameDefaults: { clipMode: v('#sClip') === 'full' ? 'full' : Number(v('#sClip')), defaultStart: n('#sStart'), autoAdvanceGap: n('#gG'), volume: n('#gV'), shuffle: c('#gS'), autoAdvance: c('#gA'), pauseOnClaim: c('#gP'), winnerAnimation: c('#gW'), patternPosition: v('#pPos'),
           overlay: { position: v('#oPos'), titleSize: n('#oT'), artistSize: n('#oA'), opacity: n('#oO') / 100, duration: n('#oD'), enabled: c('#oOn') },
-          crawler: { speed: Math.max(1, Math.min(10, n('#cS'))), fontSize: n('#cF'), height: n('#cH'), separator: v('#cSep') } }
+          crawler: { speed: Math.max(1, Math.min(10, n('#cS'))), fontSize: n('#cF'), height: n('#cH'), separator: v('#cSep') },
+          audio: { levelling: c('#aLev'), targetLufs: n('#aT'), maxBoostDb: n('#aB'), fadeIn: n('#aFi'), fadeOut: n('#aFo'), ceilingDbtp: gd.audio.ceilingDbtp, muted: false } }
       };
       App.settings = await api('settings:update', patch);
       App.applyAppearance();
       toast('Settings saved', 'ok');
       if (App.game && await confirmBox('Apply to the current game?', 'Also apply the overlay, crawler, clip and gameplay settings to the game that is loaded now?', 'Apply')) {
         const g = patch.gameDefaults;
-        await App.cmd('setOverlay', g.overlay); await App.cmd('setCrawler', g.crawler);
+        await App.cmd('setOverlay', g.overlay); await App.cmd('setCrawler', g.crawler); await App.cmd('setAudio', g.audio);
         await App.cmd('setGameSettings', { clipMode: g.clipMode, autoAdvance: g.autoAdvance, autoAdvanceGap: g.autoAdvanceGap, pauseOnClaim: g.pauseOnClaim, winnerAnimation: g.winnerAnimation, patternPosition: g.patternPosition, defaultStart: g.defaultStart });
       }
     };

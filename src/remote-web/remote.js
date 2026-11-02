@@ -146,8 +146,9 @@
     $('nextUp').textContent = g.next ? 'Up next: ' + g.next.title + ' — ' + g.next.artist : '';
     $('markBtn').disabled = !cur || cur.played;
     renderProgress(); renderRounds(); renderHistory();
-    $('ckPaused').textContent = pb.pausedForClaim ? '⏸ Music is paused — position saved.' : '';
-    $('ckResume').textContent = pb.status === 'paused' ? '▶ Resume music' : 'Done';
+    renderSession();
+    renderAudio();
+    renderCredits();
   }
   function renderProgress() {
     if (!state) return; var pb = state.playback; var cs = pb.clipStart || 0, ce = pb.clipEnd || 0; var pos = pb.position || 0;
@@ -189,6 +190,47 @@
     $('history').innerHTML = g.history.length ? g.history.slice().reverse().map(function (h) { return '<div class="hist"><span class="n">' + ('0' + h.n).slice(-2) + '</span><div><b>' + esc(h.title) + '</b> <span class="a">— ' + esc(h.artist) + '</span></div></div>'; }).join('') : '<div class="muted small">No songs played yet.</div>';
   }
 
+  var SL = { pending: ['VALID · decide', 'warn'], confirmed: ['WINNER', 'ok'], invalid: ['NOT VALID', 'bad'], rejected: ['REJECTED', 'bad'], dismissed: ['DISMISSED', ''], duplicate: ['ALREADY WON', 'warn'] };
+  function renderSession() {
+    var s = state.session;
+    if (!s) { if (ckOpen) { ckOpen = false; stopScan(); $('checker').classList.add('hidden'); } $('bingoFab').textContent = 'CHECK BINGO'; return; }
+    $('bingoFab').textContent = 'CLAIMS FROZEN (' + s.claims.length + ')';
+    $('ckPaused').innerHTML = 'Session ' + esc(s.id) + ' · Round ' + s.round + ' · <b>' + s.snapshotCount + '</b> songs frozen · music paused at ' + fmt(s.position);
+    $('ckList').innerHTML = s.claims.length ? s.claims.map(function (c) { return '<div class="hist" data-id="' + c.claimId + '"><span class="n" style="width:40px">' + c.cardLabel + '</span><div style="flex:1">' + esc(c.headline) + '</div><span class="chip ' + (SL[c.status][1] === 'ok' ? '' : 'dim') + '" style="margin:0">' + SL[c.status][0] + '</span></div>'; }).join('') : '';
+    Array.prototype.forEach.call(document.querySelectorAll('#ckList [data-id]'), function (r) { r.onclick = function () { safe(cmd('viewClaim', { claimId: r.getAttribute('data-id') })).then(function (x) { if (x) { $('ckEntry').classList.add('hidden'); $('ckResult').classList.remove('hidden'); showResult(x); } }); }; });
+  }
+  function renderAudio() {
+    var a = state.settings.audio;
+    $('muteBtn').textContent = a.muted ? '🔊 Unmute' : '🔇 Mute'; $('muteBtn').className = 'btn' + (a.muted ? ' primary' : '');
+    $('levBtn').textContent = 'Levelling ' + (a.levelling ? 'ON' : 'OFF'); $('levBtn').className = 'btn' + (a.levelling ? '' : ' danger');
+  }
+  function renderCredits() {
+    var un = state.unavailable || [];
+    $('unavail').innerHTML = un.length ? '<div class="banner" style="border-color:var(--red);color:var(--red)">⚠ ' + un.length + ' video' + (un.length > 1 ? 's' : '') + ' unavailable' + un.slice(0, 3).map(function (u) { return '<div class="row" style="margin-top:8px;color:#fff"><div style="flex:1"><b>' + esc(u.title) + '</b><div class="muted small">' + esc(u.reason) + '</div></div><button class="btn" data-credit="' + u.songId + '">Credit…</button></div>'; }).join('') + '</div>' : '';
+    Array.prototype.forEach.call(document.querySelectorAll('[data-credit]'), function (b) { b.onclick = function () { creditFlow(b.getAttribute('data-credit')); }; });
+    var cr = state.credits || [];
+    $('credits').innerHTML = cr.length ? cr.map(function (c) { return '<div class="hist"><div style="flex:1"><b>' + esc(c.title) + '</b> <span class="a">— ' + esc(c.artist) + '</span><div class="muted small">' + esc(c.reason) + '</div></div><span class="chip ' + (c.status === 'active' ? '' : 'dim') + '" style="margin:0">' + (c.status === 'active' ? 'COUNTS' : 'REVERSED') + '</span></div>'; }).join('') : '<div class="muted small">None.</div>';
+  }
+  function creditFlow(songId) {
+    if (!state) return;
+    var counted = {}; state.history.forEach(function (h) { counted[h.songId] = 1; });
+    var song = null;
+    if (songId) { (state.unavailable || []).concat(state.current ? [state.current] : []).forEach(function (u) { if (u.songId === songId) song = u; }); }
+    if (!song && state.current && !state.current.played) song = state.current;
+    if (!song) { toast('Open the unavailable song from the warning, or use the laptop to choose another song.', 'err'); return; }
+    ask('Technical credit?', '<b style="color:#fff">' + esc(song.title) + ' — ' + esc(song.artist) + '</b><br>Choose why the video can\'t be played. The song will then count on <b>every card</b> that has it. No replacement is played. Recorded in the audit log.',
+      state.creditReasons.map(function (r) { return { label: r, value: r }; }).concat([{ label: 'Cancel', value: null, kind: 'danger' }]))
+      .then(function (reason) {
+        if (!reason) return;
+        confirmIt('Confirm technical credit', 'TECHNICAL CREDIT — COUNT SONG FOR ALL CARDS<br><b style="color:#fff">' + esc(song.title) + '</b><br>Reason: ' + esc(reason), 'Confirm credit').then(function (ok) {
+          if (ok) safe(cmd('grantCredit', { songId: song.songId, reason: reason, confirm: true })).then(function (r) { if (r && r.ok) toast('Technical credit recorded', 'ok'); });
+        });
+      });
+  }
+  $('creditBtn').onclick = function () { creditFlow(null); };
+  $('muteBtn').onclick = function () { vibrate(15); safe(cmd('setAudio', { toggleMute: true })); };
+  $('levBtn').onclick = function () { safe(cmd('setAudio', { toggleLevelling: true })); };
+
   /* ------------------------------------------------------------ controls */
   $('playBtn').onclick = function () { vibrate(15); safe(cmd('togglePlay')); };
   $('nextBtn').onclick = function () { vibrate(15); doNext(); };
@@ -225,36 +267,51 @@
   });
   function drawInput() { $('ckDisplay').textContent = ckInput ? ckInput : '___'; }
   $('bingoFab').onclick = function () {
-    vibrate(30); ckOpen = true; ckInput = ''; drawInput();
-    $('checker').classList.remove('hidden'); $('ckEntry').classList.remove('hidden'); $('ckResult').classList.add('hidden');
-    safe(cmd('openChecker')).then(function (r) { ckPaused = !!(r && r.paused); });
+    if (!state || !state.round.number) { toast('Start Round 1 first', 'err'); return; }
+    vibrate(30); ckInput = ''; drawInput();
+    safe(cmd('freezeClaims')).then(function (r) {
+      if (!r || r.ok === false) return;
+      ckOpen = true; ckPaused = !!r.paused;
+      $('checker').classList.remove('hidden'); $('ckEntry').classList.remove('hidden'); $('ckResult').classList.add('hidden');
+      if (state) renderSession();
+    });
   };
-  function closeChecker(resume) {
-    stopScan(); ckOpen = false; $('checker').classList.add('hidden');
-    safe(cmd('closeChecker', { resume: !!resume }));
+  function closeChecker(resume, dismissPending) {
+    safe(cmd('closeSession', { resume: !!resume, dismissPending: !!dismissPending })).then(function (r) {
+      if (r && r.needsDecision) {
+        ask('Undecided claims', esc(r.message) + '<br>Pending claims are never dismissed silently.', [{ label: 'Go back and decide', value: false, kind: 'primary' }, { label: 'Dismiss them & close', value: true, kind: 'danger' }])
+          .then(function (yes) { if (yes) closeChecker(resume, true); });
+        return;
+      }
+      if (r && r.ok !== false) { stopScan(); ckOpen = false; $('checker').classList.add('hidden'); toast(resume ? 'Session closed — music resumed' : 'Session closed', 'ok'); }
+    });
   }
-  $('ckClose').onclick = function () { closeChecker(false); };
-  $('ckResume').onclick = function () { closeChecker(state && state.playback.status === 'paused'); };
+  $('ckClose').onclick = function () { stopScan(); ckOpen = false; $('checker').classList.add('hidden'); toast('Claims stay frozen — tap the button to continue'); };
+  $('ckResume').onclick = function () { closeChecker(true); };
+  $('ckCloseKeep').onclick = function () { closeChecker(false); };
   $('ckAgain').onclick = function () { ckInput = ''; drawInput(); $('ckEntry').classList.remove('hidden'); $('ckResult').classList.add('hidden'); };
   $('ckGo').onclick = function () { if (!ckInput) return toast('Type the card number', 'err'); check({ cardNo: ckInput }); };
   function check(args) {
     $('ckResult').innerHTML = '<div class="muted center">Checking…</div>'; $('ckResult').classList.remove('hidden'); $('ckEntry').classList.add('hidden');
-    cmd('checkClaim', args).then(function (r) {
+    cmd('addClaim', args).then(function (r) {
       if (!r || r.ok === false) { $('ckResult').innerHTML = '<div class="verdict invalid"><div class="vt">CANNOT CHECK</div><div class="rs">' + esc((r && r.error) || 'Unknown error') + '</div></div>'; vibrate(200); return; }
       showResult(r);
     }, function () { $('ckEntry').classList.remove('hidden'); $('ckResult').classList.add('hidden'); });
   }
   function showResult(r) {
-    var dup = r.alreadyWinner; var cls = dup ? 'dup' : (r.valid ? 'valid' : 'invalid');
+    ckInput = ''; drawInput();
+    var dup = r.alreadyWinner && r.status !== 'confirmed'; var cls = r.status === 'confirmed' ? 'valid' : dup ? 'dup' : (r.valid ? 'valid' : 'invalid');
     vibrate(r.valid && !dup ? [60, 40, 60] : 250);
-    var h = '<div class="verdict ' + cls + '"><div class="vt">' + (dup ? 'ALREADY WON' : r.valid ? 'VALID BINGO!' : 'NOT VALID') + '</div><div class="hl">Card ' + r.cardLabel + ' — ' + esc(r.headline) + '</div><div class="rs">' + esc(r.reason) + '</div><div class="rs">Round ' + r.round + ' · ' + esc(r.roundLabel) + (r.qualifiedAtSong ? ' · qualified at song #' + r.qualifiedAtSong : '') + (r.printed ? '' : ' · ⚠ card not marked printed') + '</div></div>';
-    h += '<div class="mini">' + r.grid.map(function (c) { return '<div class="' + (c.winning ? 'w' : c.played ? 'p' : '') + '"><b>' + esc(c.title) + '</b><span>' + esc(c.artist) + '</span></div>'; }).join('') + '</div>';
-    if (r.valid && !dup) h += '<button class="btn success big" style="width:100%" id="ckConfirm">✓ CONFIRM WINNER</button><button class="btn danger wide" id="ckDismiss">Dismiss claim</button>';
-    else if (!r.valid) h += '<button class="btn danger wide" id="ckReject">Reject claim</button>';
+    var h = (r.duplicateEntry ? '<div class="banner">Card already entered in this session — same result shown.</div>' : '') + '<div class="verdict ' + cls + '"><div class="vt">' + (r.status === 'confirmed' ? 'WINNER CONFIRMED' : dup ? 'ALREADY WON' : r.valid ? 'VALID BINGO!' : 'NOT VALID') + '</div><div class="hl">Card ' + r.cardLabel + ' — ' + esc(r.headline) + '</div><div class="rs">' + esc(r.reason) + '</div><div class="rs">Round ' + r.round + ' · ' + esc(r.roundLabel) + (r.qualifiedAtSong ? ' · qualified at song #' + r.qualifiedAtSong : '') + (r.printed ? '' : ' · ⚠ card not marked printed') + '</div></div>';
+    h += '<div class="mini">' + r.grid.map(function (c) { return '<div class="' + (c.winning ? 'w' : c.played ? 'p' : '') + '">' + (c.credit ? '<span style="color:var(--amber)">TC</span>' : '') + '<b>' + esc(c.title) + '</b><span>' + esc(c.artist) + '</span></div>'; }).join('') + '</div>';
+    if (r.status === 'pending') h += '<button class="btn success big" style="width:100%" id="ckConfirm">✓ CONFIRM WINNER</button><button class="btn danger wide" id="ckDismiss">Reject claim</button>';
+    else if (r.status === 'invalid') h += '<button class="btn danger wide" id="ckReject">Reject claim</button>';
+    if (r.status !== 'confirmed') h += '<button class="btn wide" id="ckRemove">Remove (entered by mistake)</button>';
     $('ckResult').innerHTML = h;
     var c = $('ckConfirm');
-    if (c) c.onclick = function () { confirmIt('Confirm card ' + r.cardLabel + '?', 'Record card ' + r.cardLabel + ' as a Round ' + r.round + ' winner. The TV will celebrate (without showing the card).', 'Confirm winner').then(function (ok) { if (!ok) return; safe(cmd('confirmClaim', { claimId: r.claimId })).then(function (x) { if (x) { toast('Winner confirmed!', 'ok'); c.outerHTML = '<div class="verdict valid"><div class="vt">WINNER CONFIRMED</div></div>'; var d = $('ckDismiss'); if (d) d.remove(); } }); }); };
+    if (c) c.onclick = function () { confirmIt('Confirm card ' + r.cardLabel + '?', 'Record card ' + r.cardLabel + ' as a Round ' + r.round + ' winner. The TV will celebrate (without showing the card).', 'Confirm winner').then(function (ok) { if (!ok) return; safe(cmd('confirmClaim', { claimId: r.claimId })).then(function (x) { if (x) { toast('Winner confirmed!', 'ok'); showResult(x); } }); }); };
     var d = $('ckDismiss'); if (d) d.onclick = function () { safe(cmd('dismissClaim', { claimId: r.claimId })).then(function () { toast('Claim dismissed'); d.remove(); if (c) c.remove(); }); };
+    var rm = $('ckRemove'); if (rm) rm.onclick = function () { safe(cmd('removeClaim', { claimId: r.claimId })).then(function () { toast('Claim removed'); $('ckAgain').onclick(); }); };
     var j = $('ckReject'); if (j) j.onclick = function () { safe(cmd('dismissClaim', { claimId: r.claimId })).then(function () { toast('Claim rejected'); j.remove(); }); };
   }
   /* QR scanning: live camera where the browser allows it (HTTPS/localhost), otherwise take a photo — both decode locally with jsQR. */

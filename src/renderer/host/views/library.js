@@ -15,10 +15,11 @@ App.register('library', {
       <div class="row" id="lSelBar" style="margin-top:12px;display:none"><span id="lSelN" class="badge pink"></span>
         <select id="lPl"></select><button class="btn sm primary" id="lAdd">Add to playlist</button><button class="btn sm danger" id="lDel">Remove from library</button><button class="btn sm ghost" id="lClr">Clear selection</button></div>
       </div>
-      <div id="lSummary" class="muted small" style="margin:0 4px 8px"></div>
-      <div class="panel" style="padding:8px 12px"><table class="list"><thead><tr><th style="width:30px"><input type="checkbox" id="lAll"></th><th style="width:76px"></th><th>Song</th><th>Duration</th><th>Clip</th><th>Status</th><th style="width:220px"></th></tr></thead><tbody id="lBody"></tbody></table></div>`;
+      <div class="row" style="margin:0 4px 8px"><div id="lSummary" class="muted small grow"></div><span id="lAudio" class="muted small"></span><button class="btn sm ghost" id="lAudioPause">Pause analysis</button></div>
+      <div class="panel" style="padding:8px 12px"><table class="list"><thead><tr><th style="width:30px"><input type="checkbox" id="lAll"></th><th style="width:76px"></th><th>Song</th><th>Duration</th><th>Clip</th><th title="Automatic volume levelling">Loudness</th><th>Status</th><th style="width:220px"></th></tr></thead><tbody id="lBody"></tbody></table></div>`;
     $('#lFiles', el).onclick = async () => { const r = await api('library:pickFiles'); this.report(r); };
     $('#lFolder', el).onclick = async () => { const r = await api('library:pickFolder'); this.report(r); };
+    $('#lAudioPause', el).onclick = async () => { const st = await api('audio:status'); this.audio = await api(st.paused ? 'audio:resume' : 'audio:pause'); this.drawAudio(); };
     $('#lCheck', el).onclick = async () => { const n = await api('library:checkFiles'); toast(n ? `${n} file(s) missing — use Relink` : 'All files found', n ? 'err' : 'ok'); this.load(); };
     $('#lRelinkF', el).onclick = async () => { const n = await api('library:relinkFolder'); if (n != null) { toast(`${n} missing file(s) relinked`, 'ok'); this.load(); } };
     $('#lSearch', el).oninput = (e) => { this.q = e.target.value; this.draw(); };
@@ -45,6 +46,13 @@ App.register('library', {
     await this.load();
   },
   leave() { if (this.el) { this.el.classList.remove('dropzone'); this.el.ondragover = this.el.ondrop = this.el.ondragleave = null; } },
+  async drawAudio() {
+    const a = this.audio || await api('audio:status'); this.audio = a;
+    const el = this.el; if (!el || !$('#lAudio', el)) return;
+    $('#lAudio', el).textContent = !a.available ? '⚠ Volume levelling unavailable (ffmpeg not found) — songs play at original volume' : (a.paused ? `Loudness analysis paused (${a.pending} waiting)` : (a.pending || a.running ? `Analysing loudness… ${a.done} done, ${a.pending} to go` : `Loudness analysed for ${a.done} videos${a.errors ? ` · ${a.errors} failed` : ''}`));
+    $('#lAudioPause', el).style.display = a.available && (a.pending || a.running || a.paused) ? '' : 'none';
+    $('#lAudioPause', el).textContent = a.paused ? 'Resume analysis' : 'Pause analysis';
+  },
   on_library() { if (this._lt) return; this._lt = setTimeout(() => { this._lt = null; if (this.el && document.body.contains(this.el) && App.view === 'library') this.load(); }, 1500); },
   async addTo(id) {
     const r = await api('playlists:add', { id, songIds: Array.from(this.selected) });
@@ -68,7 +76,7 @@ App.register('library', {
   },
   async load() {
     const [lib, pls] = await Promise.all([api('library:list'), api('playlists:list')]);
-    this.songs = lib.songs; this.pls = pls;
+    this.songs = lib.songs; this.pls = pls; this.audio = null; this.drawAudio();
     const sel = $('#lPl', this.el);
     if (sel) sel.innerHTML = pls.map(p => `<option value="${p.id}">${esc(p.name)} (${p.songIds.length})</option>`).join('') + '<option value="__new">＋ New playlist…</option>';
     this.draw();
@@ -90,7 +98,7 @@ App.register('library', {
     $('#lSelBar', el).style.display = this.selected.size ? 'flex' : 'none';
     $('#lSelN', el).textContent = `${this.selected.size} selected`;
     const body = $('#lBody', el);
-    if (!this.visible.length) { body.innerHTML = `<tr><td colspan="7"><div class="empty">${total ? 'No songs match this filter.' : 'Your library is empty. Click <b>Import videos</b>, <b>Import folder</b>, or drag music videos onto this page.'}</div></td></tr>`; return; }
+    if (!this.visible.length) { body.innerHTML = `<tr><td colspan="8"><div class="empty">${total ? 'No songs match this filter.' : 'Your library is empty. Click <b>Import videos</b>, <b>Import folder</b>, or drag music videos onto this page.'}</div></td></tr>`; return; }
     const stBadge = s => {
       if (s.status === 'missing') return '<span class="badge bad">MISSING FILE</span>';
       if (s.status === 'unsupported') return `<span class="badge bad" title="${esc(s.statusNote)}">UNSUPPORTED</span>`;
@@ -103,6 +111,7 @@ App.register('library', {
       <td>${s.thumb ? `<img class="thumb" src="${fileUrl(s.thumb)}">` : '<div class="thumb"></div>'}</td>
       <td><div class="song-cell"><b>${esc(s.title || '— no title —')}</b><span>${esc(s.artist || '— no artist —')}${s.displayTitle ? ` · TV: “${esc(s.displayTitle)}”` : ''}</span><span class="tiny">${esc(s.fileName)}</span></div></td>
       <td class="muted">${s.duration ? fmtTime(s.duration) : '–'}</td>
+      <td class="small">${audioCell(s)}</td>
       <td class="muted small">${s.clipStart != null || s.clipEnd != null ? `${fmtTime(s.clipStart || 0)}–${s.clipEnd != null ? fmtTime(s.clipEnd) : 'auto'}` : 'default'}</td>
       <td>${stBadge(s)}${s.duplicateOf ? ' <span class="badge warn">DUPLICATE?</span>' : ''}${s.statusNote && s.status !== 'ok' ? `<div class="tiny muted" style="max-width:240px">${esc(s.statusNote)}</div>` : ''}</td>
       <td style="text-align:right"><button class="btn sm" data-edit>Edit</button> ${s.status === 'missing' ? '<button class="btn sm primary" data-relink>Relink</button>' : ''} ${s.duplicateOf ? '<button class="btn sm" data-notdup>Not a duplicate</button>' : ''}</td></tr>`).join('');
@@ -144,3 +153,13 @@ async function editSong(s, after) {
   if (after) after();
 }
 window.editSong = editSong;
+
+function audioCell(s) {
+  const a = s.audio;
+  if (!a || a.status === 'pending' || a.status === 'queued') return '<span class="badge">waiting</span>';
+  if (a.status === 'analysing') return '<span class="badge pink">analysing…</span>';
+  if (a.status === 'done') return `<span class="badge ok" title="True peak ${a.truePeak} dBTP${a.sampleRate ? ' · ' + a.sampleRate + ' Hz' : ''}${a.layout ? ' · ' + a.layout : ''}">${a.lufs} LUFS</span><div class="tiny muted">levelling ready</div>`;
+  if (a.status === 'no-audio') return '<span class="badge warn">NO AUDIO</span>';
+  if (a.status === 'unavailable') return '<span class="badge" title="' + esc(a.error || '') + '">n/a</span>';
+  return `<span class="badge bad" title="${esc(a.error || '')}">ANALYSIS FAILED</span><div class="tiny muted">plays at original volume</div>`;
+}

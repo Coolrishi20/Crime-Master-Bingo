@@ -14,7 +14,7 @@
   function TickerQueue() { this.items = []; this.cursor = 0; }
   TickerQueue.prototype.setItems = function (items) {
     var old = this.items;
-    var isExtension = items.length >= old.length && old.every(function (o, i) { return items[i] && items[i].n === o.n && items[i].title === o.title && items[i].artist === o.artist; });
+    var isExtension = items.length >= old.length && old.every(function (o, i) { return items[i] && items[i].n === o.n && items[i].title === o.title && items[i].artist === o.artist && !!items[i].credit === !!o.credit; });
     this.items = items.slice();
     if (!isExtension) { this.cursor = 0; return 'reset'; }
     if (this.cursor >= this.items.length) this.cursor = 0;
@@ -106,10 +106,16 @@
     el.setAttribute('data-i', it._i != null ? it._i : 0);
     var num = document.createElement('span'); num.className = 'tk-num'; num.textContent = (it.n < 10 ? '0' : '') + it.n;
     var t = document.createElement('span'); t.className = 'tk-title'; t.textContent = it.title;
-    var dash = document.createElement('span'); dash.className = 'tk-dash'; dash.textContent = '—';
-    var a = document.createElement('span'); a.className = 'tk-artist'; a.textContent = it.artist;
+    var dash = document.createElement('span'); dash.className = 'tk-dash'; dash.textContent = it.credit ? '/' : '—';
+    if (it.credit) {
+      // Technical credits are never shown as if the video was actually played.
+      el.className += ' credit';
+      el.appendChild(num); num = null;
+      var tc = document.createElement('span'); tc.className = 'tk-credit'; tc.textContent = 'TECHNICAL CREDIT — '; el.appendChild(tc);
+    }
+    var a =document.createElement('span'); a.className = 'tk-artist'; a.textContent = it.artist;
     var sep = document.createElement('span'); sep.className = 'tk-sep'; sep.textContent = SEPARATORS[this.opts.separator] || SEPARATORS.diamond;
-    el.appendChild(num); el.appendChild(t); el.appendChild(dash); el.appendChild(a); el.appendChild(sep);
+    if (num) el.appendChild(num); el.appendChild(t); el.appendChild(dash); el.appendChild(a); el.appendChild(sep);
     return el;
   };
 

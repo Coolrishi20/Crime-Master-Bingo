@@ -28,7 +28,7 @@ let stepN = 0; const step = (ms) => { console.log('step', ++stepN, new Date().to
   const g = await inv('games:create', { name: 'Thursday Night Music Bingo', venue: 'The Red Lion', playlistId: pl.id, cards: 100, settings: { clipMode: 'full', autoAdvanceGap: 1 } });
   console.log('game', g.id, g.cards);
   const pdf = path.join(OUT, 'cards.pdf');
-  const r = await inv('cards:exportPdf', { id: g.id, file: pdf });
+  const r = await inv('cards:exportPdf', { id: g.id, file: pdf, confirmLock: true });
   console.log('pdf', JSON.stringify(r));
   await host.evaluate(() => App.show('cards')); await step(1200);
   await host.screenshot({ path: path.join(OUT, '03-cards.png') });
@@ -46,9 +46,21 @@ let stepN = 0; const step = (ms) => { console.log('step', ++stepN, new Date().to
   await host.evaluate(() => App.show('host')); await step(800);
   await host.screenshot({ path: path.join(OUT, '06-host-game.png') });
   // checker
-  await host.evaluate(() => { App.openChecker('1'); }); await step(1200);
+  // Claim Freeze with two cards — one valid (we force its row to count via technical credit+mark), one invalid
+  const gs = (await inv('game:state')).game;
+  await host.evaluate(() => { App.openChecker(); }); await step(1200);
+  await host.fill('#ckNo', '2'); await host.press('#ckNo', 'Enter'); await step(700);
+  await host.fill('#ckNo', '1'); await host.press('#ckNo', 'Enter'); await step(900);
   await host.screenshot({ path: path.join(OUT, '07-bingo-check.png') });
   await host.keyboard.press('Escape'); await step(500);
+  await host.screenshot({ path: path.join(OUT, '07b-host-frozen.png') });
+  await host.evaluate(() => { App.creditDialog(); }); await step(700);
+  await host.screenshot({ path: path.join(OUT, '07c-credit-dialog.png') });
+  await host.keyboard.press('Escape'); await step(300);
+  await host.evaluate(() => App.show('backup')); await step(1200);
+  await host.screenshot({ path: path.join(OUT, '07d-backup.png') });
+  await host.evaluate(() => App.show('settings')); await step(1000);
+  await host.screenshot({ path: path.join(OUT, '07e-settings.png'), fullPage: true });
   // celebrate on TV
   // remote
   const info = await inv('remote:info');
@@ -64,7 +76,9 @@ let stepN = 0; const step = (ms) => { console.log('step', ++stepN, new Date().to
   await ph.screenshot({ path: path.join(OUT, '10-phone-play.png') });
   await ph.click('#tabs button[data-tab=rounds]'); await step(500);
   await ph.screenshot({ path: path.join(OUT, '11-phone-rounds.png') });
-  await ph.click('#bingoFab'); await step(500);
+  await ph.click('#tabs button[data-tab=play]'); await step(300);
+  await ph.screenshot({ path: path.join(OUT, '10b-phone-play-frozen.png') });
+  await ph.click('#bingoFab'); await step(800);
   for (const k of ['4', '2']) await ph.click(`#keypad button:text-is("${k}")`);
   await ph.screenshot({ path: path.join(OUT, '12-phone-keypad.png') });
   await ph.click('#ckGo'); await step(1200);

@@ -73,7 +73,7 @@ input { font-family: inherit; }
 #tabs button { flex: 1; background: none; border: 0; color: var(--lav); padding: 10px 0 12px; font-size: 12px; font-weight: 800; font-family: inherit; display: flex; flex-direction: column; align-items: center; gap: 2px; }
 #tabs button span { font-size: 20px; }
 #tabs button.on { color: var(--pink); }
-.sheet { position: fixed; inset: 0; background: var(--bg); z-index: 20; overflow: auto; padding: max(12px, env(safe-area-inset-top)) 14px calc(90px + env(safe-area-inset-bottom)); }
+.sheet { position: fixed; inset: 0; background: var(--bg); z-index: 20; overflow: auto; padding: max(12px, env(safe-area-inset-top)) 14px calc(170px + env(safe-area-inset-bottom)); }
 .sheet-head { display: flex; justify-content: space-between; align-items: center; font-family: var(--display); font-size: 28px; margin-bottom: 8px; }
 .x { background: var(--panel2); border: 0; color: #fff; width: 44px; height: 44px; border-radius: 12px; font-size: 26px; }
 .ck-display { font-family: var(--display); font-size: 64px; text-align: center; letter-spacing: .2em; padding: 6px 0 10px; color: #fff; }

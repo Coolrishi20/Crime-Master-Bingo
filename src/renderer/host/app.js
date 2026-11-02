@@ -21,6 +21,8 @@
       window.cmb.on('tick', (t) => { if (this.game) { this.game.playback.position = t.position; } this.emit('tick', t); });
       window.cmb.on('remote', (r) => { this.remote = r; this.updateSide(); this.emit('remote'); });
       window.cmb.on('audience', (a) => { this.audience.open = a.open; this.updateSide(); this.emit('audience'); });
+      window.cmb.on('library-audio', (a) => { if (App.view === 'library' && views.library) { views.library.audio = a; views.library.drawAudio(); views.library.on_library(); } });
+      window.cmb.on('backup-progress', (p) => this.emit('backup', p));
       window.cmb.on('event', (e) => { if (e.name === 'error') toast(e.payload.message, 'err', 7000); this.emit('event', e); });
       this.remote = await api('remote:info');
       this.audience = await api('audience:status');
@@ -83,6 +85,43 @@
         });
         if (choice) await this.cmd('next', { mode: choice, expectIndex: this.game.playback.index });
       } else if (r && r.finished) toast(r.message, 'ok');
+    },
+
+    /** Technical credit — explicit, host-authorised exception. */
+    async creditDialog(songId) {
+      const g = this.game; if (!g) return;
+      if (!g.round.number) return toast('Start Round 1 first', 'err');
+      const counted = new Set(g.history.map(h => h.songId));
+      const options = g.order.filter(o => !counted.has(o.songId));
+      const body = document.createElement('div');
+      body.innerHTML = `<p>Use this only when a song's video <b>cannot be played</b> (moved, disconnected drive, corrupted, unsupported codec, or failed during the event). The song will count on <b>every card</b> that has it. No replacement song is played. This is recorded in the audit log.</p>
+        <div class="form-grid"><label class="field">Song<select id="tcSong">${options.map(o => `<option value="${o.songId}" ${o.songId === songId ? 'selected' : ''}>${esc(o.title)} — ${esc(o.artist)}${o.unavailable ? ' ⚠' : ''}</option>`).join('')}</select></label>
+        <label class="field">Reason<select id="tcReason">${g.creditReasons.map(r => `<option>${esc(r)}</option>`).join('')}</select></label></div>
+        <label class="field" style="margin-top:10px">Notes (optional)<input type="text" id="tcNote" placeholder="e.g. USB drive failed"></label>
+        <div class="verdict dup" style="margin-top:14px"><div><div class="vt" style="font-size:22px">TECHNICAL CREDIT — COUNT SONG FOR ALL CARDS</div><div class="small muted">The TV crawler will show it as “TECHNICAL CREDIT — Title / Artist”, never as a played video.</div></div></div>`;
+      const r = await modal({ title: 'Technical credit', size: 'mid', body, buttons: [{ label: 'Cancel', value: null }, { label: 'Confirm technical credit', kind: 'primary', value: (b) => ({ songId: b.querySelector('#tcSong').value, reason: b.querySelector('#tcReason').value + (b.querySelector('#tcNote').value ? ' — ' + b.querySelector('#tcNote').value : '') }) }] });
+      if (!r) return;
+      const x = await this.cmd('grantCredit', Object.assign(r, { confirm: true }));
+      if (x && x.ok) toast('Technical credit recorded — the song now counts on every card', 'ok', 5000);
+    },
+    async reverseCredit(creditId) {
+      const reason = await promptBox('Reverse technical credit', 'Why is this credit being reversed? (kept in the audit log)');
+      if (reason == null) return;
+      let r = await this.cmd('reverseCredit', { creditId, reason });
+      if (r && r.needsCorrection) {
+        if (!await confirmBox('Correction affects results', esc(r.message), 'Reverse anyway', true)) return;
+        r = await this.cmd('reverseCredit', { creditId, reason, acknowledge: true });
+      }
+      if (r && r.ok) toast('Credit reversed (audit record kept)', 'ok');
+    },
+    async relinkSong(songId) {
+      const g = this.game; if (!g) return;
+      let r = await api('games:relinkSong', { id: g.gameId, songId });
+      if (r && r.needsConfirm) {
+        if (!await confirmBox('Different file', esc(r.reason) + '<br><br>The printed song identity and card layouts will not change.', 'Use this file', true)) return;
+        r = await api('games:relinkSong', { id: g.gameId, songId, file: r.file, confirm: true });
+      }
+      if (r && r.ok) toast('Video relinked', 'ok');
     },
 
     bindKeys() {

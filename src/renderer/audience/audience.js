@@ -9,6 +9,31 @@
   var overlay = $('overlay');
   var ticker = new CMBTicker.Ticker($('crawlViewport'), {});
   var cur = { token: null, clipStart: 0, clipEnd: null, volume: 85, ended: false, test: false };
+  var audio = { gainDb: 0, fadeIn: 0.5, fadeOut: 1, muted: false };
+  var sinkId = 'default';
+
+  /* Single Web Audio chain: <video> → gain → speakers. Levelling, fades, volume and
+     mute are ONE gain stage, so there is never a second stream or any overlap. */
+  var actx = null, gainNode = null;
+  function ensureAudio() {
+    if (actx) return;
+    try {
+      actx = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: 'playback' });
+      var src = actx.createMediaElementSource(video);
+      gainNode = actx.createGain(); gainNode.gain.value = 0;
+      src.connect(gainNode); gainNode.connect(actx.destination);
+      applySink();
+    } catch (e) { actx = null; gainNode = null; }
+  }
+  function applySink() {
+    var id = sinkId && sinkId !== 'default' ? sinkId : '';
+    if (actx && actx.setSinkId) actx.setSinkId(id).catch(function () { /* device gone: default */ });
+    else if (video.setSinkId) video.setSinkId(id).catch(function () {});
+  }
+  function setGain(v, tc) {
+    if (gainNode) { gainNode.gain.setTargetAtTime(v, actx.currentTime, tc || 0.02); video.volume = 1; }
+    else video.volume = Math.max(0, Math.min(1, v));
+  }
   var state = null;
   var overlayKey = null, overlayTimer = null;
   var patternTimer = null, patternRound = null, patternIdx = 0;
@@ -29,18 +54,35 @@
   }
 
   /* ------------------------------------------------------------- player */
+  /** Volume × levelling gain × fade (only inside the selected clip) × mute. */
   function effectiveVolume(t) {
-    var v = Math.max(0, Math.min(1, cur.volume / 100));
-    if (cur.clipEnd != null) {
+    if (audio.muted) return 0;
+    var v = Math.max(0, Math.min(1, cur.volume / 100)) * Math.pow(10, (audio.gainDb || 0) / 20);
+    if (cur.clipEnd != null && audio.fadeOut > 0) {
       var left = cur.clipEnd - t;
-      if (left < 1.5) v *= Math.max(0, left / 1.5); // gentle fade-out at the end of the clip
+      if (left < audio.fadeOut) v *= Math.max(0, left / audio.fadeOut);
     }
     var into = t - cur.clipStart;
-    if (into >= 0 && into < 0.6) v *= Math.max(0.15, into / 0.6); // soft fade-in
+    if (audio.fadeIn > 0 && into >= -0.05 && into < audio.fadeIn) v *= Math.max(0, into / audio.fadeIn);
+    if (!gainNode) v = Math.min(1, v);
     return v;
   }
 
+  var pendingLoad = null;
   function load(cmd) {
+    ensureAudio();
+    if (actx && actx.state === 'suspended') actx.resume();
+    // Quick 50 ms fade to silence before switching songs: no click, no overlap.
+    if (!video.paused && video.getAttribute('src')) {
+      setGain(0, 0.012);
+      clearTimeout(pendingLoad);
+      pendingLoad = setTimeout(function () { doLoad(cmd); }, 60);
+      return;
+    }
+    doLoad(cmd);
+  }
+  function doLoad(cmd) {
+    if (cmd.audio) audio = Object.assign(audio, cmd.audio);
     cur = { token: cmd.token, clipStart: cmd.clipStart || 0, clipEnd: cmd.clipEnd, volume: cmd.volume != null ? cmd.volume : cur.volume, ended: false, test: !!cmd.test, start: cmd.start || 0, autoplay: cmd.autoplay };
     video.classList.remove('show');
     video.pause();
@@ -51,7 +93,7 @@
 
   video.addEventListener('loadedmetadata', function () {
     try { video.currentTime = cur.start || 0; } catch (e) { /* */ }
-    video.volume = effectiveVolume(cur.start || 0);
+    setGain(effectiveVolume(cur.start || 0), 0.005);
     if (cur.autoplay) {
       var p = video.play();
       if (p && p.catch) p.catch(function (e) { report('player:error', { token: cur.token, message: e.message }); });
@@ -86,7 +128,7 @@
   function watch() {
     if (cur.token != null && !video.paused && !cur.ended) {
       var t = video.currentTime;
-      video.volume = effectiveVolume(t);
+      setGain(effectiveVolume(t));
       if (cur.clipEnd != null && t >= cur.clipEnd - 0.04) finish();
       var now = performance.now();
       if (now - lastReport > 250 && !cur.test) { lastReport = now; window.cmb.send('player:time-sync', { token: cur.token, t: t }); }
@@ -96,6 +138,7 @@
   requestAnimationFrame(watch);
 
   function clear() {
+    setGain(0, 0.01);
     cur.token = null; cur.ended = true;
     video.pause();
     video.classList.remove('show');
@@ -108,12 +151,13 @@
     switch (cmd.cmd) {
       case 'load': load(cmd); break;
       case 'play': cur.ended = false; video.play().catch(function (e) { report('player:error', { token: cur.token, message: e.message }); }); break;
-      case 'pause': video.pause(); break;
+      case 'pause': setGain(0, 0.01); setTimeout(function () { video.pause(); }, 40); break;
       case 'stop': video.pause(); try { video.currentTime = cur.clipStart; } catch (e) { /* */ } video.classList.remove('show'); break;
       case 'seek': try { video.currentTime = cmd.position; cur.ended = false; } catch (e) { /* */ } break;
-      case 'volume': cur.volume = cmd.volume; video.volume = effectiveVolume(video.currentTime || 0); break;
+      case 'volume': cur.volume = cmd.volume; setGain(effectiveVolume(video.currentTime || 0)); break;
+      case 'audio': if (cmd.token == null || cmd.token === cur.token || cmd.token === -1 || cur.token == null) { audio = Object.assign(audio, { gainDb: cmd.gainDb || 0, fadeIn: cmd.fadeIn != null ? cmd.fadeIn : audio.fadeIn, fadeOut: cmd.fadeOut != null ? cmd.fadeOut : audio.fadeOut, muted: !!cmd.muted }); setGain(effectiveVolume(video.currentTime || 0)); } break;
       case 'clip': if (cmd.token === cur.token) { cur.clipStart = cmd.clipStart; cur.clipEnd = cmd.clipEnd; } break;
-      case 'clear': clear(); break;
+      case 'clear': clearTimeout(pendingLoad); clear(); break;
     }
   });
 
@@ -191,7 +235,7 @@
     else { img.removeAttribute('src'); img.classList.remove('has'); $('idle').classList.remove('withlogo'); }
     document.body.classList.toggle('aspect-cover', a.aspect === 'cover');
     document.body.classList.toggle('aspect-fill', a.aspect === 'fill');
-    if (a.audioDeviceId && video.setSinkId) video.setSinkId(a.audioDeviceId === 'default' ? '' : a.audioDeviceId).catch(function () { /* device gone: stay on default */ });
+    if (a.audioDeviceId) { sinkId = a.audioDeviceId; applySink(); }
   }
 
   window.cmb.on('audience-state', applyState);
@@ -203,5 +247,5 @@
     if (r.state) applyState(r.state);
     else { state = { round: { number: 0 }, history: [], overlay: {}, crawler: {} }; renderPattern(); ticker.setItems([]); }
   });
-  window.__audience = { ticker: ticker, video: video, get cur() { return cur; } };
+  window.__audience = { ticker: ticker, video: video, get cur() { return cur; }, get audio() { return audio; }, get gain() { return gainNode ? gainNode.gain.value : video.volume; }, get context() { return actx; } };
 })();

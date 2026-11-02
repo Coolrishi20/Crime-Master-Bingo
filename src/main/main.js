@@ -49,6 +49,7 @@ function loadSettings() {
   merged.gameDefaults = Object.assign(defaultGameSettings(), s.gameDefaults || {});
   merged.gameDefaults.overlay = Object.assign(defaultGameSettings().overlay, (s.gameDefaults || {}).overlay || {});
   merged.gameDefaults.crawler = Object.assign(defaultGameSettings().crawler, (s.gameDefaults || {}).crawler || {});
+  merged.gameDefaults.audio = Object.assign(defaultGameSettings().audio, (s.gameDefaults || {}).audio || {});
   return merged;
 }
 function saveSettings(urgent = true) { store.write('settings', settings, urgent); }
@@ -63,7 +64,7 @@ function gameSummary(g) {
     id: g.id, name: g.name, date: g.date, venue: g.venue, status: g.status, createdAt: g.createdAt, updatedAt: g.updatedAt,
     songs: (g.order || []).length, played: (g.played || []).length, cards: (g.cards || []).length,
     printed: (g.cards || []).filter(c => c.printed).length,
-    round: g.round ? g.round.number : 0, roundStatus: g.round ? g.round.status : 'pending',
+    round: g.round ? g.round.number : 0, roundStatus: g.round ? g.round.status : 'pending', cardsLocked: !!g.cardsLocked,
     winners: winners.map(w => ({ cardNo: w.cardNo, round: w.round })), playlistName: g.playlistName
   };
 }
@@ -282,7 +283,8 @@ const handlers = {
       const gd = patch.gameDefaults;
       if (gd.overlay) Object.assign(settings.gameDefaults.overlay, gd.overlay);
       if (gd.crawler) Object.assign(settings.gameDefaults.crawler, gd.crawler);
-      Object.keys(gd).forEach(k => { if (k !== 'overlay' && k !== 'crawler') settings.gameDefaults[k] = gd[k]; });
+      if (gd.audio) settings.gameDefaults.audio = Object.assign({}, settings.gameDefaults.audio || {}, gd.audio);
+      Object.keys(gd).forEach(k => { if (!['overlay', 'crawler', 'audio'].includes(k)) settings.gameDefaults[k] = gd[k]; });
     }
     saveSettings();
     sendAudience('app-settings', audienceAppSettings());
@@ -395,7 +397,7 @@ const handlers = {
     const g = getGameObj(id);
     const batches = {};
     g.cards.forEach(c => { const b = batches[c.batch] = batches[c.batch] || { batch: c.batch, count: 0, from: 999, to: 0, printed: 0 }; b.count++; b.from = Math.min(b.from, c.no); b.to = Math.max(b.to, c.no); if (c.printed) b.printed++; });
-    return { total: g.cards.length, printed: g.cards.filter(c => c.printed).length, remainingNumbers: 999 - g.cards.length, batches: Object.values(batches), problems: cardsLib.validateCards(g.cards, g.order) };
+    return { total: g.cards.length, printed: g.cards.filter(c => c.printed).length, remainingNumbers: 999 - g.cards.length, batches: Object.values(batches), problems: cardsLib.validateCards(g.cards, g.order).concat(locking.verifyLock(g)), locked: !!g.cardsLocked, lockedAt: g.lockedAt || null };
   },
   'cards:get': ({ id, no }) => {
     const g = getGameObj(id); const c = g.cards.find(x => x.no === Number(no)); if (!c) throw new Error('No such card');

@@ -15,12 +15,18 @@ App.register('cards', {
   async summary() {
     const box = $('#cSum', this.el); if (!box) return;
     const s = await api('cards:summary', { id: this.gameId });
-    box.innerHTML = `<h2>Cards in this game</h2>
+    const info = (await api('games:list')).find(g => g.id === this.gameId) || {};
+    box.innerHTML = `<h2>Cards in this game ${s.locked ? '<span class="badge ok">🔒 LOCKED / ISSUED</span>' : '<span class="badge warn">DRAFT</span>'}</h2>
+      ${s.locked ? `<div class="muted small" style="margin-bottom:10px">Issued ${s.lockedAt ? new Date(s.lockedAt).toLocaleString() : ''}. Song positions, card numbers and printed titles can never change — Bingo checks always use these locked cards.</div>`
+        : `<div class="muted small" style="margin-bottom:10px">Draft: you can preview, regenerate cards or rebuild from an edited playlist. Cards lock automatically when you export the final PDF or print.</div>
+          <div class="row" style="margin-bottom:12px"><button class="btn sm" id="cRegen" ${info.round ? 'disabled' : ''}>Regenerate all cards</button><button class="btn sm" id="cRebuild" ${info.round ? 'disabled' : ''}>Rebuild from playlist</button></div>`}
       <div class="row" style="gap:28px"><div class="stat"><span class="k">Generated</span><span class="big-num">${s.total}</span></div><div class="stat"><span class="k">Printed</span><span class="big-num">${s.printed}</span></div><div class="stat"><span class="k">Numbers left</span><span class="big-num">${s.remainingNumbers}</span></div></div>
       ${s.problems.length ? `<div class="badge bad" style="margin-top:10px">${esc(s.problems[0])}</div>` : (s.total ? '<div class="badge ok" style="margin-top:10px">✓ All cards unique · 25 different songs each</div>' : '')}
       <div style="margin-top:12px">${s.batches.map(b => `<div class="check-row"><div class="grow"><b>Batch ${b.batch}</b> · cards ${pad3(b.from)}–${pad3(b.to)}</div><span class="badge ${b.printed === b.count ? 'ok' : ''}">${b.printed}/${b.count} printed</span></div>`).join('')}</div>
       <div class="row" style="margin-top:12px"><input type="number" id="cMore" min="1" max="${s.remainingNumbers}" value="${Math.min(20, s.remainingNumbers)}" style="width:100px"><button class="btn" id="cGen" ${s.remainingNumbers ? '' : 'disabled'}>Generate more cards</button></div>
       <p class="muted tiny">New cards continue from the next unused number. Existing cards are never changed or reissued.</p>`;
+    if ($('#cRegen', box)) $('#cRegen', box).onclick = async () => { if (await confirmBox('Regenerate draft cards?', 'All draft cards are replaced with new random cards. Only possible because nothing has been issued yet.', 'Regenerate')) { await api('cards:regenerate', { id: this.gameId, count: s.total }); toast('Draft cards regenerated', 'ok'); this.render(this.el); } };
+    if ($('#cRebuild', box)) $('#cRebuild', box).onclick = async () => { if (await confirmBox('Rebuild from playlist?', 'The game takes a fresh snapshot of its playlist (including your edits), reshuffles the play order and regenerates the draft cards.', 'Rebuild')) { await api('games:rebuildFromPlaylist', { id: this.gameId }); toast('Game rebuilt from the playlist', 'ok'); this.render(this.el); } };
     $('#cGen', box).onclick = async () => {
       const n = Number($('#cMore', box).value);
       const r = await api('cards:generate', { id: this.gameId, count: n });
@@ -54,7 +60,7 @@ App.register('cards', {
       <div class="row" style="gap:24px;margin-bottom:12px">${toggleHtml('ppQr', 'QR codes', cs.qr)}${toggleHtml('ppBw', 'Black & white (ink saver)', cs.bw)}${toggleHtml('ppLogo', 'Logo', cs.useLogo)}</div>
       <label class="field" style="max-width:320px">Card text size: <span id="ppTsV">${Math.round(cs.textScale * 100)}%</span><input type="range" id="ppTs" min="80" max="125" step="5" value="${Math.round(cs.textScale * 100)}"></label>
       <div class="muted" id="ppInfo" style="margin:14px 0"></div>
-      <div class="row"><button class="btn" id="ppPrev">Print preview</button><button class="btn" id="ppPdf">Export PDF…</button><button class="btn primary" id="ppPrint">🖨 Print…</button></div>
+      <div class="row"><button class="btn" id="ppPrev" title="Preview never locks the cards">Print preview</button><button class="btn" id="ppPdf">Export PDF…</button><button class="btn primary" id="ppPrint">🖨 Print…</button></div>
       <p class="muted tiny" style="margin-top:12px">A4 portrait, two cards per sheet (top &amp; bottom halves) with a dashed cut line. Print at <b>100% / Actual size</b> — do not use “fit to page” or multiple pages per sheet. Long titles shrink automatically; set a shorter “Printed title” in the Music Library if needed.</p>
       <div id="ppResult"></div>`;
     let sel = 'all';
@@ -76,8 +82,12 @@ App.register('cards', {
       if (after) after();
     };
     $('#ppPrev', box).onclick = async () => { saveOpts(); busy(true, 'Building preview…'); try { const r = await api('cards:exportPdf', Object.assign(opts(), { preview: true })); busy(false); done(r, 'Preview'); } catch (e) { busy(false); } };
-    $('#ppPdf', box).onclick = async () => { saveOpts(); busy(true, 'Creating PDF… (large print runs take a little while)'); try { const r = await api('cards:exportPdf', opts()); busy(false); done(r, 'PDF saved'); } catch (e) { busy(false); } };
-    $('#ppPrint', box).onclick = async () => { saveOpts(); busy(true, 'Preparing pages for the printer…'); try { const r = await api('cards:print', opts()); busy(false); if (r.printed) { toast(`Sent ${r.sheets} sheets to the printer`, 'ok'); if (after) after(); } else toast('Printing cancelled' + (r.reason && r.reason !== 'cancelled' ? ': ' + r.reason : ''), 'err'); } catch (e) { busy(false); } };
+    const lockOk = async () => {
+      if (s.locked) return true;
+      return modal({ title: 'LOCK BINGO CARDS?', body: `<p><b style="color:#fff">Once these cards have been issued, their songs and arrangements cannot be changed. This ensures printed cards always match Bingo verification.</b></p><p class="muted small">Card numbers, the 25 songs on each card, their positions and the printed titles are fixed for this game. You can still add extra cards with unused numbers later. Music Library edits will not affect this game.</p>`, buttons: [{ label: 'Cancel', value: false }, { label: '🔒 Confirm & Lock', kind: 'primary', value: true }], dismissValue: false });
+    };
+    $('#ppPdf', box).onclick = async () => { saveOpts(); if (!await lockOk()) return; busy(true, 'Creating PDF… (large print runs take a little while)'); try { const r = await api('cards:exportPdf', Object.assign(opts(), { confirmLock: true })); busy(false); done(r, 'PDF saved'); if (r && !s.locked) { s.locked = true; toast('Cards are now LOCKED / ISSUED', 'ok'); } } catch (e) { busy(false); } };
+    $('#ppPrint', box).onclick = async () => { saveOpts(); if (!await lockOk()) return; busy(true, 'Preparing pages for the printer…'); try { const r = await api('cards:print', Object.assign(opts(), { confirmLock: true })); busy(false); if (r.printed) { toast(`Sent ${r.sheets} sheets to the printer — cards LOCKED`, 'ok'); s.locked = true; if (after) after(); } else toast('Printing cancelled — cards were not locked' + (r.reason && r.reason !== 'cancelled' ? ': ' + r.reason : ''), 'err'); } catch (e) { busy(false); } };
     info();
   }
 });
