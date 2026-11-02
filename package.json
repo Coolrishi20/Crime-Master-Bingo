@@ -1,0 +1,98 @@
+{
+  "name": "crime-master-bingo",
+  "productName": "Crime Master Bingo",
+  "version": "1.0.0",
+  "description": "Crime Master Bingo - offline music video bingo for live events",
+  "main": "src/main/main.js",
+  "author": "Crime Master Bingo",
+  "license": "UNLICENSED",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test test/unit/*.test.js",
+    "test:e2e": "node tools/make-sample-videos.js sample-videos 50 6 && xvfb-run -a node test/e2e/acceptance.js sample-videos",
+    "make-samples": "node tools/make-sample-videos.js",
+    "dist:win": "node tools/fetch-ffmpeg.js win32-x64 && electron-builder --win nsis portable --x64",
+    "dist:dir": "node tools/fetch-ffmpeg.js win32-x64 && electron-builder --win dir --x64"
+  },
+  "build": {
+    "appId": "com.crimemaster.bingo",
+    "productName": "Crime Master Bingo",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "src/**/*",
+      "assets/**/*",
+      "package.json",
+      "!**/*.map"
+    ],
+    "asarUnpack": [
+      "src/main/audio-worker.js",
+      "src/main/loudness.js"
+    ],
+    "win": {
+      "icon": "build/icon.ico",
+      "signAndEditExecutable": true,
+      "target": [
+        "nsis",
+        "portable"
+      ],
+      "extraResources": [
+        {
+          "from": "vendor/ffmpeg/win32-x64",
+          "to": "ffmpeg",
+          "filter": [
+            "**/*"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "shortcutName": "Crime Master Bingo",
+      "artifactName": "CrimeMasterBingo-Setup-${version}.${ext}",
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico"
+    },
+    "portable": {
+      "artifactName": "CrimeMasterBingo-Portable-${version}.${ext}"
+    },
+    "extraResources": [
+      {
+        "from": "docs",
+        "to": "docs",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "LICENSES",
+        "to": "licenses",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "linux": {
+      "target": [
+        "dir"
+      ],
+      "category": "AudioVideo"
+    }
+  },
+  "dependencies": {
+    "jsqr": "^1.4.0",
+    "qrcode": "^1.5.4",
+    "ws": "^8.22.1",
+    "yauzl": "^3.4.0",
+    "yazl": "^2.5.1"
+  },
+  "devDependencies": {
+    "electron": "^33.4.11",
+    "electron-builder": "^25.1.8"
+  }
+}

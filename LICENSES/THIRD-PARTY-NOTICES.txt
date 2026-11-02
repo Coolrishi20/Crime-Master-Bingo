@@ -1,0 +1,12 @@
+Crime Master Bingo — third-party components
+
+ffmpeg (resources/ffmpeg/ffmpeg.exe)
+  Used only as a separate program to read audio loudness; it is never linked into the app.
+  Static build from https://github.com/eugeneware/ffmpeg-static (release b6.0), licensed GPL v3.
+  Its licence and README are next to the executable (ffmpeg-LICENSE.txt / ffmpeg-README.txt).
+  FFmpeg source code: https://ffmpeg.org/download.html  (build details in ffmpeg-README.txt)
+
+Electron (MIT) — https://www.electronjs.org
+ws (MIT), qrcode (MIT), yazl (MIT), yauzl (MIT)
+jsQR (Apache-2.0) — https://github.com/cozmo/jsQR
+Inter and Anton fonts (SIL Open Font License 1.1) — OFL-Inter.txt, OFL-Anton.txt

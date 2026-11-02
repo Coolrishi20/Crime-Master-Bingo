@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' file: data:; media-src file: data: blob:; img-src file: data: blob:; style-src 'self' 'unsafe-inline' file:; script-src 'self' file:">
+<title>Crime Master Bingo — Audience</title>
+<link rel="stylesheet" href="../shared/theme.css">
+<link rel="stylesheet" href="audience.css">
+</head>
+<body>
+<div id="screen">
+  <div id="stage">
+    <div id="idle"><img id="idleLogo" alt=""><div id="idleBrand"><span class="display">CRIME MASTER</span><span class="display pink">BINGO</span></div></div>
+    <video id="video" playsinline preload="auto"></video>
+    <div id="overlay" class="ov-bottom-left hidden" aria-live="polite">
+      <div class="ov-accent"></div>
+      <div class="ov-body"><div id="ovTitle" class="display"></div><div id="ovArtist"></div></div>
+    </div>
+    <div id="pattern" class="pos-top-right">
+      <div class="pt-head"><span id="ptRound">ROUND 1</span><span class="pt-towin">TO WIN</span></div>
+      <div id="ptLabel" class="display">ONE LINE</div>
+      <div class="pt-grids"><div id="ptGrid" class="pgrid"></div></div>
+      <div id="ptSub">Any full row or column</div>
+      <div id="ptCelebrate"><div class="display">BINGO!</div><div class="pt-cel-sub">WINNER CONFIRMED</div></div>
+    </div>
+    <div id="takeover" class="hidden" aria-live="assertive">
+      <canvas id="confetti"></canvas>
+      <div class="to-inner">
+        <div class="to-eyebrow" id="toEyebrow"></div>
+        <div class="to-title display" id="toTitle"></div>
+        <div class="to-card" id="toCard"></div>
+        <div class="to-row"><div id="toGrid" class="pgrid"></div><div class="to-text"><div class="to-sub display" id="toSub"></div><div class="to-msg" id="toMsg"></div></div></div>
+      </div>
+    </div>
+  </div>
+  <div id="crawler"><div id="crawlLabel"><span>PLAYED</span><span>SO FAR</span></div><div id="crawlViewport"></div></div>
+</div>
+<script src="../shared/patterns.js"></script>
+<script src="../shared/ticker.js"></script>
+<script src="audience.js"></script>
+</body>
+</html>

@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#1a1033">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Crime Master Bingo — Host Remote</title>
+<link rel="icon" href="/icon.png">
+<link rel="apple-touch-icon" href="/icon.png">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="apple-mobile-web-app-title" content="CMB Remote">
+<link rel="stylesheet" href="remote.css">
+</head>
+<body>
+<!-- Pairing -->
+<section id="pair" class="screen">
+  <div class="brand"><span>CRIME MASTER</span><span class="pink">BINGO</span></div>
+  <p class="muted">Host remote — controls the laptop.<br>Music and video play on the laptop/TV only.</p>
+  <label class="lbl">Pairing PIN (shown on the laptop)</label>
+  <input id="pin" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="one-time-code" placeholder="••••••">
+  <label class="lbl">This phone's name</label>
+  <input id="devName" maxlength="40" placeholder="e.g. Sam's iPhone">
+  <button class="btn primary big" id="pairBtn">Connect</button>
+  <div id="pairMsg" class="msg"></div>
+</section>
+
+<!-- Main -->
+<section id="main" class="screen hidden">
+  <header id="top">
+    <div class="top-l"><div id="gName">—</div><div id="roundChip" class="chip">NOT STARTED</div></div>
+    <div id="conn" class="conn"><span class="dot"></span><span id="connTxt">Connecting…</span></div>
+  </header>
+  <div id="banner" class="banner hidden"></div>
+
+  <div id="tab-play" class="tab">
+    <div class="card now">
+      <div class="eyebrow" id="nowLbl">Now playing</div>
+      <div id="nowTitle" class="title">—</div>
+      <div id="nowArtist" class="artist"></div>
+      <div class="prog"><div id="progFill"></div></div>
+      <div class="times"><span id="tPos">0:00</span><span id="tLeft"></span></div>
+      <div class="stats"><div><b id="sSong">–</b><span>song</span></div><div><b id="sPlayed">0</b><span>played</span></div><div><b id="sLeft">0</b><span>remaining</span></div></div>
+    </div>
+    <div class="ctl-row">
+      <button class="ctl" data-cmd="replay"><span>↺</span><small>Replay</small></button>
+      <button class="ctl play" id="playBtn"><span id="playIco">▶</span><small id="playTxt">Play</small></button>
+      <button class="ctl" id="nextBtn"><span>⏭</span><small>Next</small></button>
+    </div>
+    <div class="ctl-row small">
+      <button class="btn" data-cmd="stop">■ Stop</button>
+      <button class="btn" id="skipBtn">Skip song</button>
+      <button class="btn" id="markBtn">✓ Mark played</button>
+    </div>
+    <div id="unavail"></div>
+    <div class="card vol"><span>🔊</span><input type="range" id="vol" min="0" max="100"><b id="volV">–</b></div>
+    <div class="ctl-row small"><button class="btn" id="muteBtn">🔇 Mute</button><button class="btn" id="levBtn">Levelling ON</button></div>
+    <div id="nextUp" class="muted center small"></div>
+  </div>
+
+  <div id="tab-rounds" class="tab hidden">
+    <div id="roundBtns"></div>
+    <div class="ctl-row small">
+      <button class="btn" id="endRound">End round</button>
+      <button class="btn" id="pauseGame">Pause game</button>
+    </div>
+    <div class="card"><div class="eyebrow">Winners</div><div id="winners"></div></div>
+    <button class="btn danger wide" id="endGame">End game</button>
+  </div>
+
+  <div id="tab-history" class="tab hidden">
+    <div class="card"><div class="eyebrow">TV crawler</div>
+      <div class="row"><span class="muted">Speed</span><input type="range" id="crSpeed" min="1" max="10"><b id="crSpeedV"></b></div>
+      <button class="btn wide" id="crPause">Pause crawler</button>
+      <div class="muted tiny">Changes the scrolling list on the TV without touching the music.</div>
+    </div>
+    <div class="card"><div class="eyebrow">Technical credits</div><div id="credits"></div><button class="btn wide" id="creditBtn">Grant technical credit…</button></div>
+    <div class="card"><div class="eyebrow" id="histLbl">Played songs</div><div id="history"></div></div>
+  </div>
+
+  <button id="bingoFab">CHECK BINGO</button>
+
+  <nav id="tabs">
+    <button data-tab="play" class="on"><span>▶</span>Play</button>
+    <button data-tab="rounds"><span>▦</span>Rounds</button>
+    <button data-tab="history"><span>☰</span>History</button>
+  </nav>
+</section>
+
+<!-- Bingo checker sheet -->
+<section id="checker" class="sheet hidden">
+  <div class="sheet-head"><b>❄ Claims frozen</b><button id="ckClose" class="x" title="Hide (session stays frozen)">×</button></div>
+  <div id="ckPaused" class="banner"></div>
+  <div id="ckList"></div>
+  <div id="ckEntry">
+    <div id="ckDisplay" class="ck-display">___</div>
+    <div class="keypad" id="keypad"></div>
+    <div class="ctl-row small"><button class="btn" id="ckScan">📷 Scan QR</button><button class="btn primary" id="ckGo">ADD &amp; CHECK</button></div>
+    <input type="file" id="ckFile" accept="image/*" capture="environment" hidden>
+    <div id="ckScanBox" class="hidden"><video id="ckVid" playsinline muted></video><div class="muted small center">Point at the QR code on the card</div></div>
+  </div>
+  <div id="ckResult" class="hidden"></div>
+  <div class="ck-foot"><button class="btn" id="ckAgain">＋ Add card</button><button class="btn" id="ckCloseKeep">Close (paused)</button><button class="btn primary" id="ckResume">▶ Close &amp; resume</button></div>
+</section>
+
+<div id="modal" class="modal hidden"><div class="modal-box"><div id="mTitle"></div><div id="mBody"></div><div id="mBtns"></div></div></div>
+<div id="toast" class="toast hidden"></div>
+
+<script src="/shared/patterns.js"></script>
+<script src="/jsqr.js"></script>
+<script src="remote.js"></script>
+</body>
+</html>
