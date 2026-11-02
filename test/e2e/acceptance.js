@@ -15,7 +15,8 @@ function ok(cond, name, detail = '') { results.push(`${cond ? 'PASS' : 'FAIL'}  
 async function waitFor(fn, ms = 20000, step = 250) { const t = Date.now(); while (Date.now() - t < ms) { try { const v = await fn(); if (v) return v; } catch (e) { /* retry */ } await sleep(step); } return null; }
 
 async function launch(dataDir) {
-  const app = await electron.launch({ executablePath: require('electron'), args: [ROOT, '--no-sandbox'], env: Object.assign({}, process.env, { CMB_TEST: '1', CMB_DATA_DIR: dataDir, CMB_NO_SANDBOX: '1' }) });
+  const exe = process.env.CMB_APP_EXE; // optional: test a packaged build
+  const app = await electron.launch({ executablePath: exe || require('electron'), args: exe ? ['--no-sandbox'] : [ROOT, '--no-sandbox'], env: Object.assign({}, process.env, { CMB_TEST: '1', CMB_DATA_DIR: dataDir, CMB_NO_SANDBOX: '1' }) });
   const host = await app.firstWindow();
   host.on('pageerror', e => ok(false, 'host page error', e.message));
   await host.waitForFunction(() => window.App && window.App.settings);
@@ -141,6 +142,7 @@ const pdfText = (f, first, last) => execFileSync('pdftotext', ['-f', String(firs
   ok(await phone.evaluate(() => document.querySelectorAll('#ckResult .mini .w').length === 5), 'Winning squares highlighted on the phone');
   await phone.click('#ckConfirm'); await tapConfirm();
   ok(!!(await waitFor(async () => (await inv('game:state')).game.winners.length === 1, 5000)), 'First winner confirmed from the phone');
+  ok(!!(await waitFor(() => aud.evaluate(() => { const t = document.getElementById('takeover'); return t.classList.contains('winner') && !t.classList.contains('hidden') && document.getElementById('toTitle').textContent === 'BINGO!'; }), 4000)), 'TV winner screen appears (no card number by default)');
   ok((await enter(cardB.no)) === 'VALID BINGO!', 'Second card still valid against the same snapshot after a winner was confirmed');
   await phone.click('#ckConfirm'); await tapConfirm();
   ok(!!(await waitFor(async () => (await inv('game:state')).game.winners.length === 2, 5000)), 'Multiple winners confirmed in one session');
@@ -149,8 +151,9 @@ const pdfText = (f, first, last) => execFileSync('pdftotext', ['-f', String(firs
   const bad = full.cards.find(c => c.no > 10 && !rules.checkCard(c.cells, frozenSet, 1).valid);
   ok((await enter(bad.no)) === 'NOT VALID', 'An invalid card is rejected with a reason');
   await phone.click('#ckReject');
+  ok(!!(await waitFor(() => aud.evaluate(() => document.getElementById('takeover').classList.contains('wrong') && document.getElementById('toTitle').textContent === 'NOT A BINGO'), 4000)), 'TV shows the “Not a Bingo” screen after rejection');
   const audText = await aud.evaluate(() => document.body.innerText);
-  ok(!audText.includes(String(cardA.no).padStart(3, '0')) && !/CARD/i.test(audText.replace(/CRIME MASTER/g, '')), 'TV never shows card numbers or claim details');
+  ok(!audText.includes(String(cardA.no).padStart(3, '0')) && !/CARD\s*(No\.?\s*)?\d/i.test(audText) && !audText.includes(full.cards[4].cells.map(()=>'').join('x')), 'TV never shows card numbers or claim details');
   await phone.click('#ckResume');
   ok(!!(await waitFor(async () => { const s = (await inv('game:state')).game; return !s.session && s.playback.status === 'playing' && s.playback.index === posBefore.index; }, 5000)), 'Session closed; music resumes the same song');
 

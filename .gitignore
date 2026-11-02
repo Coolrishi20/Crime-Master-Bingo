@@ -3,3 +3,5 @@ dist/
 *.log
 test-output/
 .DS_Store
+vendor/
+sample-videos/

@@ -87,7 +87,8 @@ class AudioAnalyser {
 
   start(s) {
     s.audio = { status: 'analysing', fp: s.fingerprint };
-    const w = new Worker(path.join(__dirname, 'audio-worker.js'), { workerData: { ffmpeg: this.ffmpeg, file: s.path, lowPriority: true } });
+    const workerFile = path.join(__dirname, 'audio-worker.js').replace('app.asar' + path.sep, 'app.asar.unpacked' + path.sep);
+    const w = new Worker(workerFile, { workerData: { ffmpeg: this.ffmpeg, file: s.path, lowPriority: true } });
     this.running.set(s.id, w);
     this.onChange();
     const done = (msg) => {
