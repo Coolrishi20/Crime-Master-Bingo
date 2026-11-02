@@ -93,7 +93,9 @@ numbers (unless you switch that on), upcoming songs, or anything private.
    hotspot or a travel router works.
 2. Scan the QR code with the phone camera. It opens the remote and pairs
    automatically (or type the address and the 6-digit PIN).
-3. The phone stays paired and reconnects by itself after locking or a Wi-Fi drop.
+3. No app or APK to install: the remote runs in Safari/Chrome. To get an app icon, use
+   **Share → Add to Home Screen** (iPhone) or **⋮ → Add to Home screen** (Android).
+4. The phone stays paired and reconnects by itself after locking or a Wi-Fi drop.
    Remove a phone at any time with **Remove**.
 
 The phone **never plays music or video**. Everything it does happens on the laptop,
