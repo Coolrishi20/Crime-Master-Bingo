@@ -1,0 +1,42 @@
+/* Crime Master Bingo — shared design tokens (QuizBiz-inspired purple / magenta / white) */
+@import url('fonts.css');
+:root {
+  --bg: #1a1033;
+  --bg-deep: #0f091e;
+  --bg-2: #1f143f;
+  --panel: #261848;
+  --panel-2: #2f1f58;
+  --panel-3: #3a2869;
+  --border: #4e3c86;
+  --border-soft: #352560;
+  --pink: #ff4fa2;
+  --pink-2: #f0457a;
+  --pink-soft: rgba(255, 79, 162, 0.16);
+  --white: #ffffff;
+  --text: #f4efff;
+  --lav: #b9a9e8;
+  --lav-2: #8f7fc4;
+  --lilac: #c4b0ff;
+  --green: #35d68f;
+  --green-soft: rgba(53, 214, 143, 0.16);
+  --red: #ff5470;
+  --red-soft: rgba(255, 84, 112, 0.16);
+  --amber: #ffc857;
+  --radius: 14px;
+  --radius-sm: 9px;
+  --shadow: 0 10px 30px rgba(6, 2, 18, 0.45);
+  --font: 'Inter', 'Segoe UI', 'Nirmala UI', system-ui, sans-serif;
+  --display: 'Anton', 'Impact', 'Arial Narrow', sans-serif;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-family: var(--font); }
+button, input, select, textarea { font-family: inherit; }
+.display { font-family: var(--display); font-weight: 400; letter-spacing: 0.01em; }
+.eyebrow { font-size: 11px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: var(--pink); }
+
+/* mini pattern grids */
+.pgrid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 3px; }
+.pgrid i { display: block; aspect-ratio: 1; border-radius: 3px; background: rgba(78, 60, 134, 0.55); }
+.pgrid i.on { background: var(--lilac); box-shadow: 0 0 8px rgba(196, 176, 255, .45); }
+.pgrid.pink i.on { background: var(--pink); box-shadow: 0 0 8px rgba(255, 79, 162, .5); }
+.pgrid i.bad { background: var(--red); }

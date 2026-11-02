@@ -1,0 +1,207 @@
+/* Crime Master Bingo — audience (TV / projector) window.
+ * Shows ONLY: the music video, song title, artist, the round's winning pattern
+ * and the played-song crawler. It is also the single media player: the laptop's
+ * main process tells it what to play; it reports progress back. */
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+  var video = $('video');
+  var overlay = $('overlay');
+  var ticker = new CMBTicker.Ticker($('crawlViewport'), {});
+  var cur = { token: null, clipStart: 0, clipEnd: null, volume: 85, ended: false, test: false };
+  var state = null;
+  var overlayKey = null, overlayTimer = null;
+  var patternTimer = null, patternRound = null, patternIdx = 0;
+  var lastReport = 0;
+
+  function setScale() {
+    var s = Math.max(0.45, Math.min(window.innerHeight / 1080, window.innerWidth / 1920));
+    document.documentElement.style.setProperty('--s', s.toFixed(4));
+  }
+  setScale();
+  window.addEventListener('resize', function () { setScale(); ticker.resize(); });
+
+  function fileHref(p) {
+    if (/^file:/i.test(p)) return p;
+    var s = String(p).replace(/\\/g, '/');
+    if (!s.startsWith('/')) s = '/' + s;
+    return 'file://' + s.split('/').map(function (seg, i) { return (i === 1 && /^[A-Za-z]:$/.test(seg)) ? seg : encodeURIComponent(seg); }).join('/');
+  }
+
+  /* ------------------------------------------------------------- player */
+  function effectiveVolume(t) {
+    var v = Math.max(0, Math.min(1, cur.volume / 100));
+    if (cur.clipEnd != null) {
+      var left = cur.clipEnd - t;
+      if (left < 1.5) v *= Math.max(0, left / 1.5); // gentle fade-out at the end of the clip
+    }
+    var into = t - cur.clipStart;
+    if (into >= 0 && into < 0.6) v *= Math.max(0.15, into / 0.6); // soft fade-in
+    return v;
+  }
+
+  function load(cmd) {
+    cur = { token: cmd.token, clipStart: cmd.clipStart || 0, clipEnd: cmd.clipEnd, volume: cmd.volume != null ? cmd.volume : cur.volume, ended: false, test: !!cmd.test, start: cmd.start || 0, autoplay: cmd.autoplay };
+    video.classList.remove('show');
+    video.pause();
+    video.src = cmd.href || fileHref(cmd.src);
+    video.load();
+    if (cmd.test) { showOverlay({ title: cmd.title, artist: cmd.artist, key: 'test' }); }
+  }
+
+  video.addEventListener('loadedmetadata', function () {
+    try { video.currentTime = cur.start || 0; } catch (e) { /* */ }
+    video.volume = effectiveVolume(cur.start || 0);
+    if (cur.autoplay) {
+      var p = video.play();
+      if (p && p.catch) p.catch(function (e) { report('player:error', { token: cur.token, message: e.message }); });
+    }
+  });
+  video.addEventListener('playing', function () {
+    video.classList.add('show');
+    if (!cur.test) window.cmb.invoke('player:started', { token: cur.token });
+  });
+  video.addEventListener('seeked', function () { if (cur.token != null) video.classList.add('show'); });
+  video.addEventListener('error', function () {
+    if (!video.getAttribute('src')) return;
+    var err = video.error; var msg = err ? ({ 1: 'playback aborted', 2: 'file could not be read', 3: 'video could not be decoded', 4: 'format not supported' })[err.code] || 'unknown error' : 'unknown error';
+    if (cur.test) { stopTest(); return; }
+    report('player:error', { token: cur.token, message: msg });
+  });
+  video.addEventListener('ended', function () { finish(); });
+
+  function finish() {
+    if (cur.ended) return;
+    cur.ended = true;
+    video.pause();
+    if (cur.test) { stopTest(); return; }
+    report('player:ended', { token: cur.token });
+  }
+
+  function stopTest() { clear(); renderOverlay(); }
+
+  function report(ch, data) { window.cmb.invoke(ch, data); }
+
+  // High-resolution clip-end watch (timeupdate alone is only ~4 Hz)
+  function watch() {
+    if (cur.token != null && !video.paused && !cur.ended) {
+      var t = video.currentTime;
+      video.volume = effectiveVolume(t);
+      if (cur.clipEnd != null && t >= cur.clipEnd - 0.04) finish();
+      var now = performance.now();
+      if (now - lastReport > 250 && !cur.test) { lastReport = now; window.cmb.send('player:time-sync', { token: cur.token, t: t }); }
+    }
+    requestAnimationFrame(watch);
+  }
+  requestAnimationFrame(watch);
+
+  function clear() {
+    cur.token = null; cur.ended = true;
+    video.pause();
+    video.classList.remove('show');
+    video.removeAttribute('src');
+    try { video.load(); } catch (e) { /* */ }
+    if (cur.test) { cur.test = false; }
+  }
+
+  window.cmb.on('player', function (cmd) {
+    switch (cmd.cmd) {
+      case 'load': load(cmd); break;
+      case 'play': cur.ended = false; video.play().catch(function (e) { report('player:error', { token: cur.token, message: e.message }); }); break;
+      case 'pause': video.pause(); break;
+      case 'stop': video.pause(); try { video.currentTime = cur.clipStart; } catch (e) { /* */ } video.classList.remove('show'); break;
+      case 'seek': try { video.currentTime = cmd.position; cur.ended = false; } catch (e) { /* */ } break;
+      case 'volume': cur.volume = cmd.volume; video.volume = effectiveVolume(video.currentTime || 0); break;
+      case 'clip': if (cmd.token === cur.token) { cur.clipStart = cmd.clipStart; cur.clipEnd = cmd.clipEnd; } break;
+      case 'clear': clear(); break;
+    }
+  });
+
+  /* ------------------------------------------------------------- overlay */
+  function showOverlay(song) {
+    $('ovTitle').textContent = song.title || '';
+    $('ovArtist').textContent = song.artist || '';
+    overlay.classList.remove('hidden');
+  }
+
+  function renderOverlay() {
+    if (!state) return;
+    var o = state.overlay || {};
+    overlay.className = 'ov-' + (o.position || 'bottom-left') + (overlay.classList.contains('hidden') ? ' hidden' : '');
+    document.documentElement.style.setProperty('--ov-op', String(o.opacity != null ? o.opacity : 0.78));
+    document.documentElement.style.setProperty('--title-size', (o.titleSize || 64) + 'px');
+    document.documentElement.style.setProperty('--artist-size', (o.artistSize || 38) + 'px');
+    if (cur.test) return;
+    var song = state.song;
+    if (!song || o.enabled === false) { overlay.classList.add('hidden'); overlayKey = null; clearTimeout(overlayTimer); return; }
+    if (song.key !== overlayKey) {
+      overlayKey = song.key;
+      overlay.classList.add('hidden');
+      clearTimeout(overlayTimer);
+      setTimeout(function () {
+        showOverlay(song);
+        if (o.duration > 0) overlayTimer = setTimeout(function () { overlay.classList.add('hidden'); }, o.duration * 1000);
+      }, 120);
+    } else {
+      $('ovTitle').textContent = song.title; $('ovArtist').textContent = song.artist;
+    }
+  }
+
+  /* ------------------------------------------------------------- pattern */
+  function renderPattern() {
+    var r = state.round || { number: 0, status: 'pending' };
+    var n = r.number || 1;
+    var panel = $('pattern');
+    panel.className = panel.className.replace(/\bpos-\S+/g, '').trim() + ' pos-' + (state.patternPosition || 'top-right');
+    panel.classList.toggle('ended', r.status === 'ended');
+    $('ptRound').textContent = r.number === 0 ? 'ROUND 1' : 'ROUND ' + r.number;
+    $('ptLabel').textContent = CMBPatterns.LABELS[n];
+    $('ptSub').textContent = r.number === 0 ? 'Get ready to play!' : (r.status === 'ended' ? 'Round complete' : CMBPatterns.SHORT[n]);
+    if (patternRound !== n) {
+      patternRound = n; patternIdx = 0;
+      clearInterval(patternTimer);
+      var ex = CMBPatterns.examples(n);
+      CMBPatterns.render($('ptGrid'), ex[0], 'pink');
+      if (ex.length > 1) patternTimer = setInterval(function () { patternIdx = (patternIdx + 1) % ex.length; CMBPatterns.render($('ptGrid'), ex[patternIdx], 'pink'); }, 2200);
+    }
+  }
+
+  function celebrate() {
+    var p = $('pattern');
+    p.classList.remove('celebrate'); void p.offsetWidth; p.classList.add('celebrate');
+    setTimeout(function () { p.classList.remove('celebrate'); }, 5600);
+  }
+
+  /* ------------------------------------------------------------- state */
+  function applyState(s) {
+    if (!s) return;
+    state = s;
+    renderOverlay();
+    renderPattern();
+    var c = s.crawler || {};
+    ticker.configure({ speed: c.speed || 4, fontSize: c.fontSize || 30, separator: c.separator || 'diamond', paused: !!c.paused });
+    document.documentElement.style.setProperty('--crawl-h', (c.height || 72) + 'px');
+    ticker.setItems(s.history || []);
+  }
+
+  function applyAppSettings(a) {
+    if (!a) return;
+    var img = $('idleLogo');
+    if (a.logo) { img.src = a.logo + '?v=' + Date.now(); img.classList.add('has'); $('idle').classList.add('withlogo'); }
+    else { img.removeAttribute('src'); img.classList.remove('has'); $('idle').classList.remove('withlogo'); }
+    document.body.classList.toggle('aspect-cover', a.aspect === 'cover');
+    document.body.classList.toggle('aspect-fill', a.aspect === 'fill');
+    if (a.audioDeviceId && video.setSinkId) video.setSinkId(a.audioDeviceId === 'default' ? '' : a.audioDeviceId).catch(function () { /* device gone: stay on default */ });
+  }
+
+  window.cmb.on('audience-state', applyState);
+  window.cmb.on('app-settings', applyAppSettings);
+  window.cmb.on('event', function (e) { if (e && e.name === 'celebrate') celebrate(); });
+
+  window.cmb.invoke('player:ready').then(function (r) {
+    applyAppSettings(r.appSettings);
+    if (r.state) applyState(r.state);
+    else { state = { round: { number: 0 }, history: [], overlay: {}, crawler: {} }; renderPattern(); ticker.setItems([]); }
+  });
+  window.__audience = { ticker: ticker, video: video, get cur() { return cur; } };
+})();

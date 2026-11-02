@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' file: data:; media-src file: data: blob: mediastream:; img-src file: data: blob:; style-src 'self' 'unsafe-inline' file:; script-src 'self' file:">
+<title>Crime Master Bingo</title>
+<link rel="stylesheet" href="../shared/theme.css">
+<link rel="stylesheet" href="host.css">
+</head>
+<body>
+<div id="app">
+  <aside id="sidebar">
+    <div class="logo-block"><img id="sideLogo" alt=""><div class="wordmark"><span class="display">CRIME MASTER</span><span class="display pink">BINGO</span></div></div>
+    <nav id="nav">
+      <a data-view="dashboard"><span class="ico">◧</span>Dashboard</a>
+      <a data-view="library"><span class="ico">♫</span>Music Library</a>
+      <a data-view="playlists"><span class="ico">☰</span>Playlists</a>
+      <a data-view="create"><span class="ico">✚</span>Create Game</a>
+      <a data-view="cards"><span class="ico">▦</span>Bingo Cards &amp; Printing</a>
+      <a data-view="host" class="hostlink"><span class="ico">▶</span>Host Game</a>
+      <a data-view="mobile"><span class="ico">📱</span>Mobile Host Connection</a>
+      <a data-view="history"><span class="ico">⟲</span>Game History</a>
+      <a data-view="settings"><span class="ico">⚙</span>Settings</a>
+    </nav>
+    <div id="sideStatus">
+      <div class="ss-row"><span class="dot" id="ssAud"></span><span id="ssAudTxt">Audience window closed</span></div>
+      <div class="ss-row"><span class="dot" id="ssPhone"></span><span id="ssPhoneTxt">No phone connected</span></div>
+      <div class="ss-game" id="ssGame">No game loaded</div>
+    </div>
+  </aside>
+  <main id="main"></main>
+</div>
+<div id="toasts"></div>
+<div id="modalRoot"></div>
+<video id="probeVideo" muted preload="metadata" style="display:none"></video>
+<canvas id="probeCanvas" width="320" height="180" style="display:none"></canvas>
+<script src="../shared/patterns.js"></script>
+<script src="../../../node_modules/jsqr/dist/jsQR.js"></script>
+<script src="app.js"></script>
+<script src="views/dashboard.js"></script>
+<script src="views/library.js"></script>
+<script src="views/playlists.js"></script>
+<script src="views/create.js"></script>
+<script src="views/cards.js"></script>
+<script src="views/hostgame.js"></script>
+<script src="views/checker.js"></script>
+<script src="views/mobile.js"></script>
+<script src="views/history.js"></script>
+<script src="views/settings.js"></script>
+<script src="boot.js"></script>
+</body>
+</html>

@@ -1,0 +1,47 @@
+@page { size: A4 portrait; margin: 0; }
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; background: #fff; color: #1a1033; font-family: 'Inter', 'Segoe UI', 'Nirmala UI', Arial, sans-serif; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+:root { --ink: #1a1033; --accent: #e0287f; --soft: #6d5fa0; --line: #9c90c4; }
+body.bw { --ink: #000; --accent: #000; --soft: #333; --line: #555; }
+.sheet { width: 210mm; height: 297mm; position: relative; overflow: hidden; page-break-after: always; break-after: page; }
+.sheet:last-child { page-break-after: auto; break-after: auto; }
+.half { position: absolute; left: 0; width: 210mm; height: 148.5mm; padding: 9mm 11mm 8mm; }
+.half.top { top: 0; }
+.half.bottom { top: 148.5mm; }
+.cut { position: absolute; left: 6mm; right: 6mm; top: 148.5mm; border-top: 0.35mm dashed #888; }
+.cut span { position: absolute; left: 50%; top: -2.2mm; transform: translateX(-50%); background: #fff; padding: 0 2.5mm; font-size: 7pt; color: #777; letter-spacing: .08em; line-height: 4mm; }
+.card { width: 100%; height: 100%; display: flex; flex-direction: column; }
+
+.head { display: flex; align-items: center; gap: 4mm; height: 19mm; flex: none; }
+.brand { display: flex; flex-direction: column; justify-content: center; min-width: 46mm; }
+.brand .l1 { font-family: 'Anton', Impact, sans-serif; font-size: 13pt; line-height: 1; color: var(--ink); letter-spacing: .02em; }
+.brand .l2 { font-family: 'Anton', Impact, sans-serif; font-size: 24pt; line-height: .95; color: var(--accent); letter-spacing: .02em; }
+.brand img { max-height: 11mm; max-width: 44mm; object-fit: contain; object-position: left center; margin-bottom: 1mm; }
+.brand.haslogo .l1 { font-size: 9pt; }
+.brand.haslogo .l2 { font-size: 15pt; }
+.meta { flex: 1; min-width: 0; font-size: 8pt; color: var(--soft); line-height: 1.35; }
+.meta b { color: var(--ink); font-size: 9.5pt; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cardno { flex: none; border: 0.5mm solid var(--accent); border-radius: 2.5mm; padding: 1.2mm 3mm 1.5mm; text-align: center; min-width: 25mm; }
+.cardno .k { font-size: 6.5pt; font-weight: 800; letter-spacing: .14em; color: var(--accent); }
+.cardno .v { font-family: 'Anton', Impact, sans-serif; font-size: 25pt; line-height: 1; color: var(--ink); }
+.qr { flex: none; width: 17mm; height: 17mm; }
+.qr svg { width: 100%; height: 100%; display: block; }
+
+.grid { flex: 1; display: grid; grid-template-columns: repeat(5, 1fr); grid-template-rows: repeat(5, 1fr); gap: 1.4mm; margin: 2.2mm 0 2.2mm; min-height: 0; }
+.cell { border: 0.3mm solid var(--line); border-radius: 1.6mm; padding: 1mm 1.4mm; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; overflow: hidden; min-width: 0; min-height: 0; }
+.cell .t { font-weight: 800; color: var(--ink); line-height: 1.08; overflow-wrap: anywhere; word-break: normal; hyphens: auto; }
+.cell .a { font-weight: 400; color: var(--soft); line-height: 1.1; margin-top: .7mm; overflow-wrap: anywhere; }
+.cell.clamp .t { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.cell.clamp .a { display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+
+.foot { flex: none; }
+.rounds { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 2mm; }
+.round { border: 0.35mm solid var(--line); border-radius: 1.6mm; padding: 1mm 2mm; font-size: 7pt; color: var(--soft); line-height: 1.2; }
+.round b { color: var(--accent); font-size: 7pt; letter-spacing: .1em; display: block; }
+.round span { color: var(--ink); font-weight: 600; }
+.small { display: flex; justify-content: space-between; margin-top: 1.4mm; font-size: 6.5pt; color: var(--soft); }
+.small b { color: var(--ink); }
+
+#measure { position: absolute; left: -9999px; top: 0; visibility: hidden; }
+@media screen { body { background: #ddd; } .sheet { background: #fff; margin: 6mm auto; box-shadow: 0 2px 10px rgba(0,0,0,.2); } #measure { margin: 0; } }
+@media print { #measure { display: none; } .sheet { margin: 0; box-shadow: none; } }
