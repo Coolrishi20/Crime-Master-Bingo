@@ -83,6 +83,10 @@ class GameEngine {
     game.rounds = game.rounds || {};
     game.claims = game.claims || [];
     game.claimSessions = game.claimSessions || [];
+    game.queue = game.queue || [];       // host-queued songs (play next, in order)
+    game.deferred = game.deferred || []; // skipped from Up Next — still eligible later
+    game.excluded = game.excluded || []; // explicitly excluded by the host
+    game.transitions = game.transitions || [];
     game.credits = game.credits || [];
     game.audit = game.audit || [];
     game.cards = game.cards || [];
@@ -150,12 +154,54 @@ class GameEngine {
     if (this.game.playback.status === 'between') { this.game.playback.status = 'idle'; this.game.playback.nextAt = null; }
   }
 
-  nextUnplayedIndex(after) {
+  /**
+   * The next song to play (index into the saved play order):
+   * 1) host-queued songs, 2) the saved shuffle order, 3) earlier skipped songs (wrap),
+   * 4) songs the host skipped from Up Next. Never a played/credited or excluded song.
+   */
+  nextUnplayedIndex(after) { const n = this.upNext(after); return n ? n.index : -1; }
+
+  upNext(after) {
     const g = this.game; const played = this.playedSet();
-    for (let i = after + 1; i < g.order.length; i++) if (!played.has(g.order[i])) return i;
-    // wrap round: songs skipped earlier come back at the end
-    for (let i = 0; i <= Math.min(after, g.order.length - 1); i++) if (!played.has(g.order[i]) && i !== after) return i;
-    return -1;
+    if (after == null) after = g.playback.index;
+    const cur = after >= 0 ? g.order[after] : null;
+    const excluded = new Set(g.excluded); const deferred = new Set(g.deferred);
+    const ok = (id) => id && id !== cur && !played.has(id) && !excluded.has(id) && this.song(id);
+    const idx = (id) => g.order.indexOf(id);
+    for (const id of g.queue) if (ok(id)) return { index: idx(id), songId: id, source: 'queue' };
+    for (let i = after + 1; i < g.order.length; i++) if (ok(g.order[i]) && !deferred.has(g.order[i])) return { index: i, songId: g.order[i], source: 'playlist' };
+    for (let i = 0; i <= Math.min(after, g.order.length - 1); i++) if (ok(g.order[i]) && !deferred.has(g.order[i])) return { index: i, songId: g.order[i], source: 'playlist' };
+    for (const id of g.deferred) if (ok(id)) return { index: idx(id), songId: id, source: 'deferred' };
+    return null;
+  }
+
+  upNextView() {
+    const g = this.game; const n = this.upNext();
+    const view = (id) => { const s = this.song(id); return { songId: id, title: s.displayTitle || s.title, artist: s.artist }; };
+    let next = null;
+    if (n) {
+      const s = this.song(n.songId); const clip = this.clipFor(s);
+      next = Object.assign(view(n.songId), {
+        index: n.index, number: n.index + 1, source: n.source,
+        fileName: s.fileName || String(s.path || '').split(/[\\/]/).pop(), duration: s.duration || null,
+        clipStart: clip.start, clipEnd: clip.end, clipLength: clip.end != null ? Math.round((clip.end - clip.start) * 10) / 10 : null,
+        clipMode: this.settings.clipMode, ready: !this.unavailable[n.songId], problem: this.unavailable[n.songId] || null
+      });
+    }
+    const played = this.playedSet(); const cur = this.currentSongId();
+    return {
+      next,
+      queue: g.queue.filter(id => !played.has(id) && id !== cur).map(view),
+      deferred: g.deferred.filter(id => !played.has(id) && id !== cur).map(view),
+      excluded: g.excluded.map(view),
+      custom: g.queue.length > 0 || g.deferred.length > 0
+    };
+  }
+
+  /** Songs the host may pick for Up Next (unplayed, not the current one). */
+  eligibleSongs() {
+    const played = this.playedSet(); const cur = this.currentSongId(); const ex = new Set(this.game.excluded);
+    return this.game.order.filter(id => !played.has(id) && id !== cur).map((id) => { const s = this.song(id); return { songId: id, number: this.game.order.indexOf(id) + 1, title: s.displayTitle || s.title, artist: s.artist, excluded: ex.has(id), queued: this.game.queue.includes(id), unavailable: !!this.unavailable[id] }; });
   }
 
   /* ---------------------------------------------------------- player control */
@@ -172,6 +218,8 @@ class GameEngine {
     const song = this.song(g.order[index]);
     const clip = this.clipFor(song);
     this.loadToken++;
+    g.queue = g.queue.filter(id => id !== song.id);
+    g.deferred = g.deferred.filter(id => id !== song.id);
     g.playback.index = index;
     g.playback.status = autoplay ? 'loading' : 'paused';
     g.playback.position = position != null ? position : clip.start;
@@ -304,6 +352,9 @@ class GameEngine {
       // technical credit
       grantCredit: this.aGrantCredit, reverseCredit: this.aReverseCredit,
       showTvScreen: this.aShowTvScreen, setTvScreens: this.aSetTvScreens,
+      completeRound: this.aCompleteRound,
+      queueSong: this.aQueueSong, unqueueSong: this.aUnqueueSong, skipNext: this.aSkipNext, resetQueue: this.aResetQueue,
+      excludeSong: this.aExcludeSong, includeSong: this.aIncludeSong,
       updateSong: this.aUpdateSong
     };
   }
@@ -559,10 +610,13 @@ class GameEngine {
     if (![1, 2, 3].includes(n)) throw new Error('Round must be 1, 2 or 3');
     if (n < g.round.number) throw new Error(`Round ${g.round.number} has already started — rounds cannot go backwards.`);
     if (n === g.round.number && g.round.status === 'active') return { ok: true, already: true };
+    if (n > g.round.number + 1 || (n === g.round.number + 1 && g.round.status === 'ready')) throw new Error(`Rounds are played in order — Round ${g.round.status === 'ready' ? g.round.number : g.round.number + 1} is next.`);
+    if (n === g.round.number && g.round.status === 'ended') throw new Error(`Round ${n} has finished — use “Complete Round & Continue”.`);
     if (this.activeSession()) throw new Error('Close the open claim session before changing rounds.');
     if (g.round.number > 0 && g.round.status === 'active') g.rounds[g.round.number].endedAt = this.nowIso();
     g.round = { number: n, status: 'active' };
     g.rounds[n] = Object.assign(g.rounds[n] || {}, { startedAt: this.nowIso(), startPlayedCount: g.played.length, endedAt: null });
+    if (g.status === 'finished') throw new Error('The game has finished.');
     g.status = 'live';
     g.gamePaused = false;
     this.log(`Round ${n} started — ${rules.ROUNDS[n].label}`);
@@ -573,6 +627,86 @@ class GameEngine {
     }
     return { ok: true };
   }
+
+  /**
+   * Complete the current round and prepare the next one (or finish the game after Round 3).
+   * Atomic and idempotent: `fromRound` guards against double taps from laptop + phone and
+   * against replays after a crash. Never awards or discards claims automatically.
+   */
+  aCompleteRound(args, source) {
+    const g = this.game;
+    const n = g.round.number;
+    // Replayed / duplicate command (double tap, laptop + phone, crash replay): harmless no-op.
+    if (args.fromRound != null && (Number(args.fromRound) !== n || (g.round.status === 'ended' && g.status === 'finished'))) return { ok: true, already: true, round: g.round };
+    if (!n || !['active', 'ended'].includes(g.round.status)) throw new Error(n ? `Round ${n} is not in progress.` : 'No round has started yet.');
+    const s = this.activeSession();
+    if (s) {
+      const pending = s.claimIds.map(id => g.claims.find(c => c.id === id)).filter(c => c && c.status === 'pending');
+      if (pending.length) return { ok: false, needsDecision: true, pending: pending.map(c => ({ claimId: c.id, cardLabel: formatCardNo(c.cardNo) })), message: `Resolve the ${pending.length} pending claim(s) (${pending.map(c => formatCardNo(c.cardNo)).join(', ')}) before completing the round.` };
+      s.status = 'closed'; s.closedAt = this.nowIso(); s.closedBy = source || 'laptop';
+      this.audit('claim-session-closed', { sessionId: s.id, reason: 'round completed', claims: s.claimIds.length }, source);
+    }
+    // stop the music — the next round starts only when the host is ready
+    this.cancelAdvance();
+    const pb = g.playback;
+    if (['playing', 'loading'].includes(pb.status)) { pb.status = 'paused'; this.player({ cmd: 'pause' }); }
+    pb.pausedForClaim = false;
+    const winners = g.claims.filter(c => c.status === 'confirmed' && c.round === n).map(c => ({ claimId: c.id, cardNo: c.cardNo }));
+    const at = this.nowIso();
+    g.rounds[n] = Object.assign(g.rounds[n] || {}, { endedAt: g.rounds[n] && g.rounds[n].endedAt || at, completedAt: at, winners });
+    const final = n === 3;
+    const tr = { id: uid('t_'), from: n, to: final ? null : n + 1, at, by: source || 'laptop', winners: winners.length };
+    g.transitions.push(tr);
+    let preQualified = [];
+    if (final) {
+      g.round = { number: 3, status: 'ended' };
+      g.status = 'finished'; g.endedAt = at; pb.status = 'stopped';
+      if (pb.index >= 0) this.player({ cmd: 'clear' });
+    } else {
+      g.round = { number: n + 1, status: 'ready' };
+      // Cards that ALREADY meet the next round's pattern: notify the host; never auto-award.
+      const set = this.playedSet();
+      preQualified = g.cards.filter(c => rules.checkCard(c.cells, set, n + 1).valid).map(c => formatCardNo(c.no));
+      g.rounds[n + 1] = Object.assign(g.rounds[n + 1] || {}, { preparedAt: at, preQualified });
+      tr.preQualified = preQualified.length;
+    }
+    this.audit('round-completed', { round: n, winners: winners.length, next: final ? null : n + 1, preQualified: preQualified.length }, source);
+    this.log(final ? 'Round 3 complete — FULL HOUSE! Game finished.' : `Round ${n} complete (${winners.length} winner${winners.length === 1 ? '' : 's'}). Ready for Round ${n + 1} — ${rules.ROUNDS[n + 1].label}.`);
+    this.event('tvScreen', { type: 'round', from: n, to: final ? null : n + 1, fromLabel: rules.ROUNDS[n].label, toLabel: final ? null : rules.ROUNDS[n + 1].label, final, seconds: 9, pattern: final ? null : rules.patternExamples(n + 1)[0] });
+    this.touch('round');
+    return { ok: true, final, nextRound: final ? null : n + 1, winners: winners.length, preQualified };
+  }
+
+  /* ------------------------------------------------------- Up Next queue */
+  assertQueueable(id) {
+    const s = this.song(id); if (!s) throw new Error('That song is not part of this game.');
+    if (this.isPlayed(id)) throw new Error(`"${s.title}" has already been played — it can't be played again.`);
+    if (id === this.currentSongId()) throw new Error(`"${s.title}" is playing now.`);
+    return s;
+  }
+  aQueueSong(args, source) {
+    const g = this.game; const id = args.songId; const s = this.assertQueueable(id);
+    g.queue = g.queue.filter(x => x !== id); g.deferred = g.deferred.filter(x => x !== id); g.excluded = g.excluded.filter(x => x !== id);
+    if (args.position === 'end') g.queue.push(id); else g.queue.unshift(id);
+    this.log(`Up Next: queued "${s.title}"${args.position === 'end' ? ' (end of queue)' : ' (play next)'}`);
+    this.touch('state');
+    return { ok: true, upNext: this.upNextView() };
+  }
+  aUnqueueSong(args) { this.game.queue = this.game.queue.filter(x => x !== args.songId); this.touch('state'); return { ok: true }; }
+  /** Skip the proposed next song — it stays eligible and comes back later. */
+  aSkipNext(args) {
+    const g = this.game; const n = this.upNext();
+    if (!n) return { ok: false, message: 'There is no next song.' };
+    if (args.expectSongId && args.expectSongId !== n.songId) { const e = new Error('Up Next has already changed — showing the new next song.'); e.code = 'STALE'; throw e; }
+    g.queue = g.queue.filter(x => x !== n.songId);
+    g.deferred = g.deferred.filter(x => x !== n.songId); g.deferred.push(n.songId);
+    this.log(`Up Next: skipped "${this.song(n.songId).title}" for now (still eligible)`);
+    this.touch('state');
+    return { ok: true, upNext: this.upNextView() };
+  }
+  aResetQueue() { this.game.queue = []; this.game.deferred = []; this.log('Up Next: back to the saved playlist order'); this.touch('state'); return { ok: true }; }
+  aExcludeSong(args) { const s = this.assertQueueable(args.songId); const g = this.game; g.queue = g.queue.filter(x => x !== s.id); if (!g.excluded.includes(s.id)) g.excluded.push(s.id); this.log(`Excluded "${s.title}" from playback`); this.touch('state'); return { ok: true }; }
+  aIncludeSong(args) { this.game.excluded = this.game.excluded.filter(x => x !== args.songId); this.touch('state'); return { ok: true }; }
 
   aEndRound() {
     const g = this.game;
@@ -782,7 +916,9 @@ class GameEngine {
       valid: res.valid, headline: res.headline, reason: res.reason,
       alreadyWinner: claim.status === 'duplicate' || (claim.status !== 'confirmed' && g.claims.some(c => c.cardNo === claim.cardNo && c.round === claim.round && c.status === 'confirmed')),
       otherRoundWins: g.claims.filter(c => c.cardNo === claim.cardNo && c.status === 'confirmed' && c.round !== claim.round).map(c => c.round),
-      qualifiedAtSong: res.qualifiedAtSong, playedCount: ids.length,
+      qualifiedAtSong: res.qualifiedAtSong, completingSong: res.completingSong || null, explanation: res.explanation,
+      best: res.best ? { description: res.best.description, missing: res.best.missing, missingCells: res.best.missingCells, cells: res.best.cells } : null,
+      roundRule: rules.ROUNDS[claim.round].rule, playedCount: ids.length,
       printed: !!card.printed, review: claim.review || null,
       grid: res.grid, winningCells: res.winningCells, lines: res.lines
     };
@@ -794,12 +930,18 @@ class GameEngine {
     const win = new Set(res.winningCells);
     const order = new Map(playedIds.map((id, i) => [id, i + 1]));
     const kinds = new Map((snapshot || this.game.played.map(p => ({ songId: p.songId, kind: p.kind }))).map(x => [x.songId, x.kind || 'played']));
+    res.best = res.valid ? null : rules.bestProgress(card.cells, set, round);
+    const bestCells = new Set(res.best ? res.best.cells : []);
+    const needed = new Set(res.best ? res.best.missingCells : []);
+    res.qualifiedAtSong = res.valid ? rules.qualifiedAt(card.cells, playedIds, round) : null;
+    const completingId = res.qualifiedAtSong ? playedIds[res.qualifiedAtSong - 1] : null;
     res.grid = card.cells.map((id, i) => {
       const s = this.song(id) || { title: '?', artist: '' };
       const label = (this.game.cardsLocked && this.game.lockedLabels && this.game.lockedLabels[id]) || null;
-      return { songId: id, title: label ? label.title : (s.displayTitle || s.title), artist: s.artist, played: set.has(id), credit: set.has(id) && kinds.get(id) === 'credit', playedNo: order.get(id) || null, winning: win.has(i) };
+      return { songId: id, title: label ? label.title : (s.displayTitle || s.title), artist: s.artist, played: set.has(id), credit: set.has(id) && kinds.get(id) === 'credit', playedNo: order.get(id) || null, winning: win.has(i), inBest: bestCells.has(i), needed: needed.has(i), completing: id === completingId };
     });
-    res.qualifiedAtSong = res.valid ? rules.qualifiedAt(card.cells, playedIds, round) : null;
+    if (completingId) { const cs = this.song(completingId) || {}; res.completingSong = { n: res.qualifiedAtSong, songId: completingId, title: cs.displayTitle || cs.title, artist: cs.artist, credit: kinds.get(completingId) === 'credit' }; }
+    res.explanation = rules.explainClaim(formatCardNo(card.no), round, res, res.best);
     return res;
   }
 
@@ -995,9 +1137,13 @@ class GameEngine {
       version: g.version, cardsLocked: !!g.cardsLocked, lockedAt: g.lockedAt || null,
       playback: { status: pb.status, index: pb.index, position: pb.position, clipStart: pb.clipStart, clipEnd: pb.clipEnd, pausedForClaim: !!pb.pausedForClaim, recovered: !!pb.recovered, nextAt: pb.nextAt || null },
       current: this.currentView(),
-      next: next ? { title: next.displayTitle || next.title, artist: next.artist, number: nextIdx + 1 } : null,
+      next: next ? { title: next.displayTitle || next.title, artist: next.artist, number: nextIdx + 1 } : null, // (compat)
       totals: { songs: total, played: g.played.filter(p => p.kind !== 'credit').length, credited: g.played.filter(p => p.kind === 'credit').length, eligible: g.played.length, remaining, skipped: g.skipped.length, cards: g.cards.length, printed: g.cards.filter(c => c.printed).length },
-      round: { number: g.round.number, status: g.round.status, label: g.round.number ? rules.ROUNDS[g.round.number].label : null, rule: g.round.number ? rules.ROUNDS[g.round.number].rule : null },
+      round: { number: g.round.number, status: g.round.status, label: g.round.number ? rules.ROUNDS[g.round.number].label : null, rule: g.round.number ? rules.ROUNDS[g.round.number].rule : null,
+        winners: g.claims.filter(c => c.status === 'confirmed' && c.round === g.round.number).length,
+        canComplete: ['active', 'ended'].includes(g.round.status) && g.status !== 'finished',
+        preQualified: (g.rounds[g.round.number] && g.rounds[g.round.number].preQualified) || [] },
+      upNext: this.upNextView(),
       history: this.historyView(),
       winners: this.winners(),
       session: this.sessionView(),

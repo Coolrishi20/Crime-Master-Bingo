@@ -132,6 +132,65 @@ function qualifiedAt(cells, playedIds, round) {
   return null;
 }
 
+/**
+ * Best progress towards the round's pattern (for explaining invalid claims):
+ * the qualifying pattern that needs the fewest more songs.
+ * Returns { lines:[{type,index}], cells:[...pattern cells], missingCells:[...], missing, description }
+ */
+function bestProgress(cells, playedSet, round) {
+  const a = analyseCard(cells, playedSet);
+  const lineName = (t, i) => (t === 'row' ? 'Row ' : 'Column ') + (i + 1);
+  const make = (lines, patternCells) => {
+    const missingCells = patternCells.filter(k => !a.marked[k]);
+    let description;
+    if (round === 3) description = 'Full House';
+    else if (lines.length === 1) description = lineName(lines[0].type, lines[0].index);
+    else description = (lines[0].type === 'row' ? 'Rows ' : 'Columns ') + (lines[0].index + 1) + ' & ' + (lines[1].index + 1);
+    return { lines, cells: patternCells, missingCells, missing: missingCells.length, description };
+  };
+  if (round === 3) return make([{ type: 'full' }], [...Array(25).keys()]);
+  const cands = [];
+  if (round === 1) {
+    for (let i = 0; i < SIZE; i++) {
+      cands.push(make([{ type: 'row', index: i }], rowCells(i)));
+      cands.push(make([{ type: 'col', index: i }], colCells(i)));
+    }
+  } else {
+    for (let i = 0; i < SIZE; i++) for (let j = i + 1; j < SIZE; j++) {
+      cands.push(make([{ type: 'row', index: i }, { type: 'row', index: j }], rowCells(i).concat(rowCells(j))));
+      cands.push(make([{ type: 'col', index: i }, { type: 'col', index: j }], colCells(i).concat(colCells(j))));
+    }
+  }
+  // deterministic: fewest missing, then rows before columns, then lowest index
+  cands.sort((x, y) => x.missing - y.missing);
+  return cands[0];
+}
+
+function plural2(n, w) { return n + ' ' + w + (n === 1 ? '' : 's'); }
+
+/**
+ * Plain-English explanation for the host, e.g.
+ * "Not a Bingo! Card #142 has completed one line but requires two parallel lines for Round 2."
+ */
+function explainClaim(cardLabel, round, result, best) {
+  const a = result.analysis; const def = ROUNDS[round];
+  const card = 'Card #' + cardLabel;
+  if (result.valid) return `${card} — ${result.headline}. Valid for Round ${round} (${def.label}).`;
+  const closest = best && best.missing > 0 ? ` Closest: ${best.description} ${best.lines.length > 1 ? 'need' : 'needs'} ${plural2(best.missing, 'more song')}.` : '';
+  const lines = a.rows.length + a.cols.length;
+  if (round === 1) {
+    if (a.diagonals.length) return `Not a Bingo! ${card} only has a diagonal line — diagonals don't count in Round 1.${closest}`;
+    return `Not a Bingo! ${card} has no complete row or column yet.${closest}`;
+  }
+  if (round === 2) {
+    if (a.rows.length === 1 && a.cols.length === 1) return `Not a Bingo! ${card} has one row and one column, but Round 2 needs two parallel lines (two rows or two columns).${closest}`;
+    if (lines === 1) return `Not a Bingo! ${card} has completed one line but requires two parallel lines for Round 2.${closest}`;
+    if (a.diagonals.length && !lines) return `Not a Bingo! ${card} only has a diagonal — diagonals don't count.${closest}`;
+    return `Not a Bingo! ${card} has no complete lines yet — Round 2 needs two parallel lines.${closest}`;
+  }
+  return `Not a Bingo! ${card} has ${a.markedCount} of 25 songs — ${plural2(25 - a.markedCount, 'more song')} needed for a Full House.`;
+}
+
 /** Pattern diagram data for the audience panel: arrays of 25 booleans. */
 function patternExamples(round) {
   const grid = (cellsOn) => { const g = new Array(25).fill(false); cellsOn.forEach(i => { g[i] = true; }); return g; };
@@ -141,4 +200,4 @@ function patternExamples(round) {
   return [grid([])];
 }
 
-module.exports = { ROUNDS, SIZE, rowCells, colCells, analyseCard, checkCard, qualifiedAt, patternExamples };
+module.exports = { ROUNDS, SIZE, rowCells, colCells, analyseCard, checkCard, qualifiedAt, bestProgress, explainClaim, patternExamples };
