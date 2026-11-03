@@ -1,3 +1,10 @@
+## Crime Master Bingo 1.3.1
+
+### New in 1.3.1
+- **Redesigned "Thanks for playing!" screen.** It opens with a confetti burst and a shimmering title, your logo or the wordmark, and the event, venue and date. Stat tiles show songs played, rounds and winners (counts only). *Tonight's playlist* is grouped by round with numbered rows. The list rests at the top, scrolls gently, then loops back. It ends with "See you next time!".
+
+---
+
 ## Crime Master Bingo 1.3.0
 
 Offline Windows software for hosting music-video bingo nights. If you have 1.2.0, this arrives in the app as **⟳ Restart to update**.

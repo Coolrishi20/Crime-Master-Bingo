@@ -252,6 +252,37 @@
   /* ------------------------------------------------------------- state */
   /* ------------------------------------------------------------- welcome / end pages */
   var wlTimer = null, logoUrl = null, endKey = null;
+  /* Gentle end-screen scroller: rest at the top, glide down, rest, fade back to the top, repeat. */
+  var esRaf = null;
+  function startEndScroll(list, vp) {
+    cancelAnimationFrame(esRaf); list.style.transform = ''; list.style.opacity = 1;
+    var over = list.scrollHeight - vp.clientHeight; if (over <= 4) return;
+    var speed = 26 * Math.max(0.5, window.innerHeight / 1080), HOLD = 6000, t0 = performance.now(), phase = 'top', y = 0;
+    (function f(now) {
+      var el = now - t0;
+      if (phase === 'top' && el > HOLD) { phase = 'down'; t0 = now; }
+      else if (phase === 'down') { y = Math.min(over, (el / 1000) * speed); if (y >= over) { phase = 'bottom'; t0 = now; } }
+      else if (phase === 'bottom' && el > HOLD) { phase = 'fade'; t0 = now; }
+      else if (phase === 'fade') { var k = Math.min(1, el / 700); list.style.opacity = 1 - k; if (k >= 1) { y = 0; phase = 'in'; t0 = now; } }
+      else if (phase === 'in') { var k2 = Math.min(1, el / 700); list.style.opacity = k2; if (k2 >= 1) { phase = 'top'; t0 = now; } }
+      list.style.transform = 'translate3d(0,' + (-y).toFixed(1) + 'px,0)';
+      esRaf = requestAnimationFrame(f);
+    })(t0);
+  }
+  function fmtDate(d) { var p = String(d).split('-'); if (p.length !== 3) return d; var m = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][+p[1] - 1]; return (+p[2]) + ' ' + m + ' ' + p[0]; }
+  /** One-off confetti burst that settles and stops (doesn't distract once the list is on screen). */
+  function burst(cv, ms) {
+    var ctx = cv.getContext('2d'); cv.width = cv.clientWidth; cv.height = cv.clientHeight;
+    var colors = ['#ffffff', '#ff4fa2', '#c4b0ff', '#ffc857', '#35d68f']; var parts = []; var t0 = performance.now();
+    for (var i = 0; i < 220; i++) parts.push({ x: cv.width / 2 + (Math.random() - .5) * cv.width * .3, y: cv.height * .25, vx: (Math.random() - .5) * 18, vy: -Math.random() * 16 - 4, w: 6 + Math.random() * 9, h: 8 + Math.random() * 12, r: Math.random() * 6, vr: (Math.random() - .5) * .4, c: colors[i % colors.length] });
+    (function f(now) {
+      var el = now - t0; ctx.clearRect(0, 0, cv.width, cv.height);
+      if (el > ms) return;
+      var fade = el > ms - 1500 ? (ms - el) / 1500 : 1; ctx.globalAlpha = fade;
+      parts.forEach(function (q) { q.vy += .35; q.vx *= .99; q.x += q.vx; q.y += q.vy; q.r += q.vr; ctx.save(); ctx.translate(q.x, q.y); ctx.rotate(q.r); ctx.fillStyle = q.c; ctx.fillRect(-q.w / 2, -q.h / 2, q.w, q.h); ctx.restore(); });
+      requestAnimationFrame(f);
+    })(t0);
+  }
   function fmtStart(t) { var p = t.split(':'); var h = +p[0], m = p[1]; var ap = h >= 12 ? 'pm' : 'am'; var h12 = h % 12 || 12; return h12 + (m === '00' ? '' : ':' + m) + ap; }
   function renderPages() {
     var sc = (state && state.screen) || { mode: 'none' };
@@ -285,22 +316,31 @@
       tick(); wlTimer = setInterval(tick, 1000);
     }
     if (sc.mode === 'end') {
-      $('esSub').textContent = (sc.name || '') + (sc.winners ? '  \u00b7  Congratulations to our ' + sc.winners + ' winner' + (sc.winners > 1 ? 's' : '') + '!' : '');
-      var key = JSON.stringify(state.history.map(function (h) { return h.n + h.title; }));
+      $('esSub').textContent = [sc.name, sc.venue, sc.date ? fmtDate(sc.date) : ''].filter(Boolean).join('  \u00b7  ');
+      var eimg = $('esLogo'); if (logoUrl) { eimg.src = logoUrl; eimg.classList.add('has'); } else eimg.classList.remove('has');
+      var stats = [[sc.songs, sc.songs === 1 ? 'SONG PLAYED' : 'SONGS PLAYED'], [sc.rounds || 0, (sc.rounds === 1 ? 'ROUND' : 'ROUNDS')], [sc.winners || 0, sc.winners === 1 ? 'WINNER' : 'WINNERS']];
+      $('esStats').innerHTML = stats.map(function (x) { return '<div class="es-stat"><b>' + x[0] + '</b><span>' + x[1] + '</span></div>'; }).join('');
+      var key = JSON.stringify(state.history.map(function (h) { return h.n + h.title + h.round; }));
       if (key !== endKey) {
         endKey = key;
-        var list = $('esList'); list.innerHTML = ''; list.classList.remove('scrolling');
-        var n = state.history.length; list.className = 'es-list' + (n <= 8 ? ' c1' : n <= 20 ? ' c2' : '');
+        var list = $('esList'); list.innerHTML = ''; cancelAnimationFrame(esRaf);
+        var n = state.history.length; list.className = 'es-list' + (n <= 8 ? ' c1' : n <= 22 ? ' c2' : '');
+        var lastRound = -1;
         state.history.forEach(function (h) {
+          if (h.round && h.round !== lastRound) {
+            lastRound = h.round;
+            var hd = document.createElement('div'); hd.className = 'es-round';
+            var g = document.createElement('div'); CMBPatterns.render(g, CMBPatterns.examples(h.round)[0], 'pink'); hd.appendChild(g);
+            var lb = document.createElement('b'); lb.textContent = 'ROUND ' + h.round + ' \u00b7 ' + CMBPatterns.LABELS[h.round]; hd.appendChild(lb);
+            list.appendChild(hd);
+          }
           var d = document.createElement('div'); d.className = 'es-item' + (h.credit ? ' credit' : '');
-          d.innerHTML = '<span class="n"></span><span class="t"></span> <span class="a"></span>';
-          d.children[0].textContent = (h.n < 10 ? '0' : '') + h.n; d.children[1].textContent = h.title; d.children[2].textContent = '\u2014 ' + h.artist;
+          d.innerHTML = '<span class="n"></span><span class="tx"><span class="t"></span><span class="a"></span></span>';
+          d.querySelector('.n').textContent = h.n; d.querySelector('.t').textContent = h.title; d.querySelector('.a').textContent = h.artist;
           list.appendChild(d);
         });
-        requestAnimationFrame(function () {
-          var vp = $('esViewport'); var over = list.scrollHeight - vp.clientHeight;
-          if (over > 4) { list.style.setProperty('--es-shift', -over + 'px'); list.style.setProperty('--es-dur', Math.max(20, over / 25) + 's'); list.classList.add('scrolling'); }
-        });
+        requestAnimationFrame(function () { startEndScroll(list, $('esViewport')); });
+        burst($('esConfetti'), 7000);
       }
     }
   }

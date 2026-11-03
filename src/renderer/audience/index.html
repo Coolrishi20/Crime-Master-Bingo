@@ -35,8 +35,19 @@
       </div>
     </div>
     <div id="endscreen" class="screenpage hidden">
-      <div class="es-head"><div class="es-thanks display">THANKS FOR PLAYING!</div><div class="es-sub" id="esSub"></div></div>
-      <div class="es-listwrap"><div class="es-label">EVERY SONG TONIGHT</div><div class="es-viewport" id="esViewport"><div class="es-list" id="esList"></div></div></div>
+      <canvas id="esConfetti"></canvas>
+      <div class="es-glow g1"></div><div class="es-glow g2"></div>
+      <div class="es-inner">
+        <div class="es-brand"><img id="esLogo" alt=""><div class="es-word"><span class="display">CRIME MASTER</span><span class="display pink">BINGO</span></div></div>
+        <div class="es-thanks display">THANKS FOR PLAYING!</div>
+        <div class="es-sub" id="esSub"></div>
+        <div class="es-stats" id="esStats"></div>
+        <div class="es-listwrap">
+          <div class="es-label"><span></span>TONIGHT'S PLAYLIST<span></span></div>
+          <div class="es-viewport" id="esViewport"><div class="es-list" id="esList"></div></div>
+        </div>
+        <div class="es-foot">See you next time! <span class="pink">♥</span></div>
+      </div>
     </div>
     <div id="takeover" class="hidden" aria-live="assertive">
       <canvas id="confetti"></canvas>

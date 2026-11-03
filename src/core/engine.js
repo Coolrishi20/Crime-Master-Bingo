@@ -1135,7 +1135,7 @@ class GameEngine {
       song: s ? { title: s.displayTitle || s.title, artist: s.artist, key: `${pb.index}:${this.loadToken}` } : null,
       playbackStatus: pb.status,
       round: { number: g.round.number, status: g.round.status, label: g.round.number ? rules.ROUNDS[g.round.number].label : 'ONE LINE' },
-      history: g.played.map((p, i) => { const x = this.song(p.songId) || {}; return { n: i + 1, title: x.displayTitle || x.title, artist: x.artist, credit: p.kind === 'credit' }; }),
+      history: g.played.map((p, i) => { const x = this.song(p.songId) || {}; return { n: i + 1, title: x.displayTitle || x.title, artist: x.artist, credit: p.kind === 'credit', round: p.round || 0 }; }),
       overlay: this.settings.overlay,
       crawler: this.settings.crawler,
       patternPosition: this.settings.patternPosition,
@@ -1150,8 +1150,10 @@ class GameEngine {
       return { mode: 'welcome', name: g.name, venue: g.venue || '', date: g.date || '', startTime: sc.startTime || '', message: sc.message || '' };
     }
     if (g.status === 'finished' && sc.end) {
-      const winners = g.claims.filter(c => c.status === 'confirmed').length;
-      return { mode: 'end', name: g.name, venue: g.venue || '', winners, songs: g.played.length };
+      const won = g.claims.filter(c => c.status === 'confirmed');
+      const byRound = { 1: 0, 2: 0, 3: 0 }; won.forEach(c => { byRound[c.round] = (byRound[c.round] || 0) + 1; });
+      // counts only — never card numbers or claim details
+      return { mode: 'end', name: g.name, venue: g.venue || '', date: g.date || '', winners: won.length, winnersByRound: byRound, rounds: g.round.number, songs: g.played.length };
     }
     return { mode: 'none' };
   }
