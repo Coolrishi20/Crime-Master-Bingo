@@ -1,4 +1,17 @@
-# Crime Master Bingo — Test report (v1.1.0)
+# Crime Master Bingo — Test report (v1.2.0)
+
+## v1.2.0 additions
+- Unit tests: **109 / 109 passed**. The 8 new tests cover:
+  - update manager: version comparison, background download with install only on request, no download during a live game, install refused while music plays unless forced, quiet offline behaviour, portable download link, automatic checks off;
+  - the reveal-delay setting, which is clamped to 0–60 s and sent to the TV only.
+- Delayed reveal on the real TV window (`test/e2e/reveal-check.js`): **6 / 6 passed**. Covered: the teaser and countdown appear, the host sees the title immediately, the countdown pauses with the music, the title is revealed after 4 s of play, and with the reveal off the title shows immediately.
+- Update check against the real GitHub releases from inside the app: it found v1.1.0 and correctly reported 1.2.0 as up to date.
+- Full v1.1 acceptance regression: **83 / 83 passed**.
+- Windows build: installer, portable EXE, `latest.yml` and blockmap generated; the installed app carries `app-update.yml` pointing at the repo.
+- **Not yet verified:** a real install-and-update cycle on Windows. The first one will happen when version 1.2.1 or later is published and 1.2.0 updates itself.
+
+---
+
 
 ## Summary
 

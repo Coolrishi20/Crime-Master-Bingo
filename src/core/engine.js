@@ -34,7 +34,7 @@ function defaultGameSettings() {
     pauseOnClaim: true,
     winnerAnimation: true,
     tvScreens: { winner: true, wrongClaim: true, showCardNumber: false, seconds: 7 },
-    overlay: { enabled: true, position: 'bottom-left', titleSize: 64, artistSize: 38, opacity: 0.78, duration: 0 },
+    overlay: { enabled: true, position: 'bottom-left', titleSize: 64, artistSize: 38, opacity: 0.78, duration: 0, revealDelay: 0 },
     crawler: { speed: 4, fontSize: 30, height: 72, separator: 'diamond', paused: false },
     audio: defaultAudio(),
     patternPosition: 'top-right'
@@ -794,6 +794,7 @@ class GameEngine {
     if (args.artistSize != null) o.artistSize = Math.max(16, Math.min(100, Number(args.artistSize)));
     if (args.opacity != null) o.opacity = Math.max(0, Math.min(1, Number(args.opacity)));
     if (args.duration != null) o.duration = Math.max(0, Number(args.duration));
+    if (args.revealDelay != null) o.revealDelay = Math.max(0, Math.min(60, Math.round(Number(args.revealDelay) || 0)));
     this.touch('audience', false);
     return { ok: true };
   }

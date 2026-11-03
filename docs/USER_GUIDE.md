@@ -244,7 +244,28 @@ clip you play, so a quiet intro won't fool it.
 
 ---
 
-## 7. Saving, recovery and backups
+## 7. Delayed title reveal (optional)
+To make players work for it, go to **Settings → Song overlay → Reveal song title after**
+and choose 5–30 seconds. Each song starts on the TV with **♪ Guess the song…** and a
+countdown, then the title and artist slide in. The countdown follows the music: pause
+the song and the countdown pauses too. The laptop and phone always show the title
+immediately. You can change it live during a game (Host Game → TV crawler tab) or per
+game (Create Game, step 4). Choose **Immediately** to turn it off.
+
+## 8. App updates
+The installed app keeps itself up to date from the official GitHub releases.
+- It checks quietly in the background and downloads new versions, but never during a
+  live game.
+- When an update is ready, a pink **⟳ Restart to update** button appears in the
+  sidebar. Click it when convenient. If a song is playing it asks first. Your game is
+  saved and reopens paused exactly where it was. Closing the app also installs a
+  waiting update.
+- **Settings → App updates** shows your version and has **Check now** and an
+  **automatic checks** on/off switch.
+- No internet at the venue? Nothing happens; the app works fully offline.
+- The **portable** EXE can't replace itself, so it shows a download link instead.
+
+## 9. Saving, recovery and backups
 
 - Everything is saved automatically and crash-safely as it happens.
 - If the laptop or app shuts down unexpectedly, the Dashboard offers **RESUME LAST
@@ -273,12 +294,12 @@ clip you play, so a quiet intro won't fool it.
 
 ---
 
-## 8. Phone tips — including Galaxy Fold
+## 10. Phone tips — including Galaxy Fold
 The remote fits any phone. On a **Galaxy Fold's cover screen** it switches to a compact
 layout. **Unfolded**, it uses two columns: playback beside Up Next, and the BINGO keypad
 beside the card result. Add it to your home screen for an app-style icon.
 
-## 9. Troubleshooting
+## 11. Troubleshooting
 
 | Problem | Fix |
 |---|---|

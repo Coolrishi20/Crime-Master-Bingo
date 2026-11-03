@@ -14,6 +14,7 @@ const rules = require('../core/rules');
 const locking = require('../core/locking');
 const { AudioAnalyser } = require('./audio');
 const backup = require('./backup');
+const { UpdateManager, RELEASES_URL, REPO } = require('./updater');
 
 const ROOT = path.join(__dirname, '..', '..');
 const RENDERER = path.join(__dirname, '..', 'renderer');
@@ -23,7 +24,7 @@ const IS_TEST = !!process.env.CMB_TEST;
 if (process.env.CMB_NO_SANDBOX) app.commandLine.appendSwitch('no-sandbox');
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 
-let store, library, settings, remote, analyser;
+let store, library, settings, remote, analyser, updater;
 let hostWin = null, audienceWin = null, previewWin = null;
 let engine = null;          // engine for the active game
 let powerBlock = null;
@@ -37,6 +38,7 @@ function defaultSettings() {
     gameDefaults: defaultGameSettings(),
     cards: { textScale: 1, qr: true, bw: false, useLogo: true, showArtist: true, cutLines: true },
     remote: { port: 8787, autoStart: true, devices: [] },
+    updates: { auto: true },
     lastGameId: null,
     cleanShutdown: true
   };
@@ -45,7 +47,7 @@ function loadSettings() {
   const d = defaultSettings();
   const s = store.read('settings', d);
   const merged = Object.assign({}, d, s);
-  ['appearance', 'video', 'cards', 'remote'].forEach(k => { merged[k] = Object.assign({}, d[k], s[k] || {}); });
+  ['appearance', 'video', 'cards', 'remote', 'updates'].forEach(k => { merged[k] = Object.assign({}, d[k], s[k] || {}); });
   merged.gameDefaults = Object.assign(defaultGameSettings(), s.gameDefaults || {});
   merged.gameDefaults.overlay = Object.assign(defaultGameSettings().overlay, (s.gameDefaults || {}).overlay || {});
   merged.gameDefaults.crawler = Object.assign(defaultGameSettings().crawler, (s.gameDefaults || {}).crawler || {});
@@ -157,6 +159,7 @@ function onEngineChanged(kind) {
   if (remote) remote.broadcastState();
   // keep the laptop awake while a game is live
   const live = engine.game.status === 'live';
+  if (!live && updater && updater.status.state === 'available' && settings.updates.auto !== false) updater.download();
   if (live && powerBlock === null) powerBlock = powerSaveBlocker.start('prevent-display-sleep');
   if (!live && powerBlock !== null) { powerSaveBlocker.stop(powerBlock); powerBlock = null; }
 }
@@ -298,7 +301,8 @@ const handlers = {
   'app:info': () => ({ version: app.getVersion(), dataDir: DATA_DIR, recovery: recoveryInfo, platform: process.platform, isTest: IS_TEST }),
   'settings:get': () => settings,
   'settings:update': (patch) => {
-    ['appearance', 'video', 'cards', 'remote'].forEach(k => { if (patch[k]) Object.assign(settings[k], patch[k]); });
+    ['appearance', 'video', 'cards', 'remote', 'updates'].forEach(k => { if (patch[k]) Object.assign(settings[k], patch[k]); });
+    if (patch.updates && updater) updater.start(settings.updates.auto !== false);
     if (patch.gameDefaults) {
       const gd = patch.gameDefaults;
       if (gd.overlay) Object.assign(settings.gameDefaults.overlay, gd.overlay);
@@ -533,6 +537,13 @@ const handlers = {
   },
   'displays:list': () => screen.getAllDisplays().map(d => ({ id: d.id, label: d.label || `Display ${d.id}`, width: d.size.width, height: d.size.height, primary: d.id === screen.getPrimaryDisplay().id })),
 
+  /* app updates */
+  'update:status': () => (updater ? updater.status : { state: 'disabled' }),
+  'update:check': () => updater.check(true),
+  'update:download': () => updater.download(),
+  'update:install': ({ force }) => updater.install(!!force),
+  'update:openPage': () => { shell.openExternal(updater && updater.status.url || RELEASES_URL); return true; },
+
   /* audio levelling */
   'audio:status': () => (analyser ? analyser.status() : { available: false }),
   'audio:pause': () => { analyser.setPaused(true); return analyser.status(); },
@@ -669,6 +680,30 @@ function preflight() {
   return { checks };
 }
 
+/* App updates — optional; offline simply means "nothing to report". */
+function createUpdater() {
+  const isPortable = !!process.env.PORTABLE_EXECUTABLE_DIR;
+  let mode = process.env.CMB_UPDATE_MODE || (!app.isPackaged ? 'disabled' : isPortable ? 'portable' : process.platform === 'win32' ? 'installer' : 'disabled');
+  let autoUpdater = null;
+  if (mode === 'installer') { try { autoUpdater = require('electron-updater').autoUpdater; } catch (e) { mode = 'disabled'; } }
+  const u = new UpdateManager({
+    currentVersion: app.getVersion(), mode, autoUpdater,
+    fetchLatest: async () => {
+      const { net } = require('electron');
+      const r = await net.fetch(`https://api.github.com/repos/${REPO.owner}/${REPO.repo}/releases/latest`, { headers: { 'User-Agent': 'Crime-Master-Bingo-Updater', Accept: 'application/vnd.github+json' } });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const j = await r.json();
+      return { version: j.tag_name, url: j.html_url };
+    },
+    isGameLive: () => !!(engine && engine.game.status === 'live'),
+    isGamePlaying: () => !!(engine && ['playing', 'loading', 'between'].includes(engine.game.playback.status)),
+    beforeInstall: () => { app.isQuiting = true; try { store.flush(); settings.cleanShutdown = true; store.writeNow('settings', settings); } catch (e) { /* */ } },
+    onChange: (st) => sendHost('update', st)
+  });
+  u.start(settings.updates.auto !== false);
+  return u;
+}
+
 ipcMain.handle('invoke', async (e, channel, payload) => {
   const h = handlers[channel];
   if (!h) throw new Error('Unknown request: ' + channel);
@@ -689,6 +724,7 @@ else {
     settings = loadSettings();
     library = new Library(store);
     library.checkFiles();
+    updater = createUpdater();
     analyser = new AudioAnalyser({ dataDir: DATA_DIR, library, resourcesPath: process.resourcesPath, onChange: () => sendHost('library-audio', analyser.status()) });
     // Crash detection: cleanShutdown is cleared while running and set on normal exit.
     const lastGame = settings.lastGameId ? readGame(settings.lastGameId) : null;
@@ -709,4 +745,4 @@ else {
 }
 
 // Expose for e2e tests
-global.__cmb = { get engine() { return engine; }, get settings() { return settings; }, get remote() { return remote; }, handlers, dispatch, store: () => store };
+global.__cmb = { get updater() { return updater; }, get engine() { return engine; }, get settings() { return settings; }, get remote() { return remote; }, handlers, dispatch, store: () => store };

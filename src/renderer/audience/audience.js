@@ -133,6 +133,7 @@
       var now = performance.now();
       if (now - lastReport > 250 && !cur.test) { lastReport = now; window.cmb.send('player:time-sync', { token: cur.token, t: t }); }
     }
+    tickReveal();
     requestAnimationFrame(watch);
   }
   requestAnimationFrame(watch);
@@ -182,14 +183,45 @@
       overlayKey = song.key;
       overlay.classList.add('hidden');
       clearTimeout(overlayTimer);
+      var delay = Math.max(0, Number(o.revealDelay) || 0);
+      reveal = { song: song, delay: delay, done: delay === 0, duration: o.duration };
       setTimeout(function () {
-        showOverlay(song);
-        if (o.duration > 0) overlayTimer = setTimeout(function () { overlay.classList.add('hidden'); }, o.duration * 1000);
+        if (reveal.done) revealNow();
+        else showTeaser(delay);
       }, 120);
-    } else {
+    } else if (reveal && reveal.done) {
       $('ovTitle').textContent = song.title; $('ovArtist').textContent = song.artist;
-    }
+    } else if (reveal) { reveal.song = song; reveal.delay = Math.max(0, Number(o.revealDelay) || 0); if (!reveal.delay) revealNow(); }
   }
+
+  /* Delayed title reveal: a "Guess the song…" teaser counts down using the VIDEO's own
+     time (so it pauses when the music pauses), then the real title slides in. */
+  var reveal = null;
+  function showTeaser(delay) {
+    overlay.classList.add('teaser');
+    $('ovTitle').textContent = '\u266A Guess the song\u2026';
+    $('ovArtist').textContent = 'Title in ' + Math.ceil(delay) + 's';
+    overlay.classList.remove('hidden');
+  }
+  function revealNow() {
+    if (!reveal) return;
+    reveal.done = true;
+    overlay.classList.remove('teaser');
+    overlay.classList.add('hidden');
+    setTimeout(function () {
+      showOverlay(reveal.song);
+      overlay.classList.add('revealed'); setTimeout(function () { overlay.classList.remove('revealed'); }, 900);
+      if (reveal.duration > 0) overlayTimer = setTimeout(function () { overlay.classList.add('hidden'); }, reveal.duration * 1000);
+    }, reveal.delay ? 260 : 0);
+  }
+  function tickReveal() {
+    if (!reveal || reveal.done || cur.test || cur.token == null) return;
+    var into = (video.currentTime || 0) - (cur.clipStart || 0);
+    var left = reveal.delay - into;
+    if (left <= 0) revealNow();
+    else $('ovArtist').textContent = 'Title in ' + Math.ceil(left) + 's';
+  }
+  window.__reveal = function () { return reveal ? { done: reveal.done, delay: reveal.delay, text: $('ovTitle').textContent } : null; };
 
   /* ------------------------------------------------------------- pattern */
   function renderPattern() {

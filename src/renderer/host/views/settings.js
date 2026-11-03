@@ -24,7 +24,9 @@ App.register('settings', {
           <label class="field">Title size (px @1080p)<input type="number" id="oT" value="${gd.overlay.titleSize}"></label>
           <label class="field">Artist size (px)<input type="number" id="oA" value="${gd.overlay.artistSize}"></label>
           <label class="field">Opacity (%)<input type="number" id="oO" min="0" max="100" value="${Math.round(gd.overlay.opacity * 100)}"></label>
-          <label class="field">Display duration (s, 0 = whole song)<input type="number" id="oD" min="0" value="${gd.overlay.duration}"></label></div>
+          <label class="field">Display duration (s, 0 = whole song)<input type="number" id="oD" min="0" value="${gd.overlay.duration}"></label>
+          <label class="field">Reveal song title after<select id="oR">${[0, 5, 10, 15, 20, 30].map(v => `<option value="${v}" ${Number(gd.overlay.revealDelay || 0) === v ? 'selected' : ''}>${v === 0 ? 'Immediately (off)' : v + ' seconds'}</option>`).join('')}</select></label></div>
+          <p class="muted small">Delayed reveal: the TV shows “♪ Guess the song…” with a countdown, then the title — players have to recognise the song first. The countdown pauses when the music pauses. Your laptop and phone always show the title straight away.</p>
           <div class="row" style="margin-top:12px">${toggleHtml('oOn', 'Show song title & artist', gd.overlay.enabled)}</div></div>
         <div class="panel"><h2>Audience crawler</h2><div class="form-grid">
           <label class="field">Scroll speed (1–10)<input type="number" id="cS" min="1" max="10" value="${gd.crawler.speed}"></label>
@@ -47,10 +49,27 @@ App.register('settings', {
             <label class="field">Fade in (seconds, 0 = off)<input type="number" id="aFi" min="0" max="5" step="0.1" value="${gd.audio.fadeIn}"></label>
             <label class="field">Fade out (seconds, 0 = off)<input type="number" id="aFo" min="0" max="8" step="0.1" value="${gd.audio.fadeOut}"></label></div>
           <p class="muted small">Every video's loudness is measured once in the background (EBU R128). Playback is then turned up or down so every song sounds equally loud — without touching the original files and never above ${gd.audio.ceilingDbtp} dBTP, so nothing clips. Very quiet videos are boosted by at most the maximum amplification.</p></div>
+        <div class="panel"><h2>App updates</h2>
+          <div class="row"><span class="muted">Version <b style="color:#fff">${esc(App.info.version)}</b></span><span class="grow"></span><span id="upState" class="small"></span></div>
+          <div class="row" style="margin-top:12px">${toggleHtml('upAuto', 'Check for updates automatically', s.updates ? s.updates.auto !== false : true)}</div>
+          <div class="row" style="margin-top:12px"><button class="btn sm" id="upCheck">Check now</button><button class="btn sm primary" id="upAct" style="display:none"></button></div>
+          <p class="muted small">Updates come from the Crime Master Bingo releases on GitHub. They download in the background (never during a live game) and install only when you choose “Restart to update” or close the app. No internet? Nothing happens — the app works fully offline.</p></div>
         <div class="panel"><h2>Mobile remote</h2>${toggleHtml('rA', 'Start the remote service when the app opens', s.remote.autoStart)}<p class="muted small">Address, PIN, paired devices and port: see <a href="#" id="rGo" style="color:var(--pink)">Mobile Host Connection</a>.</p>
           <p class="muted tiny">Data folder: ${esc(App.info.dataDir)}</p></div>
       </div>`;
     const v = id => $(id, el).value, c = id => $(id, el).checked, n = id => Number($(id, el).value);
+    App.drawUpdateSettings = (st) => {
+      const box = $('#upState', el); const act = $('#upAct', el); if (!box) return;
+      st = st || App.update || {};
+      const L = { idle: '', checking: 'Checking…', 'up-to-date': '✓ You have the latest version', available: `Update ${st.version} available`, downloading: `Downloading ${st.version || ''} — ${st.percent || 0}%`, downloaded: `✓ ${st.version} ready to install`, 'portable-available': `Version ${st.version} is available`, error: st.error || 'Could not check', off: 'Automatic checks are off', disabled: 'Updates are not available in this build' };
+      box.textContent = L[st.state] != null ? L[st.state] : '';
+      box.style.color = st.state === 'error' ? 'var(--amber)' : (['downloaded', 'available', 'portable-available'].includes(st.state) ? 'var(--green)' : '');
+      act.style.display = ['available', 'downloaded', 'portable-available'].includes(st.state) ? '' : 'none';
+      act.textContent = st.state === 'downloaded' ? '⟳ Restart to update' : st.state === 'available' ? '⬇ Download update' : 'Open download page';
+      act.onclick = () => App.updateAction();
+    };
+    $('#upCheck', el).onclick = async () => { App.update = await api('update:check'); App.drawUpdateSettings(App.update); };
+    App.drawUpdateSettings();
     $('#sLogo', el).onclick = async () => { await api('settings:pickLogo'); App.settings = await api('settings:get'); App.applyAppearance(); this.render(el); };
     if ($('#sLogoX', el)) $('#sLogoX', el).onclick = async () => { await api('settings:clearLogo'); App.settings = await api('settings:get'); App.applyAppearance(); this.render(el); };
     $('#rGo', el).onclick = (e) => { e.preventDefault(); App.show('mobile'); };
@@ -60,8 +79,9 @@ App.register('settings', {
         video: { displayId: v('#sDisp') || null, aspect: v('#sAsp'), audioDeviceId: v('#sAudio'), fullscreen: c('#sFs') },
         cards: { textScale: n('#kT') / 100, qr: c('#kQ'), bw: c('#kB'), useLogo: c('#kL') },
         remote: { autoStart: c('#rA') },
+        updates: { auto: c('#upAuto') },
         gameDefaults: { clipMode: v('#sClip') === 'full' ? 'full' : Number(v('#sClip')), defaultStart: n('#sStart'), autoAdvanceGap: n('#gG'), volume: n('#gV'), shuffle: c('#gS'), autoAdvance: c('#gA'), pauseOnClaim: c('#gP'), winnerAnimation: c('#gW'), patternPosition: v('#pPos'),
-          overlay: { position: v('#oPos'), titleSize: n('#oT'), artistSize: n('#oA'), opacity: n('#oO') / 100, duration: n('#oD'), enabled: c('#oOn') },
+          overlay: { position: v('#oPos'), titleSize: n('#oT'), artistSize: n('#oA'), opacity: n('#oO') / 100, duration: n('#oD'), revealDelay: n('#oR'), enabled: c('#oOn') },
           crawler: { speed: Math.max(1, Math.min(10, n('#cS'))), fontSize: n('#cF'), height: n('#cH'), separator: v('#cSep') },
           audio: { levelling: c('#aLev'), targetLufs: n('#aT'), maxBoostDb: n('#aB'), fadeIn: n('#aFi'), fadeOut: n('#aFo'), ceilingDbtp: gd.audio.ceilingDbtp, muted: false } }
       };

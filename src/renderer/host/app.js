@@ -21,6 +21,8 @@
       window.cmb.on('tick', (t) => { if (this.game) { this.game.playback.position = t.position; } this.emit('tick', t); });
       window.cmb.on('remote', (r) => { this.remote = r; this.updateSide(); this.emit('remote'); });
       window.cmb.on('audience', (a) => { this.audience.open = a.open; this.updateSide(); this.emit('audience'); });
+      window.cmb.on('update', (u) => { this.update = u; this.drawUpdatePill(); if (this.drawUpdateSettings && this.view === 'settings') this.drawUpdateSettings(u); });
+      this.update = await api('update:status'); this.drawUpdatePill();
       window.cmb.on('library-audio', (a) => { if (App.view === 'library' && views.library) { views.library.audio = a; views.library.drawAudio(); views.library.on_library(); } });
       window.cmb.on('backup-progress', (p) => this.emit('backup', p));
       window.cmb.on('event', (e) => { if (e.name === 'error') toast(e.payload.message, 'err', 7000); this.emit('event', e); });
@@ -113,6 +115,27 @@
         r = await this.cmd('reverseCredit', { creditId, reason, acknowledge: true });
       }
       if (r && r.ok) toast('Credit reversed (audit record kept)', 'ok');
+    },
+    drawUpdatePill() {
+      let pill = document.getElementById('updPill');
+      const u = this.update || {};
+      const show = ['available', 'downloading', 'downloaded', 'portable-available'].includes(u.state);
+      if (!show) { if (pill) pill.remove(); return; }
+      if (!pill) { pill = document.createElement('button'); pill.id = 'updPill'; pill.className = 'btn sm primary'; pill.style.cssText = 'margin:0 18px 12px;'; document.getElementById('sideStatus').before(pill); pill.onclick = () => this.updateAction(); }
+      pill.textContent = u.state === 'downloaded' ? `⟳ Restart to update (${u.version})` : u.state === 'downloading' ? `⬇ Downloading ${u.version || ''} ${u.percent || 0}%` : `⬆ Update ${u.version} available`;
+      pill.disabled = u.state === 'downloading';
+    },
+    async updateAction() {
+      const u = this.update || {};
+      if (u.state === 'portable-available') return api('update:openPage');
+      if (u.state === 'available') { this.update = await api('update:download'); return this.drawUpdatePill(); }
+      if (u.state !== 'downloaded') return;
+      if (!await confirmBox(`Restart to update to ${u.version}?`, 'Crime Master Bingo will close, install the update and reopen. Your game is saved and resumes exactly where it was (paused). Phones reconnect automatically.', 'Restart & update')) return;
+      try { await window.cmb.invoke('update:install', {}); }
+      catch (e) {
+        if (/playing/i.test(cleanErr(e)) && await confirmBox('A song is playing', esc(cleanErr(e)), 'Restart anyway', true)) await window.cmb.invoke('update:install', { force: true });
+        else if (!/playing/i.test(cleanErr(e))) toast(cleanErr(e), 'err');
+      }
     },
     /** Complete the current round (transition) — pending claims must be resolved first. */
     async completeRound() {

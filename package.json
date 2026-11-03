@@ -1,7 +1,7 @@
 {
   "name": "crime-master-bingo",
   "productName": "Crime Master Bingo",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Crime Master Bingo - offline music video bingo for live events",
   "main": "src/main/main.js",
   "author": "Crime Master Bingo",
@@ -82,9 +82,18 @@
         "dir"
       ],
       "category": "AudioVideo"
-    }
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "Coolrishi20",
+        "repo": "Crime-Master-Bingo",
+        "releaseType": "release"
+      }
+    ]
   },
   "dependencies": {
+    "electron-updater": "^6.8.11",
     "jsqr": "^1.4.0",
     "qrcode": "^1.5.4",
     "ws": "^8.22.1",

@@ -18,8 +18,12 @@ npm run dist:win
 This downloads a static ffmpeg build into `vendor/ffmpeg/win32-x64/`; it's used only
 for loudness analysis and ships as a separate program with its GPL licence. It then
 produces:
-- `dist/CrimeMasterBingo-Setup-1.0.0.exe`: installer (choose folder, desktop shortcut)
-- `dist/CrimeMasterBingo-Portable-1.0.0.exe`: single EXE, no install
+- `dist/CrimeMasterBingo-Setup-<version>.exe`: installer (choose folder, desktop shortcut)
+- `dist/CrimeMasterBingo-Portable-<version>.exe`: single EXE, no install
+
+Builds include `latest.yml` and a `.blockmap`. Uploaded to the GitHub release next to
+the installer, they let installed copies update themselves (electron-updater, GitHub
+provider, public repo, no token needed).
 
 The EXEs are not code-signed. To sign them, set `CSC_LINK` / `CSC_KEY_PASSWORD`
 (see electron-builder docs) before building.
@@ -32,11 +36,12 @@ can also be run by hand from the **Actions** tab (*Build Windows app → Run wor
 
 ## Tests
 ```bash
-npm test          # 101 unit/integration tests (rules, cards, engine, claim sessions,
+npm test          # 109 unit/integration tests (rules, cards, engine, claim sessions,
                   # credit & locking, loudness, backup/restore, crawler, storage, remote)
 npm run test:e2e  # makes 50 royalty-free sample videos, then runs the full acceptance
                   # scenario in the real app + a phone browser (83 checks)
 xvfb-run -a node test/e2e/print-counts.js sample-videos   # printing QA (1/2/3/100/500/999 cards, QR decoding, reprints)
+xvfb-run -a node test/e2e/reveal-check.js sample-videos   # delayed title reveal on the real TV window
 ```
 To run the acceptance test against a packaged build, set `CMB_APP_EXE` to the built
 executable.

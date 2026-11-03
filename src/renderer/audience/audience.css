@@ -103,3 +103,9 @@ body.aspect-fill #video { object-fit: fill; }
 @keyframes roundIn { 0% { transform: translateY(40%) scale(.6); opacity: 0; } 60% { transform: translateY(-4%) scale(1.04); opacity: 1; } 100% { transform: none; } }
 #pattern.ready { border-color: var(--green); }
 #pattern.ready .pt-head span:first-child { color: var(--green); }
+
+/* delayed title reveal */
+#overlay.teaser #ovTitle { color: var(--lilac); }
+#overlay.teaser #ovArtist { color: var(--pink); font-variant-numeric: tabular-nums; }
+#overlay.revealed { animation: revealPop .8s cubic-bezier(.2,1.3,.3,1); }
+@keyframes revealPop { 0% { transform: scale(.85); } 60% { transform: scale(1.05); } 100% { transform: none; } }
