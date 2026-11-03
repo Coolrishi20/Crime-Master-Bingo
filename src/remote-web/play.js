@@ -64,12 +64,12 @@
       s.cells.forEach(function (c, i) {
         var d = document.createElement('div'); d.className = 'cell'; d.dataset.i = i;
         d.innerHTML = '<div class="t">' + esc(c.t) + '</div>' + (c.a ? '<div class="a">' + esc(c.a) + '</div>' : '');
-        d.onclick = function () { var mk = marks(); var k = mk.indexOf(i); if (k >= 0) mk.splice(k, 1); else mk.push(i); save(marksKey(), mk); paintMarks(); if (navigator.vibrate) navigator.vibrate(12); };
+        d.onclick = function () { toggleMark(i); };
         g.appendChild(d);
       });
       paintMarks();
     }
-    drawRound();
+    drawRound(); drawAway(prev); drawPlayed();
     // results from the host (shown once each)
     if (s.last) {
       var seen = load('cmb-seen') || {}; var k = s.last.id + ':' + s.last.status;
@@ -80,6 +80,62 @@
       }
     }
   }
+  /* marks: tap toggles; every change can be undone (snackbar + Undo button) */
+  var undoStack = [], snackT = null;
+  function toggleMark(i, fromUndo) {
+    var mk = marks(); var k = mk.indexOf(i); var on = k < 0;
+    if (on) mk.push(i); else mk.splice(k, 1);
+    save(marksKey(), mk); paintMarks(); if (navigator.vibrate) navigator.vibrate(12);
+    if (!fromUndo) { undoStack.push(i); if (undoStack.length > 50) undoStack.shift(); snack((on ? 'Marked “' : 'Unmarked “') + state.cells[i].t + '”'); }
+    $('undo').disabled = !undoStack.length;
+    keepAwake();
+  }
+  function undo() { if (!undoStack.length) return; var i = undoStack.pop(); toggleMark(i, true); snack('Undone', true); }
+  function snack(tx, noUndo) {
+    $('snackTx').textContent = tx; $('snackUndo').style.display = noUndo ? 'none' : '';
+    $('snack').classList.remove('hidden'); clearTimeout(snackT); snackT = setTimeout(function () { $('snack').classList.add('hidden'); }, noUndo ? 1500 : 4500);
+  }
+  $('snackUndo').onclick = undo; $('undo').onclick = undo;
+
+  /* "one away" — based on the songs actually played (not on the player's own marks) */
+  function drawAway(prev) {
+    var s = state, el = $('away'), one = s.away === 1;
+    el.classList.toggle('hidden', !one);
+    if (one) el.innerHTML = '<span style="font-size:26px">🔥</span><div><big>ONE SONG AWAY!</big><small>Just one more played song and you have ' + esc((s.round.label || '').toLowerCase()) + ' — listen closely!</small></div>';
+    var key = s.gameId + ':' + s.round.number + ':' + (s.played ? s.played.length : 0);
+    if (one && (!prev || prev.away !== 1) && load('cmb-away') !== key) { save('cmb-away', key); if (navigator.vibrate) navigator.vibrate([60, 50, 60]); }
+  }
+
+  /* songs played so far (same list as the TV crawler) */
+  function drawPlayed() {
+    var p = state.played || []; $('playedN').textContent = p.length;
+    if (!$('sheet').classList.contains('hidden')) fillSheet();
+  }
+  function fillSheet() {
+    var p = (state.played || []).slice().reverse();
+    $('sheetList').innerHTML = p.length ? p.map(function (x, k) { return '<div class="pl-row' + (k === 0 ? ' new' : '') + '"><span class="n">' + x.n + '</span><div><div class="t">' + esc(x.t) + '</div><div class="a">' + esc(x.a) + (x.credit ? ' · counts as played' : '') + '</div></div></div>'; }).join('') : '<div class="muted small">No songs have finished playing yet.</div>';
+  }
+  $('playedBtn').onclick = function () { fillSheet(); $('sheet').classList.remove('hidden'); };
+  $('sheetX').onclick = function () { $('sheet').classList.add('hidden'); };
+  $('sheet').onclick = function (e) { if (e.target === $('sheet')) $('sheet').classList.add('hidden'); };
+
+  /* keep the screen awake while the card is open: Wake Lock where the browser allows it,
+     otherwise a tiny silent looping video (works on the plain Wi-Fi link). Not game media. */
+  var wake = null; window.__awake = 'none';
+  function keepAwake() {
+    if (document.visibilityState !== 'visible' || $('game').classList.contains('hidden')) return;
+    if (wake) return;
+    if (navigator.wakeLock && window.isSecureContext) {
+      navigator.wakeLock.request('screen').then(function (w) { wake = w; window.__awake = 'wakelock'; w.addEventListener('release', function () { wake = null; }); }).catch(videoAwake);
+    } else videoAwake();
+  }
+  function videoAwake() {
+    var v = $('awake'); window.__awake = 'video';
+    if (v.paused) { var pr = v.play(); if (pr && pr.catch) pr.catch(function () { window.__awake = 'video-blocked'; }); }
+  }
+  document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') { wake = null; keepAwake(); } });
+  document.addEventListener('pointerdown', keepAwake, { passive: true });
+
   function paintMarks() { var mk = marks(); Array.prototype.forEach.call($('grid').children, function (d, i) { d.classList.toggle('on', mk.indexOf(i) >= 0); }); }
 
   function drawRound() {
@@ -114,7 +170,7 @@
     if (navigator.vibrate) navigator.vibrate(kind === 'win' ? [80, 60, 80, 60, 200] : 40);
   }
   $('popOk').onclick = function () { $('pop').className = 'pop hidden'; };
-  $('clear').onclick = function () { if (state && confirm('Clear all the marks on your card?')) { save(marksKey(), []); paintMarks(); } };
+  $('clear').onclick = function () { if (state && confirm('Clear all the marks on your card?')) { save(marksKey(), []); undoStack = []; $('undo').disabled = true; paintMarks(); } };
 
   $('jGo').onclick = function () {
     var n = $('jName').value.trim();

@@ -192,3 +192,6 @@ body.page-on #pattern, body.page-on #overlay { visibility: hidden; }
 .wl-join-tx b { display: block; font-family: var(--display); font-weight: 400; font-size: calc(36px * var(--s)); line-height: 1; color: #fff; }
 .wl-join-tx span { display: block; color: var(--lilac); font-weight: 600; font-size: calc(20px * var(--s)); margin-top: calc(6px * var(--s)); }
 .wl-join-tx em { display: block; font-style: normal; color: var(--pink); font-weight: 800; font-size: calc(18px * var(--s)); margin-top: calc(10px * var(--s)); }
+
+/* winner's name on the TV (home play) */
+#takeover.winner .to-sub.named { font-size: calc(64px * var(--s)); color: #fff; text-shadow: 0 0 calc(24px * var(--s)) rgba(255,255,255,.55); }

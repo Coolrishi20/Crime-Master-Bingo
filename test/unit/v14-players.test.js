@@ -84,7 +84,7 @@ test('player view shows only their own card, the round and their own results', (
   const v = eng.playerView(p.playerId);
   assert.strictEqual(v.cells.length, 25);
   assert.strictEqual(v.me.name, 'Nani');
-  assert.ok(!('played' in v) && !('history' in v) && !('players' in v), 'no played list / other players');
+  assert.ok(Array.isArray(v.played) && !('players' in v) && !('claims' in v), 'played list (as on the TV) but no other players or claims');
   assert.ok(!JSON.stringify(v).includes('tokenHash'));
   const hs = eng.hostState();
   assert.strictEqual(hs.players.length, 2);
@@ -98,4 +98,38 @@ test('removing a player retires their card for good', () => {
   assert.strictEqual(eng.playerView(a.playerId), null);
   const b = join(eng, 'B');
   assert.notStrictEqual(b.cardNo, a.cardNo);
+});
+
+/* v1.4.1 */
+test('"one away" counts only songs actually played, for the current round', () => {
+  const { eng, game } = makeEngine({ cards: 5 });
+  const p = join(eng, 'Priya');
+  assert.strictEqual(eng.playerView(p.playerId).away, null, 'nothing before a round');
+  eng.dispatch('startRound', { round: 1 });
+  const card = game.cards.find(c => c.no === p.cardNo);
+  play(eng, row(card, 3).slice(0, 3));
+  assert.strictEqual(eng.playerView(p.playerId).away, 2);
+  play(eng, row(card, 3).slice(3, 4));
+  assert.strictEqual(eng.playerView(p.playerId).away, 1);
+  assert.strictEqual(eng.playerView(p.playerId).played.length, 4);
+});
+
+test('TV winner screen carries the winner names (option), never on "Not a Bingo"', () => {
+  const { eng, game, events } = makeEngine({ cards: 5 });
+  const a = join(eng, 'Priya'); const b = join(eng, 'Rahul');
+  eng.dispatch('startRound', { round: 1 });
+  const ca = game.cards.find(c => c.no === a.cardNo), cb = game.cards.find(c => c.no === b.cardNo);
+  play(eng, row(ca, 0)); play(eng, row(cb, 4));
+  const ra = eng.dispatch('playerBingo', { playerId: a.playerId });
+  const rb = eng.dispatch('playerBingo', { playerId: b.playerId });
+  const tv = [];
+  eng.hooks.event = (n, pl) => { if (n === 'tvScreen') tv.push(pl); };
+  eng.dispatch('confirmClaim', { claimId: ra.claimId });
+  eng.dispatch('confirmClaim', { claimId: rb.claimId });
+  assert.deepStrictEqual(tv[0].names, ['Priya']);
+  assert.deepStrictEqual(tv[1].names, ['Priya', 'Rahul']);
+  eng.dispatch('setTvScreens', { showName: false });
+  eng.dispatch('showTvScreen', { claimId: ra.claimId, type: 'winner' });
+  assert.ok(!tv[2].names, 'names hidden when the option is off');
+  void events;
 });

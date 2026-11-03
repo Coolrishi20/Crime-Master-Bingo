@@ -1,3 +1,18 @@
+## Crime Master Bingo 1.4.1 — Better phone cards
+
+### New in 1.4.1
+- **Undo a mistaken mark.** Every tap shows "Marked 'song' · UNDO". There's also an
+  **↶ Undo** button, and tapping a song again unmarks it.
+- **Songs played so far on the phone.** Tap **🎵 played** to see the list (newest first),
+  which helps anyone who missed a song or joined late.
+- **🔥 ONE SONG AWAY!** The phone buzzes and shows a banner when a player needs just one more
+  played song for the round.
+- **Screen stays on.** Players' phones no longer dim or lock while the card is open.
+- **Winner's name on the TV.** "PRIYA WINS!" (or "PRIYA & RAHUL WIN!") for phone players and
+  cards shared with a name. You can turn it off under Host Game → TV screens.
+
+---
+
 ## Crime Master Bingo 1.4.0 — Home play
 
 If you have 1.3.x, this arrives in the app as **⟳ Restart to update**. Both new features

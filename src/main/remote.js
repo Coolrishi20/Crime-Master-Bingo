@@ -12,7 +12,7 @@ const os = require('os');
 const crypto = require('crypto');
 const { WebSocketServer } = require('ws');
 
-const MIME = { '.woff2': 'font/woff2', '.html': 'text/html; charset=utf-8', '.js': 'application/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.png': 'image/png', '.svg': 'image/svg+xml', '.json': 'application/json', '.webmanifest': 'application/manifest+json' };
+const MIME = { '.woff2': 'font/woff2', '.html': 'text/html; charset=utf-8', '.js': 'application/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.png': 'image/png', '.mp4': 'video/mp4', '.svg': 'image/svg+xml', '.json': 'application/json', '.webmanifest': 'application/manifest+json' };
 
 const REMOTE_ACTIONS = new Set([
   'play', 'pause', 'togglePlay', 'stop', 'next', 'skip', 'previous', 'replay', 'seek', 'setVolume', 'markPlayed',

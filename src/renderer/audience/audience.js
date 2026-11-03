@@ -403,7 +403,9 @@
     $('toCard').textContent = p.cardLabel ? 'CARD ' + p.cardLabel : '';
     $('toCard').className = 'to-card' + (p.cardLabel ? ' show' : '');
     if (p.type === 'winner') {
-      $('toSub').textContent = p.winners > 1 ? p.winners + ' WINNERS!' : 'WE HAVE A WINNER!';
+      var nm = (p.names || []).map(function (n) { return String(n).toUpperCase(); });
+      $('toSub').textContent = nm.length ? (nm.length === 1 ? nm[0] + ' WINS!' : nm.slice(0, -1).join(', ') + ' & ' + nm[nm.length - 1] + ' WIN!') : (p.winners > 1 ? p.winners + ' WINNERS!' : 'WE HAVE A WINNER!');
+      $('toSub').classList.toggle('named', nm.length > 0);
       $('toMsg').textContent = p.round < 3 ? 'Keep your cards — songs stay marked for the next round.' : 'Full house! Congratulations!';
       CMBPatterns.render($('toGrid'), p.pattern || CMBPatterns.examples(p.round)[0], '');
       startConfetti();

@@ -33,7 +33,7 @@ function defaultGameSettings() {
     volume: 85,
     pauseOnClaim: true,
     winnerAnimation: true,
-    tvScreens: { winner: true, wrongClaim: true, showCardNumber: false, seconds: 7 },
+    tvScreens: { winner: true, wrongClaim: true, showCardNumber: false, showName: true, seconds: 7 },
     screens: { welcome: true, startTime: '', message: '', end: true },
     overlay: { enabled: true, position: 'bottom-left', titleSize: 64, artistSize: 38, opacity: 0.78, duration: 0, revealDelay: 0 },
     crawler: { speed: 4, fontSize: 30, height: 72, separator: 'diamond', paused: false },
@@ -1001,6 +1001,11 @@ class GameEngine {
     const winnersInSession = session ? session.claimIds.map(id => this.game.claims.find(c => c.id === id)).filter(c => c && c.status === 'confirmed').length : 1;
     const payload = { type, round: claim.round, label: rules.ROUNDS[claim.round].label, seconds: Math.max(3, Math.min(30, Number(t.seconds) || 7)), winners: winnersInSession };
     if (t.showCardNumber) payload.cardLabel = formatCardNo(claim.cardNo);
+    // winner names (phone players / named cards) — never on the "Not a Bingo" screen
+    if (type === 'winner' && t.showName !== false && session) {
+      const names = session.claimIds.map(id => this.game.claims.find(c => c.id === id)).filter(c => c && c.status === 'confirmed').map(c => this.ownerOf(c.cardNo)).filter(Boolean);
+      if (names.length) payload.names = names;
+    } else if (type === 'winner' && t.showName !== false) { const n = this.ownerOf(claim.cardNo); if (n) payload.names = [n]; }
     if (type === 'winner' && res) payload.pattern = Array.from({ length: 25 }, (_, i) => res.winningCells.includes(i));
     this.event('tvScreen', payload);
   }
@@ -1033,7 +1038,7 @@ class GameEngine {
 
   aSetTvScreens(args) {
     const t = this.settings.tvScreens;
-    ['winner', 'wrongClaim', 'showCardNumber'].forEach(k => { if (args[k] != null) t[k] = !!args[k]; });
+    ['winner', 'wrongClaim', 'showCardNumber', 'showName'].forEach(k => { if (args[k] != null) t[k] = !!args[k]; });
     if (args.seconds != null) t.seconds = Math.max(3, Math.min(30, Number(args.seconds)));
     this.touch('state', false);
     return { ok: true, tvScreens: t };
@@ -1207,8 +1212,16 @@ class GameEngine {
     const mine = g.claims.filter(c => c.cardNo === pl.cardNo && c.status !== 'removed');
     const last = mine[mine.length - 1] || null;
     const r = g.round;
+    // "one away": how many more of the songs actually played this player needs for the
+    // current round (songs only count once their clip has finished, so no title is spoiled)
+    let away = null;
+    if (r.number && ['active', 'ended'].includes(r.status) && g.status !== 'finished' && !mine.some(c => c.status === 'confirmed' && c.round === r.number)) {
+      const b = rules.bestProgress(card.cells, this.playedSet(), r.number); away = b ? b.missing : null;
+    }
     return {
-      gameId: g.id, gameName: g.name, gameStatus: g.status,
+      gameId: g.id, gameName: g.name, gameStatus: g.status, away,
+      // the same list the TV crawler shows (newest last)
+      played: g.played.map((p, i) => { const l = (g.lockedLabels && g.lockedLabels[p.songId]) || {}; const x = this.song(p.songId) || {}; return { n: i + 1, t: l.title || x.displayTitle || x.title, a: l.artist || x.artist, credit: p.kind === 'credit' }; }),
       me: { id: pl.id, name: pl.name, cardNo: pl.cardNo, cardLabel: formatCardNo(pl.cardNo) },
       cells,
       round: { number: r.number, status: r.status, label: r.number ? rules.ROUNDS[r.number].label : null, rule: r.number ? rules.ROUNDS[r.number].rule : null },

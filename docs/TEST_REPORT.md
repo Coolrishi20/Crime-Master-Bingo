@@ -1,4 +1,19 @@
-# Crime Master Bingo — Test report (v1.4.0)
+# Crime Master Bingo — Test report (v1.4.1)
+
+## v1.4.1 additions
+- Unit tests: **125 / 125 passed**. The 2 new tests cover the one-away count (only played
+  songs count, current round only) and winner names on the TV screen (several winners,
+  option off, never on "Not a Bingo").
+- `test/e2e/v14-check.js`: **35 / 35 passed**. New checks: the one-away banner, the played
+  count and list on the phone, marking with UNDO from the message and from the Undo button,
+  keep-awake starting on the first tap, and the TV showing "PRIYA WINS!".
+- **Not yet verified on real phones:** keep-awake. The plain Wi-Fi link uses a tiny silent
+  looping video because browsers only allow Wake Lock on secure pages. It works this way on
+  current Android Chrome and iPhone Safari, but some battery-saver modes may still dim
+  the screen.
+
+---
+
 
 ## v1.4.0 additions (home play)
 - Unit tests: **123 / 123 passed**. The 8 new tests cover:

@@ -30,16 +30,20 @@
 <section id="game" class="screen hidden">
   <header id="top">
     <div class="who"><div id="gName" class="gname"></div><div class="me"><span id="meName"></span> · Card <b id="meCard"></b></div></div>
-    <div id="conn" class="conn"><span class="dot"></span><span id="connTxt"></span></div>
+    <div class="topr"><div id="conn" class="conn"><span class="dot"></span><span id="connTxt"></span></div><button id="playedBtn" class="pbtn">🎵 <b id="playedN">0</b> played</button></div>
   </header>
   <div id="round" class="round"></div>
+  <div id="away" class="away hidden"></div>
   <div id="grid" class="grid"></div>
   <div class="foot">
     <button id="bingo" class="bingo">BINGO!</button>
-    <div class="tools"><button id="clear" class="lnk">Clear my marks</button><span class="muted tiny">Marks are only on this phone — the laptop checks the real played songs.</span></div>
+    <div class="tools"><button id="undo" class="lnk" disabled>↶ Undo</button><button id="clear" class="lnk">Clear marks</button><span class="muted tiny">Tap a song again to unmark it. The laptop checks the real played songs.</span></div>
   </div>
 </section>
 
+<div id="snack" class="snack hidden"><span id="snackTx"></span><button id="snackUndo">UNDO</button></div>
+<div id="sheet" class="sheet hidden"><div class="sheet-in"><div class="sheet-head"><b>Songs played so far</b><button id="sheetX" class="lnk">Close</button></div><div class="muted tiny" style="margin-bottom:8px">Newest first — the same list as the TV. Missed one? Find it on your card and tap it.</div><div id="sheetList"></div></div></div>
+<video id="awake" muted playsinline loop preload="auto" src="/keepawake.mp4" aria-hidden="true"></video>
 <div id="pop" class="pop hidden"><div class="pop-in"><div id="popIcon" class="pop-icon"></div><div id="popTitle" class="pop-title"></div><div id="popMsg" class="pop-msg"></div><button class="btn primary" id="popOk">OK</button></div></div>
 <canvas id="fx"></canvas>
 <script src="play.js"></script>

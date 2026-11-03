@@ -356,6 +356,20 @@ Players get their own card on their phone and mark it there:
   see who's connected, rename or remove players, and open or close joining. A removed
   player's card is never given to anyone else.
 
+On the player's phone:
+- **Undo:** marked the wrong song? Tap **UNDO** in the message that pops up, use the
+  **↶ Undo** button, or tap the song again.
+- **🎵 played:** opens the list of songs played so far (newest first, the same as the TV),
+  for anyone who missed one or joined late.
+- **🔥 ONE SONG AWAY!:** the phone buzzes and shows a banner when the player needs just one
+  more played song for this round. It's based on the songs actually played, not on their
+  marks.
+- **Screen stays on:** the screen doesn't dim or lock while the card is open.
+
+**Winner's name on the TV:** when a phone player (or a card shared with a name) wins, the TV
+says **"PRIYA WINS!"**. Turn it off under Host Game → TV screens → *Show the winner's name*.
+Names never appear on the "Not a Bingo" screen.
+
 Phones must be on the **same Wi-Fi** as the laptop. Players use a plain link that shows no
 security warning, and they can't control the game: only you, the host, can.
 
