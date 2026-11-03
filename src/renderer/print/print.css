@@ -21,6 +21,8 @@ body.bw { --ink: #000; --accent: #000; --soft: #333; --line: #555; }
 .brand.haslogo .l2 { font-size: 15pt; }
 .meta { flex: 1; min-width: 0; font-size: 8pt; color: var(--soft); line-height: 1.35; }
 .meta .hint { font-style: italic; }
+.meta .owner { color: var(--accent); font-weight: 600; font-size: 9pt; }
+.meta .owner b { display: inline; color: var(--accent); font-size: 10.5pt; }
 .meta b { color: var(--ink); font-size: 9.5pt; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cardno { flex: none; border: 0.5mm solid var(--accent); border-radius: 2.5mm; padding: 1.2mm 3mm 1.5mm; text-align: center; min-width: 25mm; }
 .cardno .k { font-size: 6.5pt; font-weight: 800; letter-spacing: .14em; color: var(--accent); }
@@ -80,3 +82,10 @@ body.preview .card.hl { animation: cardHl 2.4s ease; }
 .pv-btns { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; }
 .pv-box button { background: #2f1f58; color: #fff; border: 1px solid #4e3c86; border-radius: 10px; padding: 10px 16px; font: 700 13px 'Inter', sans-serif; cursor: pointer; }
 @media print { .pv-head, .pv-bar, .pv-status, .pv-modal { display: none !important; } body.preview { padding-top: 0; background: #fff; } body.preview .cell[data-warn] { outline: none; } body.preview #pages { zoom: 1 !important; } }
+
+/* ------------------------------------------------------------- one card per image (Share as images) */
+body.images, body.images #pages { background: #fff; margin: 0; }
+body.images .sheet { margin: 0; box-shadow: none; height: auto; overflow: visible; }
+body.images .half { display: none; position: relative; top: 0; background: #fff; }
+body.images .half.show { display: block; }
+body.images .cut { display: none; }

@@ -26,7 +26,19 @@
       window.cmb.on('library-convert', (c) => { this.convert = c; this.emit('convert', c); });
       window.cmb.on('library-audio', (a) => { if (App.view === 'library' && views.library) { views.library.audio = a; views.library.drawAudio(); views.library.on_library(); } });
       window.cmb.on('backup-progress', (p) => this.emit('backup', p));
-      window.cmb.on('event', (e) => { if (e.name === 'error') toast(e.payload.message, 'err', 7000); this.emit('event', e); });
+      window.cmb.on('cards-images', (p) => this.emit('cardsImages', p));
+      window.cmb.on('players', (p) => { this.players = p; this.emit('players', p); });
+      window.cmb.on('event', (e) => {
+        if (e.name === 'error') toast(e.payload.message, 'err', 7000);
+        if (e.name === 'playerBingo') {
+          const p = e.payload;
+          if (p.valid) {
+            toast(`📱 ${p.name} (card ${p.cardLabel}) called BINGO — it looks valid! Claims are frozen for you to confirm.`, 'ok', 9000);
+            if (!document.querySelector('#modalRoot .modal-back') && App.openChecker) App.openChecker();
+          } else toast(`📱 ${p.name} (card ${p.cardLabel}) pressed BINGO — not a bingo yet (only their phone was told).`, '', 5000);
+        }
+        this.emit('event', e);
+      });
       this.remote = await api('remote:info');
       this.audience = await api('audience:status');
       this.updateSide();

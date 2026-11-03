@@ -13,7 +13,7 @@
  */
 const crypto = require('crypto');
 const rules = require('./rules');
-const { shuffle, parseQrPayload, formatCardNo } = require('./cards');
+const { shuffle, parseQrPayload, formatCardNo, generateCards } = require('./cards');
 const locking = require('./locking');
 
 const CLIP_MODES = [20, 30, 40, 60, 'full'];
@@ -84,6 +84,8 @@ class GameEngine {
     game.round = game.round || { number: 0, status: 'pending' };
     game.rounds = game.rounds || {};
     game.claims = game.claims || [];
+    game.players = game.players || [];
+    if (game.playersOpen === undefined) game.playersOpen = true;
     game.claimSessions = game.claimSessions || [];
     game.queue = game.queue || [];       // host-queued songs (play next, in order)
     game.deferred = game.deferred || []; // skipped from Up Next — still eligible later
@@ -330,7 +332,7 @@ class GameEngine {
   dispatch(action, args = {}, source = 'desktop') {
     const fn = this.actions[action];
     if (!fn) throw new Error(`Unknown action: ${action}`);
-    const allowedWhenFinished = ['setScreens', 'showTvScreen', 'setTvScreens', 'openChecker', 'closeChecker', 'checkClaim', 'freezeClaims', 'addClaim', 'closeSession', 'confirmClaim', 'dismissClaim', 'removeClaim', 'viewClaim', 'setCrawler', 'setOverlay', 'reopenGame', 'setVolume', 'setAudio', 'reverseCredit'];
+    const allowedWhenFinished = ['playerRemove', 'playerRename', 'setPlayersOpen', 'setScreens', 'showTvScreen', 'setTvScreens', 'openChecker', 'closeChecker', 'checkClaim', 'freezeClaims', 'addClaim', 'closeSession', 'confirmClaim', 'dismissClaim', 'removeClaim', 'viewClaim', 'setCrawler', 'setOverlay', 'reopenGame', 'setVolume', 'setAudio', 'reverseCredit'];
     if (this.game.status === 'finished' && !allowedWhenFinished.includes(action)) {
       throw new Error('This game has ended. Re-open it from Game History to continue.');
     }
@@ -357,7 +359,9 @@ class GameEngine {
       completeRound: this.aCompleteRound, setScreens: this.aSetScreens,
       queueSong: this.aQueueSong, unqueueSong: this.aUnqueueSong, skipNext: this.aSkipNext, resetQueue: this.aResetQueue,
       excludeSong: this.aExcludeSong, includeSong: this.aIncludeSong,
-      updateSong: this.aUpdateSong
+      updateSong: this.aUpdateSong,
+      // home play: phone cards for players
+      playerJoin: this.aPlayerJoin, playerRemove: this.aPlayerRemove, playerRename: this.aPlayerRename, playerBingo: this.aPlayerBingo, setPlayersOpen: this.aSetPlayersOpen
     };
   }
 
@@ -914,7 +918,7 @@ class GameEngine {
     const ids = this.sessionPlayedIds(session);
     const res = this.evaluate(card, claim.round, ids, session ? session.snapshot : null);
     return {
-      ok: true, claimId: claim.id, sessionId: claim.sessionId || null, status: claim.status, cardNo: claim.cardNo, cardLabel: formatCardNo(claim.cardNo), round: claim.round,
+      ok: true, claimId: claim.id, sessionId: claim.sessionId || null, status: claim.status, cardNo: claim.cardNo, cardLabel: formatCardNo(claim.cardNo), owner: this.ownerOf(claim.cardNo), round: claim.round,
       roundLabel: rules.ROUNDS[claim.round].label, roundStatus: g.round.status,
       valid: res.valid, headline: res.headline, reason: res.reason,
       alreadyWinner: claim.status === 'duplicate' || (claim.status !== 'confirmed' && g.claims.some(c => c.cardNo === claim.cardNo && c.round === claim.round && c.status === 'confirmed')),
@@ -1099,8 +1103,129 @@ class GameEngine {
     });
   }
 
+  /* ------------------------------------------------------------ home play: phone cards */
+  playerById(id) { return this.game.players.find(p => p.id === id && !p.removed) || null; }
+
+  /**
+   * A player joins from their phone: they get the lowest card that has not been printed,
+   * shared or given to another phone. If none is left a new card is added (existing cards
+   * are never changed). Giving out a card issues + locks it, exactly like printing.
+   */
+  aPlayerJoin(args, source) {
+    const g = this.game;
+    if (g.playersOpen === false) throw new Error('The host has closed joining for this game.');
+    const name = String(args.name || '').replace(/\s+/g, ' ').trim().slice(0, 24);
+    if (!name) throw new Error('Please type your name.');
+    if (!args.tokenHash) throw new Error('Missing device token');
+    if (g.players.filter(p => !p.removed).length >= 200) throw new Error('This game already has the maximum number of phone players.');
+    const taken = new Set(g.players.map(p => p.cardNo));
+    let card = g.cards.slice().sort((a, b) => a.no - b.no).find(c => !c.printed && !taken.has(c.no));
+    if (!card) {
+      if (g.cards.length >= 999) throw new Error('All 999 card numbers are in use.');
+      // all extra phone cards share one batch so the card summary stays tidy
+      const fresh = generateCards(g.order, 1, g.cards, g.phoneBatch ? { batch: g.phoneBatch } : {});
+      g.phoneBatch = fresh[0].batch;
+      g.cards.push(...fresh); card = fresh[0];
+    }
+    locking.lockGame(g, [card.no], source || 'player');
+    card.issuedVia = 'phone';
+    // keep the name unique among active players (two "Rahul"s → "Rahul 2")
+    let shown = name; let k = 2;
+    const active = g.players.filter(p => !p.removed).map(p => p.name.toLowerCase());
+    while (active.includes(shown.toLowerCase())) shown = `${name} ${k++}`;
+    card.owner = shown;
+    const pl = { id: 'p_' + crypto.randomBytes(4).toString('hex'), name: shown, cardNo: card.no, tokenHash: args.tokenHash, joinedAt: this.nowIso() };
+    g.players.push(pl);
+    this.audit('player-joined', { playerId: pl.id, name: shown, cardNo: card.no }, source);
+    this.log(`📱 ${shown} joined on their phone — card ${formatCardNo(card.no)}`);
+    this.touch('players', true);
+    return { ok: true, playerId: pl.id, name: shown, cardNo: card.no };
+  }
+
+  aPlayerRemove(args, source) {
+    const pl = this.playerById(args.playerId); if (!pl) return { ok: true };
+    pl.removed = true; pl.removedAt = this.nowIso();
+    // the card stays issued (they have seen it) and is never handed to someone else
+    this.audit('player-removed', { playerId: pl.id, name: pl.name, cardNo: pl.cardNo }, source);
+    this.touch('players', true);
+    return { ok: true };
+  }
+
+  aPlayerRename(args, source) {
+    const pl = this.playerById(args.playerId); if (!pl) throw new Error('Player not found');
+    const name = String(args.name || '').replace(/\s+/g, ' ').trim().slice(0, 24); if (!name) throw new Error('Type a name');
+    pl.name = name; const c = this.findCard(pl.cardNo); if (c) c.owner = name;
+    this.audit('player-renamed', { playerId: pl.id, name }, source);
+    this.touch('players', true);
+    return { ok: true };
+  }
+
+  aSetPlayersOpen(args, source) {
+    this.game.playersOpen = !!args.open;
+    this.audit('players-' + (args.open ? 'open' : 'closed'), {}, source);
+    this.touch('players', true);
+    return { ok: true, open: this.game.playersOpen };
+  }
+
+  /**
+   * BINGO pressed on a player's phone. Checked instantly against the songs played so far:
+   * - not yet a bingo → only that phone is told (the music keeps going);
+   * - valid → claims are frozen and the card is added to the claim session, so the host
+   *   confirms it exactly like a shouted BINGO.
+   */
+  aPlayerBingo(args, source) {
+    const g = this.game;
+    const pl = this.playerById(args.playerId); if (!pl) throw new Error('You are no longer in this game.');
+    const card = this.findCard(pl.cardNo);
+    const r = g.round;
+    if (!r.number || !['active', 'ended'].includes(r.status) || g.status === 'finished') {
+      return { result: 'no-round', message: r.number ? 'This round is over — wait for the next one.' : 'The game hasn\'t started yet.' };
+    }
+    if (g.claims.some(c => c.cardNo === card.no && c.round === r.number && c.status === 'confirmed')) return { result: 'already', round: r.number };
+    const open = this.activeSession();
+    if (open && g.claims.some(c => c.sessionId === open.id && c.cardNo === card.no && c.status !== 'removed')) return { result: 'checking', round: r.number };
+    const res = rules.checkCard(card.cells, this.playedSet(), r.number);
+    pl.calls = (pl.calls || 0) + 1;
+    if (!res.valid) {
+      this.audit('player-bingo-early', { playerId: pl.id, name: pl.name, cardNo: card.no, round: r.number }, source);
+      this.log(`📱 ${pl.name} (card ${formatCardNo(card.no)}) pressed BINGO — not a bingo yet`);
+      this.event('playerBingo', { name: pl.name, cardNo: card.no, cardLabel: formatCardNo(card.no), valid: false, round: r.number });
+      this.touch('players', false);
+      return { result: 'not-yet', round: r.number, label: rules.ROUNDS[r.number].label };
+    }
+    const view = this.aAddClaim({ cardNo: card.no }, source || ('player:' + pl.name));
+    this.event('playerBingo', { name: pl.name, cardNo: card.no, cardLabel: formatCardNo(card.no), valid: true, round: r.number, claimId: view.claimId });
+    return { result: 'checking', round: r.number, claimId: view.claimId };
+  }
+
+  /** What one player's phone may see: their own card, the round, and their own claim results. */
+  playerView(id) {
+    const g = this.game; const pl = this.playerById(id);
+    if (!pl) return null;
+    const card = this.findCard(pl.cardNo);
+    const cells = card.cells.map(sid => { const l = (g.lockedLabels && g.lockedLabels[sid]) || {}; const s = this.song(sid) || {}; return { t: l.title || s.displayTitle || s.title || '?', a: l.artist || s.artist || '' }; });
+    const mine = g.claims.filter(c => c.cardNo === pl.cardNo && c.status !== 'removed');
+    const last = mine[mine.length - 1] || null;
+    const r = g.round;
+    return {
+      gameId: g.id, gameName: g.name, gameStatus: g.status,
+      me: { id: pl.id, name: pl.name, cardNo: pl.cardNo, cardLabel: formatCardNo(pl.cardNo) },
+      cells,
+      round: { number: r.number, status: r.status, label: r.number ? rules.ROUNDS[r.number].label : null, rule: r.number ? rules.ROUNDS[r.number].rule : null },
+      wins: mine.filter(c => c.status === 'confirmed').map(c => c.round),
+      last: last ? { id: last.id, round: last.round, status: last.status } : null
+    };
+  }
+
+  playersView() {
+    return this.game.players.filter(p => !p.removed).map(p => ({ id: p.id, name: p.name, cardNo: p.cardNo, cardLabel: formatCardNo(p.cardNo), joinedAt: p.joinedAt, calls: p.calls || 0,
+      wins: this.game.claims.filter(c => c.cardNo === p.cardNo && c.status === 'confirmed').map(c => c.round) }));
+  }
+
+  ownerOf(no) { const c = this.findCard(no); return (c && c.owner) || null; }
+
   winners() {
-    return this.game.claims.filter(c => c.status === 'confirmed').map(c => ({ claimId: c.id, cardNo: c.cardNo, cardLabel: formatCardNo(c.cardNo), round: c.round, headline: c.headline, at: c.confirmedAt, review: c.review || null }));
+    return this.game.claims.filter(c => c.status === 'confirmed').map(c => ({ claimId: c.id, cardNo: c.cardNo, cardLabel: formatCardNo(c.cardNo), owner: this.ownerOf(c.cardNo), round: c.round, headline: c.headline, at: c.confirmedAt, review: c.review || null }));
   }
 
   sessionView() {
@@ -1110,7 +1235,7 @@ class GameEngine {
       id: s.id, openedAt: s.openedAt, openedBy: s.openedBy, round: s.round, roundLabel: rules.ROUNDS[s.round].label, snapshotCount: s.snapshot.length,
       position: s.playback.position,
       claims: s.claimIds.map(id => this.game.claims.find(c => c.id === id)).filter(c => c && c.status !== 'removed')
-        .map(c => ({ claimId: c.id, cardNo: c.cardNo, cardLabel: formatCardNo(c.cardNo), status: c.status, valid: c.valid, headline: c.headline }))
+        .map(c => ({ claimId: c.id, cardNo: c.cardNo, cardLabel: formatCardNo(c.cardNo), owner: this.ownerOf(c.cardNo), status: c.status, valid: c.valid, headline: c.headline }))
     };
   }
 
@@ -1181,7 +1306,8 @@ class GameEngine {
       history: this.historyView(),
       winners: this.winners(),
       session: this.sessionView(),
-      claims: g.claims.filter(c => c.status !== 'removed').slice(-30).reverse().map(c => ({ id: c.id, sessionId: c.sessionId || null, cardNo: c.cardNo, cardLabel: formatCardNo(c.cardNo), round: c.round, status: c.status, valid: c.valid, headline: c.headline, at: c.at, source: c.source })),
+      players: this.playersView(), playersOpen: g.playersOpen !== false,
+      claims: g.claims.filter(c => c.status !== 'removed').slice(-30).reverse().map(c => ({ id: c.id, sessionId: c.sessionId || null, cardNo: c.cardNo, cardLabel: formatCardNo(c.cardNo), owner: this.ownerOf(c.cardNo), round: c.round, status: c.status, valid: c.valid, headline: c.headline, at: c.at, source: c.source })),
       credits: g.credits.map(c => ({ id: c.id, songId: c.songId, title: c.title, artist: c.artist, reason: c.reason, at: c.at, status: c.status })),
       unavailable: Object.keys(this.unavailable).filter(id => this.song(id) && !played.has(id)).map(id => ({ songId: id, title: this.song(id).title, artist: this.song(id).artist, reason: this.unavailable[id] })),
       creditReasons: CREDIT_REASONS,

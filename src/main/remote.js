@@ -48,6 +48,7 @@ class RemoteServer {
     this.ackCache = new Map();   // command id -> ack (duplicate-command protection)
     this.queue = Promise.resolve(); // strict command ordering
     this.failures = new Map();   // ip -> {count, until}
+    this.joins = new Map();      // ip -> [timestamps] (phone-card join rate limit)
     this.running = false;
     this.lastError = null;
   }
@@ -64,6 +65,7 @@ class RemoteServer {
       url: addrs.length ? `http://${addrs[0].address}:${this.port}/` : `http://localhost:${this.port}/`,
       secureUrl: this.httpsRunning ? (addrs.length ? `https://${addrs[0].address}:${this.httpsPort}/` : `https://localhost:${this.httpsPort}/`) : null,
       httpsPort: this.httpsPort, httpsError: this.httpsError,
+      playersOnline: this.onlinePlayers(),
       connected: Array.from(this.clients).filter(c => c.authed).map(c => ({ deviceId: c.deviceId, name: c.deviceName, ip: c.ip, since: c.since })),
       devices: this.opts.devices.list().map(d => ({ id: d.id, name: d.name, pairedAt: d.pairedAt, lastSeen: d.lastSeen, online: Array.from(this.clients).some(c => c.authed && c.deviceId === d.id) }))
     };
@@ -118,6 +120,7 @@ class RemoteServer {
     const url = new URL(req.url, 'http://x');
     let p = decodeURIComponent(url.pathname);
     if (p === '/' || p === '') p = '/index.html';
+    if (p === '/play' || p === '/play/') p = '/play.html';
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Cache-Control', 'no-store');
     if (p === '/health') { res.writeHead(200, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ ok: true, app: 'Crime Master Bingo' })); }
@@ -148,7 +151,7 @@ class RemoteServer {
       let msg; try { msg = JSON.parse(String(raw)); } catch (e) { return; }
       this.handleMsg(c, msg);
     });
-    ws.on('close', () => { this.clients.delete(c); if (c.authed) this.changed(); });
+    ws.on('close', () => { this.clients.delete(c); if (c.authed || c.playerId) this.changed(); });
     ws.on('error', () => { /* handled by close */ });
     this.send(c, { type: 'hello', app: 'Crime Master Bingo', needAuth: true });
   }
@@ -166,6 +169,7 @@ class RemoteServer {
 
   handleMsg(c, msg) {
     if (msg.type === 'ping') return this.send(c, { type: 'pong', t: msg.t });
+    if (['pinfo', 'pjoin', 'pauth', 'pbingo'].includes(msg.type)) return this.handlePlayer(c, msg);
     if (msg.type === 'auth') {
       const list = this.opts.devices.list();
       const d = msg.token ? list.find(x => x.tokenHash === sha(msg.token)) : null;
@@ -219,8 +223,59 @@ class RemoteServer {
     });
   }
 
+  /* ------------------------------------------------ phone cards for players (home play)
+   * A separate, much smaller protocol: a player can only join (name → own card), reconnect
+   * with their token, see their own card + the round, and press BINGO. No PIN, no host
+   * controls, no song list — and nothing a player sends can reach the host command path. */
+  handlePlayer(c, msg) {
+    const P = this.opts.players;
+    if (!P) return this.send(c, { type: 'p-error', message: 'Phone cards are not available.' });
+    if (msg.type === 'pinfo') return this.send(c, Object.assign({ type: 'p-info' }, P.info()));
+    if (msg.type === 'pauth') {
+      const r = P.auth(String(msg.token || ''));
+      if (!r.ok) return this.send(c, { type: 'p-auth-fail', reason: r.reason });
+      c.playerId = r.playerId; c.since = new Date().toISOString();
+      this.sendPlayer(c); this.changed(); return;
+    }
+    if (msg.type === 'pjoin') {
+      const now = Date.now(); const list = (this.joins.get(c.ip) || []).filter(t => now - t < 10 * 60000);
+      if (list.length >= 12) return this.send(c, { type: 'p-error', message: 'Too many joins from this phone — ask the host for help.' });
+      list.push(now); this.joins.set(c.ip, list);
+      this.queue = this.queue.then(async () => {
+        try {
+          const r = await P.join(String(msg.name || ''));
+          c.playerId = r.playerId;
+          this.send(c, { type: 'p-joined', token: r.token });
+          this.sendPlayer(c); this.changed();
+        } catch (e) { this.send(c, { type: 'p-error', message: e.message }); }
+      });
+      return;
+    }
+    if (msg.type === 'pbingo') {
+      if (!c.playerId) return this.send(c, { type: 'p-auth-fail', reason: 'Join the game first.' });
+      const now = Date.now();
+      if (c.lastBingo && now - c.lastBingo < 4000) return this.send(c, { type: 'p-bingo', id: msg.id, result: 'wait' });
+      c.lastBingo = now;
+      this.queue = this.queue.then(async () => {
+        try { const r = await P.bingo(c.playerId); this.send(c, Object.assign({ type: 'p-bingo', id: msg.id }, r)); }
+        catch (e) { this.send(c, { type: 'p-bingo', id: msg.id, result: 'error', message: e.message }); }
+      });
+    }
+  }
+
+  sendPlayer(c) {
+    if (!c.playerId) return;
+    const v = this.opts.players.view(c.playerId);
+    if (!v) { this.send(c, { type: 'p-removed' }); c.playerId = null; return; }
+    if (v.wait) return this.send(c, { type: 'p-wait', reason: v.wait });
+    this.send(c, { type: 'p-state', state: v });
+  }
+
+  broadcastPlayers() { this.clients.forEach(c => { if (c.playerId && c.ws.readyState === 1) this.sendPlayer(c); }); }
+  onlinePlayers() { return Array.from(new Set(Array.from(this.clients).filter(c => c.playerId).map(c => c.playerId))); }
+
   broadcast(obj) { const s = JSON.stringify(obj); this.clients.forEach(c => { if (c.authed && c.ws.readyState === 1) { try { c.ws.send(s); } catch (e) { /* */ } } }); }
-  broadcastState() { if (this.clients.size) this.broadcast({ type: 'state', state: this.opts.getState() }); }
+  broadcastState() { if (this.clients.size) { this.broadcast({ type: 'state', state: this.opts.getState() }); this.broadcastPlayers(); } }
 
   revoke(deviceId) {
     const list = this.opts.devices.list().filter(d => d.id !== deviceId);

@@ -1,9 +1,45 @@
 App.register('mobile', {
   async render(el) {
-    el.innerHTML = `<div class="page-head"><div><div class="eyebrow">Phone remote</div><h1>Mobile Host Connection</h1><p>Run the whole night from your phone. The laptop still plays all music and video — the phone is only a remote control.</p></div></div><div id="mBody"></div>`;
+    el.innerHTML = `<div class="page-head"><div><div class="eyebrow">Phone remote</div><h1>Mobile Host Connection</h1><p>Run the whole night from your phone. The laptop still plays all music and video — the phone is only a remote control.</p></div></div><div id="mPlayers"></div><div id="mBody"></div>`;
+    this.pbox = $('#mPlayers', el);
     this.renderInto($('#mBody', el), false);
+    this.players();
   },
-  on_remote() { if (this.box && document.body.contains(this.box)) this.draw(); },
+  on_remote() { if (this.box && document.body.contains(this.box)) this.draw(); this.drawPlayers(); },
+  on_state() { this.drawPlayers(); },
+
+  /* ---------------- home play: phone cards for players */
+  async players() {
+    const box = this.pbox; if (!box) return;
+    App.settings = await api('settings:get');
+    if (!(App.settings.home && App.settings.home.phoneCards)) {
+      box.innerHTML = `<div class="panel" style="margin-bottom:16px"><div class="row"><div class="grow"><h2 style="margin:0">📱 Phone cards for players</h2><div class="muted small">Let family and friends play on their phones — no printing. Turn it on in Settings → Home play.</div></div><button class="btn sm" id="mpOn">Turn on</button></div></div>`;
+      $('#mpOn', box).onclick = async () => { App.settings = await api('settings:update', { home: { phoneCards: true } }); this.players(); };
+      return;
+    }
+    this.join = await api('players:join');
+    box.innerHTML = `<div class="panel" style="margin-bottom:16px"><div class="cols" style="grid-template-columns:230px minmax(0,1fr);gap:22px">
+      <div style="text-align:center" id="mpQr"></div>
+      <div><div class="row"><h2 class="grow" style="margin:0">📱 Players on their phones</h2><span id="mpOpenWrap"></span></div>
+        <div class="muted small" style="margin:4px 0 10px">Players scan the code (or type the address), enter their name and get their own card. They tap songs as they hear them; pressing <b style="color:#fff">BINGO!</b> is checked instantly — real bingos freeze the claims here for you to confirm, early presses are only told “not yet” on their phone.</div>
+        <div id="mpList" class="hist-list" style="max-height:300px"></div></div></div></div>`;
+    this.drawPlayers();
+  },
+  drawPlayers() {
+    const box = this.pbox; if (!box || !document.body.contains(box) || !$('#mpList', box)) return;
+    const g = App.game; const j = this.join || {};
+    const online = new Set((App.remote && App.remote.playersOnline) || []);
+    $('#mpQr', box).innerHTML = !g ? '<div class="empty small">Load a game to let players join.</div>'
+      : !j.running ? '<div class="empty small">Start the remote service (below) so phones can connect.</div>'
+      : `<div class="qrbox" style="margin:0 auto 8px;max-width:200px"><img src="${j.qr}" alt="Join QR" style="width:100%"></div><div class="small" style="font-weight:800;word-break:break-all">${esc(j.url)}</div><div class="muted tiny" style="margin-top:4px">Same Wi-Fi as this laptop</div>`;
+    $('#mpOpenWrap', box).innerHTML = g ? toggleHtml('mpOpen', g.playersOpen ? 'Joining open' : 'Joining closed', g.playersOpen) : '';
+    const t = $('#mpOpen', box); if (t) t.onchange = (e) => App.cmd('setPlayersOpen', { open: e.target.checked });
+    const pl = (g && g.players) || [];
+    $('#mpList', box).innerHTML = pl.length ? pl.map(p => `<div class="check-row"><span class="dot ${online.has(p.id) ? 'on' : ''}" style="margin-top:6px" title="${online.has(p.id) ? 'Connected' : 'Not connected right now'}"></span><div class="grow"><b>${esc(p.name)}</b> <span class="muted small">· card ${p.cardLabel}</span>${p.wins.length ? ` <span class="badge ok">🏆 R${p.wins.join(', R')}</span>` : ''}<div class="muted tiny">Joined ${new Date(p.joinedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}${p.calls ? ` · pressed BINGO ${p.calls}×` : ''}</div></div><button class="btn sm ghost" data-ren="${p.id}">Rename</button><button class="btn sm danger" data-kick="${p.id}">Remove</button></div>`).join('')
+      : `<div class="muted small">${g ? 'Nobody has joined yet.' : ''}</div>`;
+    $$('[data-ren]', box).forEach(b => b.onclick = async () => { const p = pl.find(x => x.id === b.dataset.ren); const n = await promptBox('Rename player', 'Name', p.name); if (n) App.cmd('playerRename', { playerId: p.id, name: n }); });
+    $$('[data-kick]', box).forEach(b => b.onclick = async () => { const p = pl.find(x => x.id === b.dataset.kick); if (await confirmBox('Remove ' + esc(p.name) + '?', `Their phone leaves the game. Card ${p.cardLabel} stays issued and is never given to anyone else.`, 'Remove', true)) App.cmd('playerRemove', { playerId: p.id }); });
+  },
   async renderInto(box, compact) { this.box = box; this.compact = compact; App.remote = await api('remote:info'); this.draw(); },
   draw() {
     const r = App.remote || {}; const box = this.box;

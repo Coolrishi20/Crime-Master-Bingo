@@ -5,12 +5,41 @@ App.register('cards', {
     if (!this.gameId || !games.find(g => g.id === this.gameId)) this.gameId = App.game ? App.game.gameId : (games[0] && games[0].id);
     el.innerHTML = `<div class="page-head"><div><div class="eyebrow">Printable cards</div><h1>Bingo Cards &amp; Printing</h1><p>Two complete cards on every A4 sheet, with a dashed cutting line across the middle.</p></div>
       <label class="field">Game<select id="cGame">${games.map(g => `<option value="${g.id}" ${g.id === this.gameId ? 'selected' : ''}>${esc(g.name)} · ${esc(g.date)} (${g.cards} cards)</option>`).join('')}</select></label></div>
-      ${games.length ? `<div class="cols main-side"><div class="panel" id="cPrint"></div><div><div class="panel" id="cSum" style="margin-bottom:16px"></div><div class="panel" id="cView"></div></div></div>` : '<div class="panel"><div class="empty">Create a game first — cards belong to a game.</div></div>'}`;
+      ${games.length ? `<div class="cols main-side"><div><div class="panel" id="cPrint"></div>${App.settings.home && App.settings.home.shareImages ? '<div class="panel" id="cShare" style="margin-top:16px"></div>' : ''}</div><div><div class="panel" id="cSum" style="margin-bottom:16px"></div><div class="panel" id="cView"></div></div></div>` : '<div class="panel"><div class="empty">Create a game first — cards belong to a game.</div></div>'}`;
     if (!games.length) return;
     $('#cGame', el).onchange = (e) => { this.gameId = e.target.value; this.render(el); };
     this.renderPrintPanel($('#cPrint', el), this.gameId, () => this.summary());
     this.summary();
     this.viewer();
+    if ($('#cShare', el)) this.sharePanel($('#cShare', el));
+  },
+  on_cardsImages(p) { const x = this.el && $('#shProg', this.el); if (x) x.textContent = p.done < p.total ? `Saving ${p.done + 1} of ${p.total}…` : ''; },
+  /** Home play: save cards as images to send on WhatsApp (optional, Settings → Home play). */
+  async sharePanel(box) {
+    const s = await api('cards:summary', { id: this.gameId });
+    box.innerHTML = `<h2>📤 Share cards as images</h2>
+      <p class="muted small" style="margin-top:0">No printer? Save each card as a picture and send it on WhatsApp. Players mark it on paper or on their screen — the card is identical to the printed one, so BINGO checks work the same.</p>
+      <div class="form-grid"><label class="field">Cards (e.g. 1-12, 20)<input type="text" id="shRange" placeholder="1-${Math.min(12, s.total || 12)}" value="1-${Math.min(12, s.total || 12)}"></label></div>
+      <label class="field" style="margin-top:10px">Player names <span class="muted">(optional, one per line — the first name goes on the first card)</span><textarea id="shNames" rows="4" placeholder="Mum&#10;Rahul&#10;Nani&#10;Priya"></textarea></label>
+      <div class="row" style="margin-top:12px"><button class="btn primary" id="shGo">Save card images…</button><span class="muted small" id="shProg"></span></div>
+      <div id="shRes"></div>`;
+    $('#shGo', box).onclick = async () => {
+      const range = $('#shRange', box).value.trim();
+      if (!range) { toast('Type which cards to save, e.g. 1-12', 'err'); return; }
+      const names = $('#shNames', box).value.split(/\r?\n/).map(x => x.trim());
+      if (!s.locked && !await modal({ title: 'LOCK BINGO CARDS?', body: `<p><b style="color:#fff">Once these cards have been shared, their songs and arrangements cannot be changed.</b></p><p class="muted small">This keeps every shared card matching the Bingo checks. You can still add extra cards later.</p>`, buttons: [{ label: 'Cancel', value: false }, { label: '🔒 Confirm & Lock', kind: 'primary', value: true }], dismissValue: false })) return;
+      $('#shGo', box).disabled = true;
+      try {
+        const r = await api('cards:exportImages', { id: this.gameId, range, names, confirmLock: true });
+        if (r) {
+          s.locked = true;
+          $('#shRes', box).innerHTML = `<div class="check-row" style="margin-top:12px"><span class="ic ok">✓</span><div class="grow"><b>${r.files} card image${r.files === 1 ? '' : 's'} saved${r.named ? ` · ${r.named} with player names` : ''}</b><div class="muted small">${esc(r.folder)}</div></div><button class="btn sm" id="shOpen">Open folder</button></div>`;
+          $('#shOpen', box).onclick = () => api('shell:open', r.folder);
+          this.summary();
+        }
+      } catch (e) { /* api() already showed the error */ }
+      $('#shGo', box).disabled = false; $('#shProg', box).textContent = '';
+    };
   },
   async summary() {
     const box = $('#cSum', this.el); if (!box) return;

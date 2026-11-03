@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#1a1033">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Crime Master Bingo — My Card</title>
+<link rel="icon" href="/icon.png">
+<link rel="apple-touch-icon" href="/icon.png">
+<link rel="stylesheet" href="play.css">
+</head>
+<body>
+<section id="join" class="screen hidden">
+  <div class="brand"><span>CRIME MASTER</span><span class="pink">BINGO</span></div>
+  <div id="jGame" class="jgame"></div>
+  <label class="lbl" for="jName">Your name</label>
+  <input id="jName" maxlength="24" autocomplete="given-name" placeholder="e.g. Priya">
+  <button class="btn primary big" id="jGo">Get my card</button>
+  <div id="jMsg" class="msg"></div>
+  <p class="muted small">You get your own bingo card on this phone. Tap a song when you hear it, then press <b>BINGO!</b> — the laptop checks it straight away.</p>
+</section>
+
+<section id="wait" class="screen hidden">
+  <div class="brand"><span>CRIME MASTER</span><span class="pink">BINGO</span></div>
+  <div class="waitbox"><div class="spin"></div><div id="wMsg">Connecting to the laptop…</div></div>
+</section>
+
+<section id="game" class="screen hidden">
+  <header id="top">
+    <div class="who"><div id="gName" class="gname"></div><div class="me"><span id="meName"></span> · Card <b id="meCard"></b></div></div>
+    <div id="conn" class="conn"><span class="dot"></span><span id="connTxt"></span></div>
+  </header>
+  <div id="round" class="round"></div>
+  <div id="grid" class="grid"></div>
+  <div class="foot">
+    <button id="bingo" class="bingo">BINGO!</button>
+    <div class="tools"><button id="clear" class="lnk">Clear my marks</button><span class="muted tiny">Marks are only on this phone — the laptop checks the real played songs.</span></div>
+  </div>
+</section>
+
+<div id="pop" class="pop hidden"><div class="pop-in"><div id="popIcon" class="pop-icon"></div><div id="popTitle" class="pop-title"></div><div id="popMsg" class="pop-msg"></div><button class="btn primary" id="popOk">OK</button></div></div>
+<canvas id="fx"></canvas>
+<script src="play.js"></script>
+</body>
+</html>

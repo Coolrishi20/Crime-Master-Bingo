@@ -56,7 +56,9 @@
     var meta = el('div', 'meta');
     meta.appendChild(el('b', null, job.game.name));
     meta.appendChild(el('div', null, [job.game.date, job.game.venue].filter(Boolean).join('  ·  ')));
-    meta.appendChild(el('div', 'hint', 'Mark each song as you hear it'));
+    var owner = job.names && job.names[card.no];
+    if (owner) { var ow = el('div', 'owner'); ow.appendChild(document.createTextNode('Player: ')); ow.appendChild(el('b', null, owner)); meta.appendChild(ow); }
+    else meta.appendChild(el('div', 'hint', 'Mark each song as you hear it'));
     head.appendChild(meta);
     var no = el('div', 'cardno'); no.appendChild(el('div', 'k', 'CARD No.')); no.appendChild(el('div', 'v', pad(card.no)));
     head.appendChild(no);
@@ -247,6 +249,17 @@
     fl.then(function () { return document.fonts ? document.fonts.ready : null; }).then(function () {
       var info = build(job);
       if (PREVIEW || job.preview) previewUi(job, info);
+      if (job.images) {
+        document.body.classList.add('images');
+        // one card at a time, top-left, for a pixel-exact capture of that card
+        window.__showCard = function (no) {
+          document.querySelectorAll('.half.show').forEach(function (h) { h.classList.remove('show'); });
+          var c = document.querySelector('.card[data-card="' + no + '"]');
+          if (c) c.closest('.half').classList.add('show');
+          window.scrollTo(0, 0);
+          return new Promise(function (res) { requestAnimationFrame(function () { requestAnimationFrame(function () { setTimeout(function () { res(!!c); }, 60); }); }); });
+        };
+      }
       requestAnimationFrame(function () { window.cmb.send('print:ready', info); });
     });
   });

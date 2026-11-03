@@ -1,4 +1,33 @@
-# Crime Master Bingo — Test report (v1.3.0)
+# Crime Master Bingo — Test report (v1.4.0)
+
+## v1.4.0 additions (home play)
+- Unit tests: **123 / 123 passed**. The 8 new tests cover:
+  - the lowest free card being given out, never a printed one or another player's;
+  - a new card added only when every card is taken, with existing cards unchanged;
+  - duplicate names numbered;
+  - closed joining refused;
+  - an early BINGO giving no freeze and no claim;
+  - a real BINGO freezing claims with the player's name, with no double claims;
+  - the winner shown on the player's view;
+  - the player view leaking no played list, other players or tokens;
+  - removed players' cards retired.
+- `test/e2e/v14-check.js` in the real app with phone browsers (Galaxy Fold cover 344 px and
+  a 412 px phone): **27 / 27 passed**.
+  - Card images: 3 PNGs at 1588 × 1123 with names in the file names, each QR code decoding
+    to the right card, and the cards locked.
+  - TV join QR.
+  - Three players joining with different cards.
+  - Marks kept after a reload.
+  - An early BINGO answered "not yet" without stopping the music.
+  - A real BINGO opening the claim session on the laptop.
+  - The host confirming, and the phone showing "YOU WON ROUND 1!".
+  - A removed player sent back to the join page.
+  - A player phone refused host commands.
+  - Closed joining refused.
+- Regression: v1.1 acceptance **83 / 83**, printing **12 / 12**, v1.3 **13 / 13**.
+
+---
+
 
 ## v1.3.0 additions
 - Unit tests: **115 / 115 passed**. New tests cover:

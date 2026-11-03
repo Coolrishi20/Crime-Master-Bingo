@@ -303,6 +303,8 @@
         });
       }
       $('wlMsg').textContent = sc.message || '';
+      $('wlJoin').classList.toggle('hidden', !sc.join);
+      if (sc.join) { if ($('wlJoinQr').getAttribute('src') !== sc.join.qr) $('wlJoinQr').src = sc.join.qr; $('wlJoinUrl').textContent = sc.join.url.replace(/^https?:\/\//, ''); }
       var tick = function () {
         if (!sc.startTime) { $('wlStart').className = 'wl-start empty'; return; }
         $('wlStart').className = 'wl-start';

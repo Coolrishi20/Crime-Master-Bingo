@@ -224,10 +224,10 @@ App.register('host', {
 
   drawWinners() {
     const g = App.game;
-    $('#hgWinners', this.el).innerHTML = g.winners.length ? g.winners.map(w => `<div class="winner-row"><span class="cn">${w.cardLabel}</span><div class="grow"><b>Round ${w.round}</b><div class="small muted">${esc(w.headline)}</div></div><button class="btn sm ghost" data-undo="${w.claimId}" title="Undo">Undo</button></div>`).join('') : '<div class="muted small">No winners confirmed yet.</div>';
+    $('#hgWinners', this.el).innerHTML = g.winners.length ? g.winners.map(w => `<div class="winner-row"><span class="cn">${w.cardLabel}</span><div class="grow"><b>Round ${w.round}</b>${w.owner ? ` · <span style="color:var(--pink)">${esc(w.owner)}</span>` : ''}<div class="small muted">${esc(w.headline)}</div></div><button class="btn sm ghost" data-undo="${w.claimId}" title="Undo">Undo</button></div>`).join('') : '<div class="muted small">No winners confirmed yet.</div>';
     $$('[data-undo]', this.el).forEach(b => b.onclick = async () => { if (await confirmBox('Undo this winner?', 'The card will no longer be listed as a winner. Use this only to correct a mistake.', 'Undo winner', true)) App.cmd('revokeWinner', { claimId: b.dataset.undo }); });
     const sLabel = { pending: ['VALID · awaiting', 'warn'], confirmed: ['WINNER', 'ok'], invalid: ['NOT VALID', 'bad'], rejected: ['REJECTED', 'bad'], dismissed: ['DISMISSED', ''], duplicate: ['ALREADY WON', 'warn'], revoked: ['UNDONE', ''] };
-    $('#hgClaims', this.el).innerHTML = g.claims.length ? g.claims.slice(0, 12).map(c => `<div class="hist-item" style="cursor:pointer" data-card="${c.cardNo}"><span class="n">${c.cardLabel}</span><div class="t"><b>R${c.round}</b> <span>${esc(c.headline)}</span></div><span class="badge ${sLabel[c.status][1]}">${sLabel[c.status][0]}</span></div>`).join('') : '<div class="muted small">No claims checked yet.</div>';
+    $('#hgClaims', this.el).innerHTML = g.claims.length ? g.claims.slice(0, 12).map(c => `<div class="hist-item" style="cursor:pointer" data-card="${c.cardNo}"><span class="n">${c.cardLabel}</span><div class="t"><b>R${c.round}</b>${c.owner ? ` <b style="color:var(--pink)">${esc(c.owner)}</b>` : ''} <span>${esc(c.headline)}</span></div><span class="badge ${sLabel[c.status][1]}">${sLabel[c.status][0]}</span></div>`).join('') : '<div class="muted small">No claims checked yet.</div>';
     $$('[data-card]', this.el).forEach(r => r.onclick = () => App.openChecker(r.dataset.card));
   },
 

@@ -1,3 +1,25 @@
+## Crime Master Bingo 1.4.0 — Home play
+
+If you have 1.3.x, this arrives in the app as **⟳ Restart to update**. Both new features
+are options: switch them on in **Settings → 🏠 Home play**.
+
+### New in 1.4
+- **Share cards as images.** No printer? Save any range of cards as pictures to send on
+  WhatsApp. You can add a player's name to each card (it's printed on the card and used in
+  the file name). Images are identical to printed cards, QR code included.
+- **Phone cards for players.**
+  - Players scan a QR code, shown on the TV welcome screen or the laptop, type their name
+    and get their own card on their phone.
+  - They tap songs to mark them. Pressing **BINGO!** is checked instantly: an early press
+    only tells that phone "not yet", and a real bingo freezes the claims on the laptop with
+    the card already checked, ready for you to confirm.
+  - The winner's phone celebrates with **"YOU WON!"**.
+  - Manage players (rename, remove, open or close joining) under Mobile Host Connection.
+- Player names now appear beside card numbers in the claim session, the claims list and
+  the winners list.
+
+---
+
 ## Crime Master Bingo 1.3.1
 
 ### New in 1.3.1

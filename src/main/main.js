@@ -41,6 +41,7 @@ function defaultSettings() {
     remote: { port: 8787, autoStart: true, devices: [], secure: true },
     library: { autoConvert: true },
     updates: { auto: true },
+    home: { shareImages: false, phoneCards: false, joinOnTv: true },
     lastGameId: null,
     cleanShutdown: true
   };
@@ -49,7 +50,7 @@ function loadSettings() {
   const d = defaultSettings();
   const s = store.read('settings', d);
   const merged = Object.assign({}, d, s);
-  ['appearance', 'video', 'cards', 'remote', 'updates', 'library'].forEach(k => { merged[k] = Object.assign({}, d[k], s[k] || {}); });
+  ['appearance', 'video', 'cards', 'remote', 'updates', 'library', 'home'].forEach(k => { merged[k] = Object.assign({}, d[k], s[k] || {}); });
   merged.gameDefaults = Object.assign(defaultGameSettings(), s.gameDefaults || {});
   merged.gameDefaults.overlay = Object.assign(defaultGameSettings().overlay, (s.gameDefaults || {}).overlay || {});
   merged.gameDefaults.crawler = Object.assign(defaultGameSettings().crawler, (s.gameDefaults || {}).crawler || {});
@@ -158,7 +159,7 @@ function remoteState() {
 function onEngineChanged(kind) {
   if (!engine) return;
   sendHost('state', fullHostState());
-  if (kind !== 'tickOnly') sendAudience('audience-state', engine.audienceState());
+  if (kind !== 'tickOnly') sendAudience('audience-state', audienceStateWithJoin());
   if (remote) remote.broadcastState();
   // keep the laptop awake while a game is live
   const live = engine.game.status === 'live';
@@ -262,6 +263,7 @@ async function buildPrintJob(game, opts) {
     cards: list.map(c => ({ no: c.no, cells: c.cells, batch: c.batch || 1 })), songs, qrs, logo,
     bw: !!cardOpts.bw, textScale: Number(cardOpts.textScale) || 1, showArtist: cardOpts.showArtist !== false, cutLines: cardOpts.cutLines !== false,
     rounds: [1, 2, 3].map(n => ({ n, label: rules.ROUNDS[n].label, short: rules.ROUNDS[n].short, pattern: rules.patternExamples(n)[0] })),
+    names: opts.names || null,
     locked: !!game.cardsLocked,
     opts: { qr: !!cardOpts.qr, bw: !!cardOpts.bw, useLogo: !!cardOpts.useLogo, textScale: Number(cardOpts.textScale) || 1, showArtist: cardOpts.showArtist !== false, cutLines: cardOpts.cutLines !== false }
   };
@@ -304,7 +306,8 @@ const handlers = {
   'app:info': () => ({ version: app.getVersion(), dataDir: DATA_DIR, recovery: recoveryInfo, platform: process.platform, isTest: IS_TEST }),
   'settings:get': () => settings,
   'settings:update': (patch) => {
-    ['appearance', 'video', 'cards', 'remote', 'updates', 'library'].forEach(k => { if (patch[k]) Object.assign(settings[k], patch[k]); });
+    ['appearance', 'video', 'cards', 'remote', 'updates', 'library', 'home'].forEach(k => { if (patch[k]) Object.assign(settings[k], patch[k]); });
+    if (patch.home) { if (remote && remote.broadcastPlayers) remote.broadcastPlayers(); if (engine) onEngineChanged('state'); }
     if (patch.updates && updater) updater.start(settings.updates.auto !== false);
     if (patch.gameDefaults) {
       const gd = patch.gameDefaults;
@@ -476,6 +479,54 @@ const handlers = {
     if (out.printed) issueCards(g, out.numbers, 'laptop');
     return { printed: out.printed, reason: out.reason, cards: out.count, sheets: Math.ceil(out.count / 2) };
   },
+  /**
+   * Home play: save each card as its own PNG (e.g. to send on WhatsApp). Uses exactly the
+   * printed layout, so a shared image and a printed card are identical. Locks like printing.
+   */
+  'cards:exportImages': async (opts) => {
+    if (!settings.home.shareImages) throw new Error('Turn on “Share cards as images” in Settings → Home play first.');
+    const g = getGameObj(opts.id);
+    let folder = opts.folder;
+    if (!folder) {
+      const r = await dialog.showOpenDialog(hostWin, { title: 'Choose a folder for the card images', properties: ['openDirectory', 'createDirectory'] });
+      if (r.canceled || !r.filePaths[0]) return null;
+      folder = r.filePaths[0];
+    }
+    requireLockConsent(g, opts);
+    const names = {};
+    const list0 = cardsForPrint(g, opts.range ? cardsLib.parseRange(opts.range) : null);
+    (opts.names || []).map(x => String(x || '').trim().slice(0, 40)).forEach((n, i) => { if (n && list0[i]) names[list0[i].no] = n; });
+    const { job, list } = await buildPrintJob(g, Object.assign({}, opts, { cutLines: false, names }));
+    job.images = true;
+    const Z = 2; // 2× = ~1590 × 1120 px per card, sharp on any phone
+    const W = Math.ceil(210 * 96 / 25.4 * Z), H = Math.ceil(148.5 * 96 / 25.4 * Z);
+    const win = new BrowserWindow({ show: false, useContentSize: true, width: W, height: H + 20, webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, sandbox: false, offscreen: true, zoomFactor: Z } });
+    const files = [];
+    try {
+      win.webContents.setFrameRate(10);
+      await win.loadFile(path.join(RENDERER, 'print', 'print.html'), { query: { images: '1' } });
+      win.webContents.setZoomFactor(Z);
+      const ready = new Promise((resolve) => ipcMain.once('print:ready:' + win.webContents.id, (e, info) => resolve(info)));
+      win.webContents.send('print:job', job);
+      await ready;
+      const safe = (x) => String(x).replace(/[^\w\- ]+/g, '').trim().replace(/\s+/g, '-').slice(0, 30);
+      for (let i = 0; i < list.length; i++) {
+        const c = list[i];
+        sendHost('cards-images', { done: i, total: list.length });
+        await win.webContents.executeJavaScript(`window.__showCard(${c.no})`);
+        const img = await win.webContents.capturePage({ x: 0, y: 0, width: W, height: H });
+        const name = `${safe(g.name) || 'Bingo'}-Card-${cardsLib.formatCardNo(c.no)}${names[c.no] ? '-' + safe(names[c.no]) : ''}.png`;
+        const f = path.join(folder, name);
+        fs.writeFileSync(f, img.toPNG());
+        files.push(f);
+      }
+    } finally { if (!win.isDestroyed()) win.destroy(); }
+    issueCards(g, list.map(c => c.no), 'laptop');
+    list.forEach(c => { const card = g.cards.find(x => x.no === c.no); if (card) { card.issuedVia = card.issuedVia || 'image'; if (names[c.no]) card.owner = names[c.no]; } });
+    store.writeNow('games/' + g.id, g);
+    sendHost('cards-images', { done: list.length, total: list.length });
+    return { folder, files: files.length, first: files[0] || null, named: Object.keys(names).length };
+  },
   'cards:regenerate': ({ id, count }) => {
     const g = getGameObj(id);
     if (g.cardsLocked) throw new Error('These cards have been issued (LOCKED) and can never be regenerated. You can still add extra cards with unused numbers.');
@@ -595,6 +646,10 @@ const handlers = {
   },
 
   /* remote */
+  'players:join': async () => { const j = await refreshJoin(); return { enabled: phoneCardsOn(), running: !!(remote && remote.running), url: j && j.url, qr: j && j.qr, online: remote ? remote.onlinePlayers() : [] }; },
+  'players:setOpen': ({ open }) => dispatch('setPlayersOpen', { open }, 'laptop'),
+  'players:remove': ({ playerId }) => dispatch('playerRemove', { playerId }, 'laptop'),
+  'players:rename': ({ playerId, name }) => dispatch('playerRename', { playerId, name }, 'laptop'),
   'remote:info': async () => remoteInfo(),
   'remote:start': async () => { if (!remote) createRemote(); await remote.start(); return remoteInfo(); },
   'remote:stop': async () => { if (remote) await remote.stop(); return remoteInfo(); },
@@ -609,7 +664,7 @@ const handlers = {
   },
 
   /* audience-window → main */
-  'player:ready': () => { audienceReady = true; ipcMain.emit('audience:ready-once'); if (engine) engine.playerReady(); return { appSettings: audienceAppSettings(), state: engine ? engine.audienceState() : null }; },
+  'player:ready': () => { audienceReady = true; ipcMain.emit('audience:ready-once'); if (engine) engine.playerReady(); return { appSettings: audienceAppSettings(), state: engine ? audienceStateWithJoin() : null }; },
   'player:started': ({ token }) => { if (engine) engine.playerStarted(token); return true; },
   'player:time': ({ token, t }) => { if (engine) engine.playerTime(token, t); return true; },
   'player:ended': ({ token }) => { if (engine) engine.playerEnded(token); return true; },
@@ -667,6 +722,54 @@ function remoteTls() {
   } catch (e) { console.error('TLS certificate', e); return null; }
 }
 
+/* ======================================================================= home play: phone cards */
+let joinCache = null;
+function phoneCardsOn() { return !!(settings.home && settings.home.phoneCards); }
+/** Plain http link (no certificate warning — players never need the camera). */
+async function refreshJoin() {
+  const was = joinCache && joinCache.url;
+  if (!remote || !remote.running) joinCache = null;
+  else {
+    const url = remote.info().url + 'play';
+    if (!joinCache || joinCache.url !== url) joinCache = { url, qr: await QRCode.toDataURL(url, { margin: 1, width: 360, color: { dark: '#1a1033', light: '#ffffff' } }) };
+  }
+  if ((joinCache && joinCache.url) !== was && engine) sendAudience('audience-state', audienceStateWithJoin());
+  return joinCache;
+}
+function audienceStateWithJoin() {
+  const st = engine.audienceState();
+  if (st.screen && st.screen.mode === 'welcome' && joinCache && phoneCardsOn() && settings.home.joinOnTv !== false && engine.game.playersOpen !== false) st.screen.join = { url: joinCache.url, qr: joinCache.qr };
+  return st;
+}
+function playersInfo() {
+  const g = engine && engine.game;
+  return { enabled: phoneCardsOn() && !!g, open: !!g && g.playersOpen !== false && g.status !== 'finished', gameName: g ? g.name : null, gameId: g ? g.id : null };
+}
+const playerHooks = {
+  info: () => playersInfo(),
+  join: async (name) => {
+    const i = playersInfo();
+    if (!i.enabled) throw new Error('There is no game to join right now.');
+    if (!i.open) throw new Error('Joining is closed for this game — ask the host.');
+    const token = require('crypto').randomBytes(24).toString('hex');
+    const r = await dispatch('playerJoin', { name, tokenHash: require('crypto').createHash('sha256').update(token).digest('hex') }, 'phone-player');
+    return { token, playerId: r.playerId };
+  },
+  auth: (token) => {
+    if (!phoneCardsOn()) return { ok: false, reason: 'Phone cards are switched off.' };
+    if (!engine || !token) return { ok: false, reason: 'No game is running.' };
+    const h = require('crypto').createHash('sha256').update(token).digest('hex');
+    const p = engine.game.players.find(x => x.tokenHash === h && !x.removed);
+    return p ? { ok: true, playerId: p.id } : { ok: false, reason: 'not-in-game' };
+  },
+  view: (id) => !phoneCardsOn() ? { wait: 'Phone cards are switched off on the laptop.' } : !engine ? { wait: 'The host has no game open right now — it will come back automatically.' } : engine.playerView(id),
+  bingo: async (id) => {
+    const p = engine && engine.playerById(id);
+    if (!p) throw new Error('You are no longer in this game.');
+    return dispatch('playerBingo', { playerId: id }, 'player:' + p.name);
+  }
+};
+
 function createRemote() {
   const tls = remoteTls();
   remote = new RemoteServer({
@@ -680,10 +783,11 @@ function createRemote() {
       '/icon.png': path.join(ROOT, 'assets', 'icon.png')
     },
     mounts: { '/fonts/': path.join(RENDERER, 'shared', 'fonts') },
+    players: playerHooks,
     getState: () => remoteState(),
     dispatch: (action, args, source) => dispatch(action, args, source),
     devices: { list: () => settings.remote.devices, save: (list) => { settings.remote.devices = list; saveSettings(); } },
-    onChange: async () => { sendHost('remote', await remoteInfo()); }
+    onChange: async () => { await refreshJoin(); sendHost('remote', await remoteInfo()); }
   });
 }
 

@@ -54,6 +54,9 @@ App.register('settings', {
           <div class="row" style="margin-top:12px">${toggleHtml('upAuto', 'Check for updates automatically', s.updates ? s.updates.auto !== false : true)}</div>
           <div class="row" style="margin-top:12px"><button class="btn sm" id="upCheck">Check now</button><button class="btn sm primary" id="upAct" style="display:none"></button></div>
           <p class="muted small">Updates come from the Crime Master Bingo releases on GitHub. They download in the background (never during a live game) and install only when you choose “Restart to update” or close the app. No internet? Nothing happens — the app works fully offline.</p></div>
+        <div class="panel"><h2>🏠 Home play</h2>
+          <div style="display:flex;flex-direction:column;gap:10px">${toggleHtml('hImg', 'Share cards as images (for WhatsApp)', !!(s.home && s.home.shareImages))}${toggleHtml('hPhone', 'Phone cards for players', !!(s.home && s.home.phoneCards))}${toggleHtml('hTv', 'Show the “Join on your phone” QR code on the TV welcome screen', !s.home || s.home.joinOnTv !== false)}</div>
+          <p class="muted small"><b style="color:#fff">Share as images:</b> adds “Share cards as images” to Bingo Cards &amp; Printing — each card is saved as a picture, optionally with a player's name on it.<br><b style="color:#fff">Phone cards:</b> players scan a QR code, type their name and get their own card on their phone. They tap songs to mark them, and pressing BINGO is checked instantly on this laptop. Manage players under <a href="#" id="hGo" style="color:var(--pink)">Mobile Host Connection</a>. Phones must be on the same Wi-Fi.</p></div>
         <div class="panel"><h2>Mobile remote</h2>${toggleHtml('rA', 'Start the remote service when the app opens', s.remote.autoStart)}<p class="muted small">Address, PIN, paired devices and port: see <a href="#" id="rGo" style="color:var(--pink)">Mobile Host Connection</a>.</p>
           <p class="muted tiny">Data folder: ${esc(App.info.dataDir)}</p></div>
       </div>`;
@@ -73,6 +76,7 @@ App.register('settings', {
     $('#sLogo', el).onclick = async () => { await api('settings:pickLogo'); App.settings = await api('settings:get'); App.applyAppearance(); this.render(el); };
     if ($('#sLogoX', el)) $('#sLogoX', el).onclick = async () => { await api('settings:clearLogo'); App.settings = await api('settings:get'); App.applyAppearance(); this.render(el); };
     $('#rGo', el).onclick = (e) => { e.preventDefault(); App.show('mobile'); };
+    $('#hGo', el).onclick = (e) => { e.preventDefault(); App.show('mobile'); };
     $('#sSave', el).onclick = async () => {
       const patch = {
         appearance: { scale: Number(v('#sScale')), theme: v('#sTheme') },
@@ -81,6 +85,7 @@ App.register('settings', {
         remote: { autoStart: c('#rA') },
         library: { autoConvert: c('#lConv') },
         updates: { auto: c('#upAuto') },
+        home: { shareImages: c('#hImg'), phoneCards: c('#hPhone'), joinOnTv: c('#hTv') },
         gameDefaults: { clipMode: v('#sClip') === 'full' ? 'full' : Number(v('#sClip')), defaultStart: n('#sStart'), autoAdvanceGap: n('#gG'), volume: n('#gV'), shuffle: c('#gS'), autoAdvance: c('#gA'), pauseOnClaim: c('#gP'), winnerAnimation: c('#gW'), patternPosition: v('#pPos'),
           overlay: { position: v('#oPos'), titleSize: n('#oT'), artistSize: n('#oA'), opacity: n('#oO') / 100, duration: n('#oD'), revealDelay: n('#oR'), enabled: c('#oOn') },
           crawler: { speed: Math.max(1, Math.min(10, n('#cS'))), fontSize: n('#cF'), height: n('#cH'), separator: v('#cSep') },

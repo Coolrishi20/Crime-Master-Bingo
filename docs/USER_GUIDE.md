@@ -323,6 +323,44 @@ The installed app keeps itself up to date from the official GitHub releases.
 
 ---
 
+## 9a. Home play (optional)
+Two extras for playing at home with family and friends. Both are **off** until you switch
+them on in **Settings → 🏠 Home play**.
+
+### Share cards as images (WhatsApp)
+No printer? In **Bingo Cards & Printing**, the **📤 Share cards as images** panel saves each
+card as a picture (about 1600 × 1120 pixels):
+1. Type which cards to save, e.g. `1-12`.
+2. Optionally type player names, one per line. The first name goes on the first card, and so on.
+   The name is printed on the card ("Player: Rahul") and used in the file name
+   (`Diwali-Bingo-Card-002-Rahul.png`).
+3. Click **Save card images…** and choose a folder, then send the pictures on WhatsApp.
+
+A shared image is identical to the printed card, including the QR code, so checking a BINGO
+works the same way. Sharing **issues and locks** those cards, just like printing.
+
+### Phone cards for players
+Players get their own card on their phone and mark it there:
+- **Joining:** they scan the QR code, either on the TV welcome screen ("Play on your phone")
+  or on **Mobile Host Connection**. They type their name and get the next free card. Cards
+  that are printed, shared or already given to someone else are never handed out. If none
+  are left, a new card is added.
+- **Marking:** they tap songs as they hear them. Marks stay on their phone, even if they
+  reload or the phone locks.
+- **Pressing BINGO!:** the laptop checks it instantly against the songs actually played.
+  - **Not a bingo yet:** only that phone is told "keep listening". The music doesn't stop.
+  - **A real bingo:** claims freeze and the card is added to the claim session, already
+    checked and showing the player's name. You confirm it as usual, and their phone shows
+    **"YOU WON ROUND 1!"**.
+- **Managing players:** under **Mobile Host Connection → Players on their phones** you can
+  see who's connected, rename or remove players, and open or close joining. A removed
+  player's card is never given to anyone else.
+
+Phones must be on the **same Wi-Fi** as the laptop. Players use a plain link that shows no
+security warning, and they can't control the game: only you, the host, can.
+
+---
+
 ## 10. Phone tips — including Galaxy Fold
 The remote fits any phone. On a **Galaxy Fold's cover screen** it switches to a compact
 layout. **Unfolded**, it uses two columns: playback beside Up Next, and the BINGO keypad
