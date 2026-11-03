@@ -33,7 +33,7 @@ function defaultGameSettings() {
     volume: 85,
     pauseOnClaim: true,
     winnerAnimation: true,
-    tvScreens: { winner: true, wrongClaim: true, showCardNumber: false, showName: true, seconds: 7 },
+    tvScreens: { winner: true, wrongClaim: true, showCardNumber: false, showName: true, closeCount: true, seconds: 7 },
     screens: { welcome: true, startTime: '', message: '', end: true },
     overlay: { enabled: true, position: 'bottom-left', titleSize: 64, artistSize: 38, opacity: 0.78, duration: 0, revealDelay: 0 },
     crawler: { speed: 4, fontSize: 30, height: 72, separator: 'diamond', paused: false },
@@ -1038,7 +1038,7 @@ class GameEngine {
 
   aSetTvScreens(args) {
     const t = this.settings.tvScreens;
-    ['winner', 'wrongClaim', 'showCardNumber', 'showName'].forEach(k => { if (args[k] != null) t[k] = !!args[k]; });
+    ['winner', 'wrongClaim', 'showCardNumber', 'showName', 'closeCount'].forEach(k => { if (args[k] != null) t[k] = !!args[k]; });
     if (args.seconds != null) t.seconds = Math.max(3, Math.min(30, Number(args.seconds)));
     this.touch('state', false);
     return { ok: true, tvScreens: t };
@@ -1235,6 +1235,24 @@ class GameEngine {
       wins: this.game.claims.filter(c => c.cardNo === p.cardNo && c.status === 'confirmed').map(c => c.round) }));
   }
 
+  /**
+   * Suspense for the TV: how many issued cards (printed, shared or on a phone) need just one
+   * more played song for the current round. A count only — never which cards.
+   */
+  oneAwayCount() {
+    const g = this.game; const r = g.round;
+    if (!r.number || r.status !== 'active' || g.status === 'finished') return 0;
+    const played = this.playedSet();
+    const won = new Set(g.claims.filter(c => c.status === 'confirmed' && c.round === r.number).map(c => c.cardNo));
+    let n = 0;
+    for (const c of g.cards) {
+      if (!c.printed || won.has(c.no)) continue;
+      const b = rules.bestProgress(c.cells, played, r.number);
+      if (b && b.missing === 1) n++;
+    }
+    return n;
+  }
+
   ownerOf(no) { const c = this.findCard(no); return (c && c.owner) || null; }
 
   winners() {
@@ -1277,6 +1295,7 @@ class GameEngine {
       overlay: this.settings.overlay,
       crawler: this.settings.crawler,
       patternPosition: this.settings.patternPosition,
+      oneAway: this.settings.tvScreens.closeCount === false ? null : this.oneAwayCount(),
       screen: this.audienceScreen()
     };
   }

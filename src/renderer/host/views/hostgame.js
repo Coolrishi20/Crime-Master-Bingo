@@ -271,7 +271,7 @@ App.register('host', {
         <div class="form-grid" style="margin-top:10px"><label class="field">We start at (e.g. 20:00)<input type="time" id="scT" value="${esc(g.settings.screens.startTime || '')}"></label>
         <label class="field">Welcome message (optional)<input type="text" id="scM" maxlength="120" value="${esc(g.settings.screens.message || '')}" placeholder="e.g. Grab your cards at the bar!"></label></div>
         <h2 style="margin-top:18px">TV winner &amp; wrong-claim screens</h2>
-        <div class="row" style="gap:22px">${toggleHtml('tvW', 'Winner screen when a winner is confirmed', g.settings.tvScreens.winner)}${toggleHtml('tvR', '“Not a Bingo” screen when a claim is rejected', g.settings.tvScreens.wrongClaim)}${toggleHtml('tvC', 'Show the card number on the TV', g.settings.tvScreens.showCardNumber)}${toggleHtml('tvN', 'Show the winner’s name (phone players & named cards)', g.settings.tvScreens.showName !== false)}</div>
+        <div class="row" style="gap:22px">${toggleHtml('tvW', 'Winner screen when a winner is confirmed', g.settings.tvScreens.winner)}${toggleHtml('tvR', '“Not a Bingo” screen when a claim is rejected', g.settings.tvScreens.wrongClaim)}${toggleHtml('tvC', 'Show the card number on the TV', g.settings.tvScreens.showCardNumber)}${toggleHtml('tvN', 'Show the winner’s name (phone players & named cards)', g.settings.tvScreens.showName !== false)}${toggleHtml('tvO', '“Players one song away” count on the TV', g.settings.tvScreens.closeCount !== false)}</div>
         <label class="field" style="max-width:260px;margin-top:10px">Show for ${g.settings.tvScreens.seconds} seconds<input type="range" min="3" max="20" value="${g.settings.tvScreens.seconds}" id="tvS"></label>`;
       $('#scW', box).onchange = (e) => App.cmd('setScreens', { welcome: e.target.checked });
       $('#scE', box).onchange = (e) => App.cmd('setScreens', { end: e.target.checked });
@@ -281,6 +281,7 @@ App.register('host', {
       $('#tvR', box).onchange = (e) => App.cmd('setTvScreens', { wrongClaim: e.target.checked });
       $('#tvC', box).onchange = (e) => App.cmd('setTvScreens', { showCardNumber: e.target.checked });
       $('#tvN', box).onchange = (e) => App.cmd('setTvScreens', { showName: e.target.checked });
+      $('#tvO', box).onchange = (e) => App.cmd('setTvScreens', { closeCount: e.target.checked });
       $('#tvS', box).onchange = (e) => App.cmd('setTvScreens', { seconds: Number(e.target.value) });
       $$('[data-c]', box).forEach(i => i.onchange = () => App.cmd('setCrawler', { [i.dataset.c]: i.tagName === 'SELECT' ? i.value : Number(i.value) }));
       $$('[data-o]', box).forEach(i => i.onchange = () => App.cmd('setOverlay', { [i.dataset.o]: i.dataset.o === 'revealDelay' ? Number(i.value) : i.tagName === 'SELECT' ? i.value : (i.dataset.o === 'opacity' ? Number(i.value) / 100 : Number(i.value)) }));

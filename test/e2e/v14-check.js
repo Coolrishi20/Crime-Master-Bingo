@@ -96,6 +96,15 @@ const ONLY = process.env.ONLY || 'all';
     const st0 = (await inv('game:state')).game;
     ok(st0.players.length === 3 && st0.players.every(p => !('tokenHash' in p)), 'Host sees 3 players (no secret tokens in host state)');
     ok(await priya.isDisabled('#bingo'), 'BINGO button waits until a round starts');
+    // v1.4.2: lobby on the TV welcome screen
+    ok(!!(await waitFor(async () => { const t = await tv.textContent('#wlLobby'); return /3 PLAYERS HAVE JOINED/.test(t) && /Priya/.test(t) && /rahul 2/.test(t); }, 8000)), 'TV welcome screen lists who has joined', (await tv.textContent('#wlLobbyN')));
+    await sleep(800); await tv.screenshot({ path: path.join(OUT, 'v142-tv-lobby.png') });
+    // v1.4.2: the host's own phone remote (paired with the PIN)
+    const ri = await inv('remote:info');
+    const hostCtx = await br.newContext({ viewport: { width: 412, height: 915 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+    const hostPhone = await hostCtx.newPage();
+    await hostPhone.goto(`http://127.0.0.1:${ri.port}/#pin=${ri.pin}`);
+    await hostPhone.waitForSelector('#main:not(.hidden)', { timeout: 15000 });
 
     // tap-to-mark is kept on the phone across a reload, and the phone rejoins the same card
     await priya.click('.cell[data-i="0"]'); await priya.click('.cell[data-i="7"]');
@@ -129,12 +138,17 @@ const ONLY = process.env.ONLY || 'all';
     ok((await priya.$$('.cell.on')).length === before, '↶ Undo button also works');
     ok((await priya.evaluate(() => window.__awake)) !== 'none', 'Keep-awake started on first tap', await priya.evaluate(() => window.__awake));
     await priya.screenshot({ path: path.join(OUT, 'v141-phone-one-away.png') });
+    // v1.4.2: TV suspense count
+    ok(!!(await waitFor(async () => /ONE SONG AWAY/.test(await tv.textContent('#ptClose')) && await tv.isVisible('#ptClose'), 8000)), 'TV shows “N players are one song away”', await tv.textContent('#ptClose'));
+    await sleep(900); await tv.screenshot({ path: path.join(OUT, 'v142-tv-one-away.png') });
     await cmd('markPlayed', { songId: eng[14] });
     await sleep(4200); // per-phone BINGO cool-down
     await priya.click('#bingo');
     await waitFor(async () => (await priya.textContent('#popTitle')) === 'LOOKS LIKE A BINGO!');
     const st1 = (await inv('game:state')).game;
     const claim = st1.session && st1.session.claims[0];
+    ok(!!(await waitFor(async () => await hostPhone.isVisible('#checker') && /Priya/.test(await hostPhone.textContent('#ckResult')), 8000)), 'Host’s phone remote buzzes and opens Priya’s claim, ready to confirm');
+    await sleep(500); await hostPhone.screenshot({ path: path.join(OUT, 'v142-host-remote-claim.png') });
     ok(!!claim && claim.cardNo === Number(pCard) && claim.owner === 'Priya' && claim.status === 'pending', 'Real BINGO freezes claims and adds Priya\'s card, already checked VALID', claim && `${claim.cardLabel} ${claim.owner} ${claim.status}`);
     await priya.click('#popOk');
     await host.waitForSelector('.modal-back #ckList', { timeout: 8000 }).catch(() => null);

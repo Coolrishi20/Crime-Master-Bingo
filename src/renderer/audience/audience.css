@@ -195,3 +195,19 @@ body.page-on #pattern, body.page-on #overlay { visibility: hidden; }
 
 /* winner's name on the TV (home play) */
 #takeover.winner .to-sub.named { font-size: calc(64px * var(--s)); color: #fff; text-shadow: 0 0 calc(24px * var(--s)) rgba(255,255,255,.55); }
+
+/* lobby (welcome screen) */
+.wl-lobby { position: absolute; left: 2.4vw; bottom: 3vh; max-width: 52vw; background: rgba(15,9,30,.72); border: 1px solid rgba(255,79,162,.45); border-radius: calc(20px * var(--s)); padding: calc(12px * var(--s)) calc(18px * var(--s)); }
+.wl-lobby.hidden { display: none; }
+.wl-lobby b { display: block; font-size: calc(16px * var(--s)); letter-spacing: .18em; color: var(--pink); font-weight: 800; margin-bottom: calc(8px * var(--s)); }
+#wlLobbyList { display: flex; flex-wrap: wrap; gap: calc(8px * var(--s)); }
+.lb-name { background: rgba(196,176,255,.16); border: 1px solid rgba(196,176,255,.4); color: #fff; font-weight: 800; font-size: calc(22px * var(--s)); padding: calc(4px * var(--s)) calc(14px * var(--s)); border-radius: 99px; }
+.lb-name.new { animation: lbPop .7s cubic-bezier(.2,1.6,.3,1); background: rgba(255,79,162,.35); border-color: var(--pink); }
+.lb-more { color: var(--lilac); font-weight: 700; font-size: calc(20px * var(--s)); padding: calc(4px * var(--s)) calc(6px * var(--s)); }
+@keyframes lbPop { 0% { transform: scale(.2); opacity: 0; } 70% { transform: scale(1.15); opacity: 1; } 100% { transform: none; } }
+/* one song away (pattern panel) */
+#ptClose { margin-top: calc(10px * var(--s)); text-align: center; font-weight: 800; font-size: calc(14px * var(--s)); letter-spacing: .06em; color: #fff; background: linear-gradient(90deg, #ff4fa2, #e0287f); border-radius: calc(10px * var(--s)); padding: calc(7px * var(--s)) calc(8px * var(--s)); box-shadow: 0 0 calc(18px * var(--s)) rgba(255,79,162,.6); }
+#ptClose.hidden { display: none; }
+#ptClose b { font-family: var(--display); font-weight: 400; font-size: calc(20px * var(--s)); }
+#ptClose.bump { animation: closeBump 1s cubic-bezier(.2,1.5,.3,1); }
+@keyframes closeBump { 0% { transform: scale(.6); } 50% { transform: scale(1.12); } 100% { transform: none; } }

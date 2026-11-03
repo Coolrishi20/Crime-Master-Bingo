@@ -739,6 +739,8 @@ async function refreshJoin() {
 function audienceStateWithJoin() {
   const st = engine.audienceState();
   if (st.screen && st.screen.mode === 'welcome' && joinCache && phoneCardsOn() && settings.home.joinOnTv !== false && engine.game.playersOpen !== false) st.screen.join = { url: joinCache.url, qr: joinCache.qr };
+  // lobby: who has joined on their phone (names only)
+  if (st.screen && st.screen.mode === 'welcome' && phoneCardsOn()) st.screen.players = engine.game.players.filter(p => !p.removed).map(p => p.name);
   return st;
 }
 function playersInfo() {

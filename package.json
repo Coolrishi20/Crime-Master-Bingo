@@ -1,7 +1,7 @@
 {
   "name": "crime-master-bingo",
   "productName": "Crime Master Bingo",
-  "version": "1.4.1",
+  "version": "1.4.2",
   "description": "Crime Master Bingo - offline music video bingo for live events",
   "main": "src/main/main.js",
   "author": "Crime Master Bingo",

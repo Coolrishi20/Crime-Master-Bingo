@@ -283,6 +283,30 @@
       requestAnimationFrame(f);
     })(t0);
   }
+  /* lobby: names pop in as players join on their phones */
+  var lobbySeen = {};
+  function drawLobby(names) {
+    var box = $('wlLobby'), list = $('wlLobbyList');
+    box.classList.toggle('hidden', !names.length);
+    $('wlLobbyN').textContent = names.length === 1 ? '1 PLAYER HAS JOINED' : names.length + ' PLAYERS HAVE JOINED';
+    var shown = names.slice(-36), more = names.length - shown.length;
+    list.innerHTML = '';
+    if (more > 0) { var m = document.createElement('span'); m.className = 'lb-more'; m.textContent = '+' + more + ' more'; list.appendChild(m); }
+    shown.forEach(function (n) {
+      var s = document.createElement('span'); s.className = 'lb-name' + (lobbySeen[n] ? '' : ' new'); s.textContent = n; list.appendChild(s); lobbySeen[n] = 1;
+    });
+  }
+  /* suspense: how many cards are one song away (count only) */
+  var lastClose = 0;
+  function drawClose(st) {
+    var n = (st && st.oneAway) || 0, el = $('ptClose');
+    el.classList.toggle('hidden', !n);
+    if (n) {
+      el.innerHTML = '🔥 <b>' + n + '</b> ' + (n === 1 ? 'PLAYER IS' : 'PLAYERS ARE') + ' ONE SONG AWAY!';
+      if (n > lastClose) { el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump'); }
+    }
+    lastClose = n;
+  }
   function fmtStart(t) { var p = t.split(':'); var h = +p[0], m = p[1]; var ap = h >= 12 ? 'pm' : 'am'; var h12 = h % 12 || 12; return h12 + (m === '00' ? '' : ':' + m) + ap; }
   function renderPages() {
     var sc = (state && state.screen) || { mode: 'none' };
@@ -304,6 +328,7 @@
       }
       $('wlMsg').textContent = sc.message || '';
       $('wlJoin').classList.toggle('hidden', !sc.join);
+      drawLobby(sc.players || []);
       if (sc.join) { if ($('wlJoinQr').getAttribute('src') !== sc.join.qr) $('wlJoinQr').src = sc.join.qr; $('wlJoinUrl').textContent = sc.join.url.replace(/^https?:\/\//, ''); }
       var tick = function () {
         if (!sc.startTime) { $('wlStart').className = 'wl-start empty'; return; }
@@ -351,6 +376,7 @@
     if (!s) return;
     state = s;
     renderPages();
+    drawClose(s);
     renderOverlay();
     renderPattern();
     var c = s.crawler || {};

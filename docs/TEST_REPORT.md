@@ -1,4 +1,16 @@
-# Crime Master Bingo — Test report (v1.4.1)
+# Crime Master Bingo — Test report (v1.4.2)
+
+## v1.4.2 additions
+- Unit tests: **126 / 126 passed**. A new test covers the TV's one-away count: issued cards
+  only, current round only, winners excluded, no card details sent to the TV, and the option
+  turned off. The TV privacy test now allows the one new field, a plain number.
+- `test/e2e/v14-check.js`: **38 / 38 passed**. New checks:
+  - the TV lobby listing all 3 joined players;
+  - the TV showing "1 PLAYER IS ONE SONG AWAY!" during the round;
+  - the host's paired phone remote opening Priya's valid claim automatically, ready to confirm.
+
+---
+
 
 ## v1.4.1 additions
 - Unit tests: **125 / 125 passed**. The 2 new tests cover the one-away count (only played

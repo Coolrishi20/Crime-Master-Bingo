@@ -93,6 +93,7 @@
     } else if (m.type === 'event') {
       if (m.name === 'celebrate') { vibrate([80, 60, 80]); }
       if (m.name === 'error') toast(m.payload.message, 'err');
+      if (m.name === 'playerBingo') playerBingo(m.payload);
     }
   }
 
@@ -217,7 +218,7 @@
     if (!s) { if (ckOpen) { ckOpen = false; stopScan(); $('checker').classList.add('hidden'); } $('bingoFab').textContent = 'CHECK BINGO'; return; }
     $('bingoFab').textContent = 'CLAIMS FROZEN (' + s.claims.length + ')';
     $('ckPaused').innerHTML = 'Session ' + esc(s.id) + ' · Round ' + s.round + ' · <b>' + s.snapshotCount + '</b> songs frozen · music paused at ' + fmt(s.position);
-    $('ckList').innerHTML = s.claims.length ? s.claims.map(function (c) { return '<div class="hist" data-id="' + c.claimId + '"><span class="n" style="width:40px">' + c.cardLabel + '</span><div style="flex:1">' + esc(c.headline) + '</div><span class="chip ' + (SL[c.status][1] === 'ok' ? '' : 'dim') + '" style="margin:0">' + SL[c.status][0] + '</span></div>'; }).join('') : '';
+    $('ckList').innerHTML = s.claims.length ? s.claims.map(function (c) { return '<div class="hist" data-id="' + c.claimId + '"><span class="n" style="width:40px">' + c.cardLabel + '</span><div style="flex:1">' + (c.owner ? '<b style="color:var(--pink)">📱 ' + esc(c.owner) + '</b><br>' : '') + esc(c.headline) + '</div><span class="chip ' + (SL[c.status][1] === 'ok' ? '' : 'dim') + '" style="margin:0">' + SL[c.status][0] + '</span></div>'; }).join('') : '';
     Array.prototype.forEach.call(document.querySelectorAll('#ckList [data-id]'), function (r) { r.onclick = function () { safe(cmd('viewClaim', { claimId: r.getAttribute('data-id') })).then(function (x) { if (x) { $('ckEntry').classList.add('hidden'); $('ckResult').classList.remove('hidden'); showResult(x); } }); }; });
   }
   function renderUpNext() {
@@ -328,6 +329,16 @@
       if (state) renderSession();
     });
   };
+  /* a player pressed BINGO on their own phone card (home play) */
+  function playerBingo(p) {
+    if (!p.valid) { toast('📱 ' + p.name + ' (card ' + p.cardLabel + ') pressed BINGO — not yet', ''); return; }
+    vibrate([120, 60, 120, 60, 240]);
+    toast('📱 ' + p.name + ' called BINGO — card ' + p.cardLabel + ' looks valid!', 'ok');
+    ckOpen = true; ckPaused = true;
+    $('checker').classList.remove('hidden'); $('ckEntry').classList.add('hidden'); $('ckResult').classList.remove('hidden');
+    if (state) renderSession();
+    if (p.claimId) safe(cmd('viewClaim', { claimId: p.claimId })).then(function (x) { if (x) showResult(x); });
+  }
   function closeChecker(resume, dismissPending) {
     safe(cmd('closeSession', { resume: !!resume, dismissPending: !!dismissPending })).then(function (r) {
       if (r && r.needsDecision) {
@@ -354,7 +365,7 @@
     ckInput = ''; drawInput();
     var dup = r.alreadyWinner && r.status !== 'confirmed'; var cls = r.status === 'confirmed' ? 'valid' : dup ? 'dup' : (r.valid ? 'valid' : 'invalid');
     vibrate(r.valid && !dup ? [60, 40, 60] : 250);
-    var h = (r.duplicateEntry ? '<div class="banner">Card already entered in this session — same result shown.</div>' : '') + '<div class="verdict ' + cls + '"><div class="vt">' + (r.status === 'confirmed' ? 'WINNER CONFIRMED' : dup ? 'ALREADY WON' : r.valid ? 'VALID BINGO!' : 'NOT VALID') + '</div><div class="hl">' + esc(r.explanation || ('Card ' + r.cardLabel + ' — ' + r.headline)) + '</div>' + (r.completingSong ? '<div class="rs">🎵 Won on song #' + r.completingSong.n + ': <b style="color:#fff">' + esc(r.completingSong.title) + '</b> — ' + esc(r.completingSong.artist) + '</div>' : '') + (r.best ? '<div class="rs">Closest: <b style="color:#fff">' + esc(r.best.description) + '</b> — ' + r.best.missing + ' more needed (dashed squares)</div>' : '') + '<div class="rs">Round ' + r.round + ' · ' + esc(r.roundLabel) + (r.qualifiedAtSong ? ' · qualified at song #' + r.qualifiedAtSong : '') + (r.printed ? '' : ' · ⚠ card not marked printed') + '</div></div>';
+    var h = (r.duplicateEntry ? '<div class="banner">Card already entered in this session — same result shown.</div>' : '') + '<div class="verdict ' + cls + '">' + (r.owner ? '<div class="rs" style="margin:0 0 4px;color:#fff;font-weight:800">📱 ' + esc(r.owner) + ' · card ' + r.cardLabel + '</div>' : '') + '<div class="vt">' + (r.status === 'confirmed' ? 'WINNER CONFIRMED' : dup ? 'ALREADY WON' : r.valid ? 'VALID BINGO!' : 'NOT VALID') + '</div><div class="hl">' + esc(r.explanation || ('Card ' + r.cardLabel + ' — ' + r.headline)) + '</div>' + (r.completingSong ? '<div class="rs">🎵 Won on song #' + r.completingSong.n + ': <b style="color:#fff">' + esc(r.completingSong.title) + '</b> — ' + esc(r.completingSong.artist) + '</div>' : '') + (r.best ? '<div class="rs">Closest: <b style="color:#fff">' + esc(r.best.description) + '</b> — ' + r.best.missing + ' more needed (dashed squares)</div>' : '') + '<div class="rs">Round ' + r.round + ' · ' + esc(r.roundLabel) + (r.qualifiedAtSong ? ' · qualified at song #' + r.qualifiedAtSong : '') + (r.printed ? '' : ' · ⚠ card not marked printed') + '</div></div>';
     h += '<div class="mini">' + r.grid.map(function (c) { return '<div class="' + (c.winning ? 'w' : c.played ? 'p' : '') + (c.needed ? ' nd' : '') + (c.inBest && !c.winning ? ' bs' : '') + (c.completing ? ' cm' : '') + '">' + (c.credit ? '<span style="color:var(--amber)">TC</span>' : '') + '<b>' + esc(c.title) + '</b><span>' + esc(c.artist) + '</span></div>'; }).join('') + '</div>';
     if (r.status === 'pending') h += '<button class="btn success big" style="width:100%" id="ckConfirm">✓ CONFIRM WINNER</button><button class="btn danger wide" id="ckDismiss">Reject claim</button>';
     else if (r.status === 'invalid') h += '<button class="btn danger wide" id="ckReject">Reject claim</button>';

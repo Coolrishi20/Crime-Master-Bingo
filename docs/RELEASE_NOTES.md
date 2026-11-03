@@ -1,3 +1,17 @@
+## Crime Master Bingo 1.4.2 — More buzz in the room
+
+### New in 1.4.2
+- **Phone BINGO alerts on your host remote.** When a player's BINGO is real, your phone
+  remote buzzes and opens their claim (with their name), ready to confirm. Early presses
+  show a quick "not yet" note.
+- **Lobby on the TV.** The welcome screen shows the names of everyone who has joined on
+  their phone, with a little pop as each new player arrives.
+- **"🔥 3 PLAYERS ARE ONE SONG AWAY!"** The TV's pattern box shows how many cards need just
+  one more song. It's a count only, never which cards. You can switch it off under
+  Host Game → TV screens.
+
+---
+
 ## Crime Master Bingo 1.4.1 — Better phone cards
 
 ### New in 1.4.1

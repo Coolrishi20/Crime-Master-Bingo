@@ -366,6 +366,17 @@ On the player's phone:
   marks.
 - **Screen stays on:** the screen doesn't dim or lock while the card is open.
 
+**Lobby on the TV:** while the welcome screen is up, the names of everyone who has joined
+pop up in the bottom-left corner ("3 PLAYERS HAVE JOINED").
+
+**Suspense on the TV:** during a round, the winning-pattern box shows
+**"🔥 3 PLAYERS ARE ONE SONG AWAY!"**. It counts every issued card (printed, shared or on a
+phone) that needs one more played song, and never says which cards. Turn it off under
+Host Game → TV screens.
+
+**On your host remote:** when a player's BINGO is real, your own phone remote buzzes and
+opens their claim (with their name), ready to **Confirm winner**.
+
 **Winner's name on the TV:** when a phone player (or a card shared with a name) wins, the TV
 says **"PRIYA WINS!"**. Turn it off under Host Game → TV screens → *Show the winner's name*.
 Names never appear on the "Not a Bingo" screen.

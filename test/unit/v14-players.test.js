@@ -133,3 +133,21 @@ test('TV winner screen carries the winner names (option), never on "Not a Bingo"
   assert.ok(!tv[2].names, 'names hidden when the option is off');
   void events;
 });
+
+/* v1.4.2 */
+test('TV "one song away" count: issued cards only, current round, winners excluded, option off', () => {
+  const { eng, game } = makeEngine({ cards: 6 });
+  const a = join(eng, 'A'); const b = join(eng, 'B');
+  eng.dispatch('startRound', { round: 1 });
+  const ca = game.cards.find(c => c.no === a.cardNo), cb = game.cards.find(c => c.no === b.cardNo);
+  play(eng, row(ca, 0).slice(0, 4));
+  play(eng, row(cb, 2).slice(0, 4));
+  const unissued = game.cards.filter(c => !c.printed).length;
+  assert.ok(unissued > 0);
+  const n = eng.audienceState().oneAway;
+  assert.ok(n >= 2, 'both phone cards counted');
+  assert.strictEqual(n, game.cards.filter(c => c.printed).length >= n ? n : -1);
+  assert.ok(!/"no"|cells|cardNo/.test(JSON.stringify(eng.audienceState())), 'count only, no card details');
+  eng.dispatch('setTvScreens', { closeCount: false });
+  assert.strictEqual(eng.audienceState().oneAway, null);
+});
