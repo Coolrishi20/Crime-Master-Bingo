@@ -1,30 +1,34 @@
-## Crime Master Bingo 1.2.0
+## Crime Master Bingo 1.3.0
 
-Offline Windows software for hosting music-video bingo nights.
+Offline Windows software for hosting music-video bingo nights. If you have 1.2.0, this arrives in the app as **⟳ Restart to update**.
 
-### Download
-- **CrimeMasterBingo-Setup-1.2.0.exe**: installer (recommended). It installs over 1.0 or 1.1 and keeps your library, games and phone pairings.
-- **CrimeMasterBingo-Portable-1.2.0.exe**: runs without installing.
-
-### New in 1.2
-- **Automatic updates**
-  - The installed app now checks for new versions by itself.
-  - It downloads them in the background, but never while a game is live.
-  - When an update is ready it shows **⟳ Restart to update**. It never restarts on its own; if you just close the app, the update installs then.
-  - Your game is saved and resumes after the update.
-  - Turn automatic checks off, or use **Check now**, in **Settings → App updates**. Without internet nothing happens; the app keeps working fully offline.
-  - The portable version can't update itself, so it shows a **download** link instead.
-  - **One-time step:** if you have 1.0 or 1.1, install this version manually once. From 1.2 onwards updates arrive automatically.
-- **Delayed title reveal (optional)**
-  - In **Settings → Song overlay → Reveal song title after**, choose 5, 10, 15, 20 or 30 seconds (default: immediately).
-  - The TV shows **♪ Guess the song…** with a countdown, then reveals the title and artist.
-  - The countdown pauses when the music pauses. Your laptop and phone always show the title straight away.
-  - It can also be changed live during a game (Host Game → TV crawler tab), or per game in Create Game step 4.
+### New in 1.3
+- **Folders → playlists.** In Music Library or Playlists, click **Import folders as playlists…** and choose a top folder.
+  - Each sub-folder (e.g. *80s*, *90s*, *Bollywood*) becomes a playlist with the same name.
+  - Running it again only adds new videos. Duplicates are never added.
+- **Built-in video converter.**
+  - AVI, WMV, FLV, MPG and other files are now imported instead of refused. So are videos with codecs Windows can't play.
+  - They're converted in the background to a playable MP4 copy. Your original files are never changed.
+  - Progress shows in the Music Library. Failures show **Retry convert**.
+  - Switch it off in Settings → Gameplay.
+- **Live QR scanning on the phone.**
+  - The phone link is now secure, so the camera scans a card's QR code live; no more taking a photo.
+  - **First time on each phone:** the browser warns the connection isn't private, because it's this laptop's own certificate. Tap **Advanced → Proceed** (Android) or **Show Details → visit this website** (iPhone).
+  - The standard link is still available under the QR code if a phone won't accept the secure one.
+- **Welcome screen.** Before Round 1, the TV shows:
+  - your logo, event name and venue;
+  - the three winning patterns;
+  - your message (e.g. *"Grab your cards at the bar!"*);
+  - a countdown to your start time (*"We start at 8pm · 12:34 to go"*).
+  It disappears automatically when Round 1 starts.
+- **End-of-night screen.** After the game, the TV shows **THANKS FOR PLAYING!** and the full numbered list of songs played. It scrolls slowly if the list is long, and has no card numbers.
+- Set the welcome and end screens per game (Create Game step 4, or Host Game → TV crawler tab). Change the defaults in Settings.
+- **Fixes:** the Music Library's Clip and Loudness column headings were swapped. Leaving the Music Library while it was loading could show errors.
 
 ### First run
 - Windows SmartScreen may say *"Windows protected your PC"*, because the app isn't code-signed yet. Click **More info → Run anyway**.
-- Allow **Private networks** at the firewall prompt so your phone can connect.
+- Allow **Private networks** at the firewall prompt so your phone can connect. The secure phone link uses the next port up (8788 by default).
 
 See the [Host guide](https://github.com/Coolrishi20/Crime-Master-Bingo/blob/main/docs/USER_GUIDE.md).
 
-ffmpeg (GPL v3) is bundled as a separate program, used only for loudness analysis. Its licence is in `resources/ffmpeg/`.
+ffmpeg (GPL v3) is bundled as a separate program, used for loudness analysis and video conversion. Its licence is in `resources/ffmpeg/`.

@@ -250,9 +250,65 @@
   }
 
   /* ------------------------------------------------------------- state */
+  /* ------------------------------------------------------------- welcome / end pages */
+  var wlTimer = null, logoUrl = null, endKey = null;
+  function fmtStart(t) { var p = t.split(':'); var h = +p[0], m = p[1]; var ap = h >= 12 ? 'pm' : 'am'; var h12 = h % 12 || 12; return h12 + (m === '00' ? '' : ':' + m) + ap; }
+  function renderPages() {
+    var sc = (state && state.screen) || { mode: 'none' };
+    $('welcome').classList.toggle('hidden', sc.mode !== 'welcome');
+    $('endscreen').classList.toggle('hidden', sc.mode !== 'end');
+    document.body.classList.toggle('page-on', sc.mode !== 'none');
+    clearInterval(wlTimer); wlTimer = null;
+    if (sc.mode === 'welcome') {
+      $('wlName').textContent = sc.name || '';
+      $('wlMeta').textContent = [sc.venue, sc.date].filter(Boolean).join('  \u00b7  ');
+      var img = $('wlLogo'); if (logoUrl) { img.src = logoUrl; img.classList.add('has'); } else img.classList.remove('has');
+      if (!$('wlRounds').children.length) {
+        [1, 2, 3].forEach(function (n) {
+          var d = document.createElement('div'); d.className = 'wl-round';
+          var g = document.createElement('div'); CMBPatterns.render(g, CMBPatterns.examples(n)[0], 'pink'); d.appendChild(g);
+          var t = document.createElement('div'); t.innerHTML = '<b>ROUND ' + n + '</b><span>' + CMBPatterns.LABELS[n] + '</span>'; d.appendChild(t);
+          $('wlRounds').appendChild(d);
+        });
+      }
+      $('wlMsg').textContent = sc.message || '';
+      var tick = function () {
+        if (!sc.startTime) { $('wlStart').className = 'wl-start empty'; return; }
+        $('wlStart').className = 'wl-start';
+        var p = sc.startTime.split(':'); var now = new Date(); var at = new Date(); at.setHours(+p[0], +p[1], 0, 0);
+        var left = Math.round((at - now) / 1000);
+        if (left < -6 * 3600) { at.setDate(at.getDate() + 1); left = Math.round((at - now) / 1000); } // a time early tomorrow
+        $('wlAt').textContent = 'WE START AT ' + fmtStart(sc.startTime).toUpperCase();
+        if (left > 0) { var h = Math.floor(left / 3600), m = Math.floor(left % 3600 / 60), s2 = left % 60; $('wlCount').textContent = (h ? h + ':' + ('0' + m).slice(-2) : m) + ':' + ('0' + s2).slice(-2) + ' to go'; }
+        else $('wlCount').textContent = 'Starting soon!';
+      };
+      tick(); wlTimer = setInterval(tick, 1000);
+    }
+    if (sc.mode === 'end') {
+      $('esSub').textContent = (sc.name || '') + (sc.winners ? '  \u00b7  Congratulations to our ' + sc.winners + ' winner' + (sc.winners > 1 ? 's' : '') + '!' : '');
+      var key = JSON.stringify(state.history.map(function (h) { return h.n + h.title; }));
+      if (key !== endKey) {
+        endKey = key;
+        var list = $('esList'); list.innerHTML = ''; list.classList.remove('scrolling');
+        var n = state.history.length; list.className = 'es-list' + (n <= 8 ? ' c1' : n <= 20 ? ' c2' : '');
+        state.history.forEach(function (h) {
+          var d = document.createElement('div'); d.className = 'es-item' + (h.credit ? ' credit' : '');
+          d.innerHTML = '<span class="n"></span><span class="t"></span> <span class="a"></span>';
+          d.children[0].textContent = (h.n < 10 ? '0' : '') + h.n; d.children[1].textContent = h.title; d.children[2].textContent = '\u2014 ' + h.artist;
+          list.appendChild(d);
+        });
+        requestAnimationFrame(function () {
+          var vp = $('esViewport'); var over = list.scrollHeight - vp.clientHeight;
+          if (over > 4) { list.style.setProperty('--es-shift', -over + 'px'); list.style.setProperty('--es-dur', Math.max(20, over / 25) + 's'); list.classList.add('scrolling'); }
+        });
+      }
+    }
+  }
+
   function applyState(s) {
     if (!s) return;
     state = s;
+    renderPages();
     renderOverlay();
     renderPattern();
     var c = s.crawler || {};
@@ -263,6 +319,7 @@
 
   function applyAppSettings(a) {
     if (!a) return;
+    logoUrl = a.logo ? a.logo + '?v=' + Date.now() : null;
     var img = $('idleLogo');
     if (a.logo) { img.src = a.logo + '?v=' + Date.now(); img.classList.add('has'); $('idle').classList.add('withlogo'); }
     else { img.removeAttribute('src'); img.classList.remove('has'); $('idle').classList.remove('withlogo'); }

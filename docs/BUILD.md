@@ -36,12 +36,13 @@ can also be run by hand from the **Actions** tab (*Build Windows app → Run wor
 
 ## Tests
 ```bash
-npm test          # 109 unit/integration tests (rules, cards, engine, claim sessions,
+npm test          # 115 unit/integration tests (rules, cards, engine, claim sessions,
                   # credit & locking, loudness, backup/restore, crawler, storage, remote)
 npm run test:e2e  # makes 50 royalty-free sample videos, then runs the full acceptance
                   # scenario in the real app + a phone browser (83 checks)
 xvfb-run -a node test/e2e/print-counts.js sample-videos   # printing QA (1/2/3/100/500/999 cards, QR decoding, reprints)
 xvfb-run -a node test/e2e/reveal-check.js sample-videos   # delayed title reveal on the real TV window
+xvfb-run -a node test/e2e/v13-check.js sample-videos      # folders→playlists, AVI conversion, welcome/end screens, live QR scan (fake camera)
 ```
 To run the acceptance test against a packaged build, set `CMB_APP_EXE` to the built
 executable.

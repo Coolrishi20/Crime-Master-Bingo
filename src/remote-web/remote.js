@@ -43,7 +43,21 @@
     ws.onclose = function () { authed = false; setConn('bad', 'Reconnecting…'); scheduleReconnect(); };
     ws.onerror = function () { /* close follows */ };
   }
-  function scheduleReconnect() { clearTimeout(reconnectTimer); reconnectTimer = setTimeout(connect, backoff); backoff = Math.min(backoff * 2, 5000); }
+  // On the secure link, if this phone's browser refuses the laptop's certificate for the
+  // live connection, offer the standard link instead (scanning then uses photos).
+  var secureFails = 0, everConnected = false;
+  function secureFallback() {
+    if (location.protocol !== 'https:' || everConnected || secureFails < 3 || document.getElementById('plainLink')) return;
+    fetch('/connect.json').then(function (r) { return r.json(); }).then(function (j) {
+      var url = 'http://' + location.hostname + ':' + j.httpPort + '/' + location.hash;
+      var b = document.createElement('div'); b.className = 'banner'; b.id = 'plainLink';
+      b.innerHTML = 'This phone won\'t accept the secure connection. <a href="' + url + '" style="color:#fff;font-weight:800">Use the standard link →</a> (QR scanning will take a photo instead)';
+      var target = document.getElementById('pair').classList.contains('hidden') ? document.getElementById('main') : document.getElementById('pair');
+      target.insertBefore(b, target.firstChild);
+    }).catch(function () {});
+  }
+  function scheduleReconnect() {
+    if (!authed && !everConnected) { secureFails++; secureFallback(); } clearTimeout(reconnectTimer); reconnectTimer = setTimeout(connect, backoff); backoff = Math.min(backoff * 2, 5000); }
   function send(obj) { if (ws && ws.readyState === 1) { ws.send(JSON.stringify(obj)); return true; } return false; }
 
   // App-level heartbeat detects sockets killed by phone sleep / Wi-Fi changes
@@ -63,7 +77,7 @@
       if (tok) send({ type: 'auth', token: tok }); else showPair();
     } else if (m.type === 'paired') { store(TOKEN_KEY, m.token); }
     else if (m.type === 'auth-ok') {
-      authed = true; setConn('ok', 'Connected'); showMain();
+      authed = true; everConnected = true; setConn('ok', 'Connected'); showMain();
       // resend any commands that never got an answer (server de-duplicates by id)
       Object.keys(pending).forEach(function (id) { send(pending[id].msg); });
     } else if (m.type === 'auth-fail') {

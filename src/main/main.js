@@ -13,6 +13,7 @@ const cardsLib = require('../core/cards');
 const rules = require('../core/rules');
 const locking = require('../core/locking');
 const { AudioAnalyser } = require('./audio');
+const { Converter } = require('./converter');
 const backup = require('./backup');
 const { UpdateManager, RELEASES_URL, REPO } = require('./updater');
 
@@ -24,7 +25,7 @@ const IS_TEST = !!process.env.CMB_TEST;
 if (process.env.CMB_NO_SANDBOX) app.commandLine.appendSwitch('no-sandbox');
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 
-let store, library, settings, remote, analyser, updater;
+let store, library, settings, remote, analyser, updater, converter;
 let hostWin = null, audienceWin = null, previewWin = null;
 let engine = null;          // engine for the active game
 let powerBlock = null;
@@ -37,7 +38,8 @@ function defaultSettings() {
     video: { displayId: null, fullscreen: true, aspect: 'contain', audioDeviceId: 'default' },
     gameDefaults: defaultGameSettings(),
     cards: { textScale: 1, qr: true, bw: false, useLogo: true, showArtist: true, cutLines: true },
-    remote: { port: 8787, autoStart: true, devices: [] },
+    remote: { port: 8787, autoStart: true, devices: [], secure: true },
+    library: { autoConvert: true },
     updates: { auto: true },
     lastGameId: null,
     cleanShutdown: true
@@ -47,11 +49,12 @@ function loadSettings() {
   const d = defaultSettings();
   const s = store.read('settings', d);
   const merged = Object.assign({}, d, s);
-  ['appearance', 'video', 'cards', 'remote', 'updates'].forEach(k => { merged[k] = Object.assign({}, d[k], s[k] || {}); });
+  ['appearance', 'video', 'cards', 'remote', 'updates', 'library'].forEach(k => { merged[k] = Object.assign({}, d[k], s[k] || {}); });
   merged.gameDefaults = Object.assign(defaultGameSettings(), s.gameDefaults || {});
   merged.gameDefaults.overlay = Object.assign(defaultGameSettings().overlay, (s.gameDefaults || {}).overlay || {});
   merged.gameDefaults.crawler = Object.assign(defaultGameSettings().crawler, (s.gameDefaults || {}).crawler || {});
   merged.gameDefaults.audio = Object.assign(defaultGameSettings().audio, (s.gameDefaults || {}).audio || {});
+  merged.gameDefaults.screens = Object.assign(defaultGameSettings().screens, (s.gameDefaults || {}).screens || {});
   return merged;
 }
 function saveSettings(urgent = true) { store.write('settings', settings, urgent); }
@@ -301,14 +304,15 @@ const handlers = {
   'app:info': () => ({ version: app.getVersion(), dataDir: DATA_DIR, recovery: recoveryInfo, platform: process.platform, isTest: IS_TEST }),
   'settings:get': () => settings,
   'settings:update': (patch) => {
-    ['appearance', 'video', 'cards', 'remote', 'updates'].forEach(k => { if (patch[k]) Object.assign(settings[k], patch[k]); });
+    ['appearance', 'video', 'cards', 'remote', 'updates', 'library'].forEach(k => { if (patch[k]) Object.assign(settings[k], patch[k]); });
     if (patch.updates && updater) updater.start(settings.updates.auto !== false);
     if (patch.gameDefaults) {
       const gd = patch.gameDefaults;
       if (gd.overlay) Object.assign(settings.gameDefaults.overlay, gd.overlay);
       if (gd.crawler) Object.assign(settings.gameDefaults.crawler, gd.crawler);
       if (gd.audio) settings.gameDefaults.audio = Object.assign({}, settings.gameDefaults.audio || {}, gd.audio);
-      Object.keys(gd).forEach(k => { if (!['overlay', 'crawler', 'audio'].includes(k)) settings.gameDefaults[k] = gd[k]; });
+      if (gd.screens) settings.gameDefaults.screens = Object.assign({}, settings.gameDefaults.screens || {}, gd.screens);
+      Object.keys(gd).forEach(k => { if (!['overlay', 'crawler', 'audio', 'screens'].includes(k)) settings.gameDefaults[k] = gd[k]; });
     }
     saveSettings();
     sendAudience('app-settings', audienceAppSettings());
@@ -337,6 +341,14 @@ const handlers = {
     return r.canceled ? null : library.importPaths(r.filePaths);
   },
   'library:importPaths': (paths) => library.importPaths(paths),
+  'library:pickFolderPlaylists': async () => {
+    const r = await dialog.showOpenDialog(hostWin, { title: 'Choose the top folder — each sub-folder becomes a playlist', properties: ['openDirectory'] });
+    return r.canceled ? null : library.importFolderAsPlaylists(r.filePaths[0]);
+  },
+  'library:importFolderPlaylists': ({ folder }) => library.importFolderAsPlaylists(folder),
+  'convert:status': () => (converter ? converter.status() : { available: false }),
+  'convert:start': ({ ids }) => { converter.request(ids || []); return converter.status(); },
+  'convert:cancel': ({ id }) => { converter.cancel(id); return converter.status(); },
   'library:probeResult': ({ id, result }) => library.probeResult(id, result, path.join(DATA_DIR, 'thumbs')),
   'library:update': ({ id, fields }) => library.update(id, fields),
   'library:remove': ({ ids }) => { library.remove(ids); return true; },
@@ -588,6 +600,7 @@ const handlers = {
   'remote:stop': async () => { if (remote) await remote.stop(); return remoteInfo(); },
   'remote:newPin': async () => { remote.regeneratePin(); return remoteInfo(); },
   'remote:revoke': async ({ deviceId }) => { remote.revoke(deviceId); return remoteInfo(); },
+  'remote:setSecure': async ({ secure }) => { settings.remote.secure = !!secure; saveSettings(); if (remote) await remote.stop(); createRemote(); await remote.start(); return remoteInfo(); },
   'remote:setPort': async ({ port }) => {
     port = Number(port); if (!(port >= 1024 && port <= 65535)) throw new Error('Port must be between 1024 and 65535');
     settings.remote.port = port; saveSettings();
@@ -621,13 +634,45 @@ function relinkInGames(song) {
 async function remoteInfo() {
   if (!remote) return { running: false };
   const info = remote.info();
-  info.qr = await QRCode.toDataURL(info.url + '#pin=' + info.pin, { margin: 1, width: 320, color: { dark: '#1a1033', light: '#ffffff' } });
+  const qrUrl = (settings.remote.secure !== false && info.secureUrl) ? info.secureUrl : info.url;
+  info.qrUrl = qrUrl; info.secureMode = qrUrl === info.secureUrl;
+  info.qr = await QRCode.toDataURL(qrUrl + '#pin=' + info.pin, { margin: 1, width: 320, color: { dark: '#1a1033', light: '#ffffff' } });
+  if (info.secureUrl) info.plainQr = await QRCode.toDataURL(info.url + '#pin=' + info.pin, { margin: 1, width: 200, color: { dark: '#1a1033', light: '#ffffff' } });
   return info;
 }
 
+/**
+ * This laptop's own HTTPS certificate for the phone remote (enables live camera QR
+ * scanning, which browsers only allow on secure pages). Generated once and kept, so a
+ * phone only has to accept it once; regenerated if the laptop gets a new network address.
+ */
+function remoteTls() {
+  if (settings.remote.secure === false) return null;
+  const { localAddresses } = require('./remote');
+  const ips = localAddresses().map(a => a.address).concat(['127.0.0.1']).sort();
+  const f = path.join(DATA_DIR, 'remote-cert.json');
+  let c = null; try { c = JSON.parse(fs.readFileSync(f, 'utf8')); } catch (e) { /* none yet */ }
+  if (c && c.key && c.cert && ips.every(ip => (c.ips || []).includes(ip))) return c;
+  try {
+    const selfsigned = require('selfsigned');
+    const allIps = Array.from(new Set(ips.concat((c && c.ips) || [])));
+    const pems = selfsigned.generate([{ name: 'commonName', value: 'Crime Master Bingo (this laptop)' }, { name: 'organizationName', value: 'Crime Master Bingo' }], {
+      keySize: 2048, days: 3650, algorithm: 'sha256',
+      extensions: [{ name: 'basicConstraints', cA: false }, { name: 'keyUsage', digitalSignature: true, keyEncipherment: true }, { name: 'extKeyUsage', serverAuth: true },
+        { name: 'subjectAltName', altNames: allIps.map(ip => ({ type: 7, ip })).concat([{ type: 2, value: 'localhost' }, { type: 2, value: require('os').hostname() }]) }]
+    });
+    c = { key: pems.private, cert: pems.cert, fingerprint: pems.fingerprint, ips: allIps, createdAt: new Date().toISOString() };
+    fs.writeFileSync(f + '.tmp', JSON.stringify(c)); fs.renameSync(f + '.tmp', f);
+    return c;
+  } catch (e) { console.error('TLS certificate', e); return null; }
+}
+
 function createRemote() {
+  const tls = remoteTls();
   remote = new RemoteServer({
     port: settings.remote.port,
+    tls: tls ? { key: tls.key, cert: tls.cert } : null,
+    httpsPort: settings.remote.port + 1,
     staticDir: path.join(__dirname, '..', 'remote-web'),
     extraFiles: {
       '/jsqr.js': require.resolve('jsqr/dist/jsQR.js'),
@@ -725,6 +770,8 @@ else {
     library = new Library(store);
     library.checkFiles();
     updater = createUpdater();
+    converter = new Converter({ dataDir: DATA_DIR, library, ffmpeg: require('./audio').findFfmpeg(process.resourcesPath), isAuto: () => settings.library.autoConvert !== false,
+      onChange: () => { library.songs().forEach(s => { if (s.converted) relinkInGames(s); }); sendHost('library-convert', converter.status()); } });
     analyser = new AudioAnalyser({ dataDir: DATA_DIR, library, resourcesPath: process.resourcesPath, onChange: () => sendHost('library-audio', analyser.status()) });
     // Crash detection: cleanShutdown is cleared while running and set on normal exit.
     const lastGame = settings.lastGameId ? readGame(settings.lastGameId) : null;

@@ -4,11 +4,12 @@ App.register('playlists', {
     this.el = el;
     el.innerHTML = `
       <div class="page-head"><div><div class="eyebrow">Music bingo videos</div><h1>Playlists</h1><p>Every game needs at least <b>40 unique, playable songs</b>. 75+ gives longer, fairer games.</p></div>
-        <div class="row"><button class="btn primary" id="pNew">✚ New playlist</button></div></div>
+        <div class="row"><button class="btn" id="pFolders" title="Each sub-folder becomes a playlist">Import folders as playlists…</button><button class="btn primary" id="pNew">✚ New playlist</button></div></div>
       <div class="cols" style="grid-template-columns: 300px minmax(0,1fr)">
         <div class="panel"><h2>Playlists</h2><div id="pList"></div></div>
         <div id="pDetail"></div>
       </div>`;
+    $('#pFolders', el).onclick = async () => { const r = await api('library:pickFolderPlaylists'); if (r) { folderPlaylistReport(r); this.load(); } };
     $('#pNew', el).onclick = async () => { const name = await promptBox('New playlist', 'Name (e.g. 80s Classics, Bollywood Bingo)'); if (!name) return; const p = await api('playlists:create', { name }); this.current = p.id; this.load(); };
     await this.load();
   },

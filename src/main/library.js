@@ -60,8 +60,8 @@ class Library {
     for (const f of files) {
       const ext = path.extname(f).toLowerCase();
       if (!KNOWN_VIDEO_EXT.includes(ext)) { report.ignored++; continue; }
-      if (!PLAYABLE_EXT.includes(ext)) { report.unsupported.push({ path: f, reason: `${ext.toUpperCase().slice(1)} files are not supported — convert to MP4 (H.264 video, AAC audio).` }); continue; }
       if (byPath.has(path.resolve(f).toLowerCase())) { report.alreadyInLibrary.push(f); continue; }
+      const needsConversion = !PLAYABLE_EXT.includes(ext); // AVI, WMV, FLV, MPG… → converted to an MP4 copy
       let fp; try { fp = fingerprint(f); } catch (e) { report.unsupported.push({ path: f, reason: 'File could not be read: ' + e.message }); continue; }
       const tags = ['.mp4', '.m4v', '.mov'].includes(ext) ? readMp4Tags(f) : {};
       const guess = parseFilename(f);
@@ -72,8 +72,9 @@ class Library {
         duration: 0, width: 0, height: 0, thumb: null,
         clipStart: null, clipEnd: null,
         size: fp.size, fingerprint: fp.fp,
-        status: 'unchecked', statusNote: '', addedAt: new Date().toISOString()
+        status: needsConversion ? 'needs-conversion' : 'unchecked', statusNote: needsConversion ? `${ext.toUpperCase().slice(1)} — converting to a playable MP4 copy` : '', addedAt: new Date().toISOString()
       };
+      if (needsConversion) report.converting = (report.converting || 0) + 1;
       const dupMedia = this.data.songs.find(s => s.fingerprint === fp.fp && s.size === fp.size);
       if (dupMedia) { song.duplicateOf = dupMedia.id; report.duplicates.push({ path: f, of: dupMedia.title || dupMedia.fileName, kind: 'same video file' }); }
       else if (song.title && song.artist) {
@@ -137,6 +138,8 @@ class Library {
   checkFiles() {
     let missing = 0;
     this.data.songs.forEach(s => {
+      // converted copy deleted but the original is still there → convert again
+      if (s.originalPath && !fs.existsSync(s.path) && fs.existsSync(s.originalPath)) { s.path = s.originalPath; delete s.converted; s.status = 'needs-conversion'; s.statusNote = 'Converted copy missing — converting again'; s.conversion = null; return; }
       const exists = fs.existsSync(s.path);
       if (!exists) { if (s.status !== 'missing') { s.prevStatus = s.status; } s.status = 'missing'; s.statusNote = 'File not found — relink it.'; missing++; }
       else if (s.status === 'missing') { s.status = s.prevStatus && s.prevStatus !== 'missing' ? s.prevStatus : 'unchecked'; s.statusNote = ''; }
@@ -168,12 +171,50 @@ class Library {
     return fixed;
   }
 
+  /**
+   * Import a folder tree as playlists: every sub-folder that contains videos becomes a
+   * playlist with the folder's name (videos loose in the top folder go into a playlist
+   * named after the top folder). Re-running adds only new songs; duplicates are refused.
+   */
+  importFolderAsPlaylists(root) {
+    const st = fs.statSync(root);
+    if (!st.isDirectory()) throw new Error('Choose a folder.');
+    const groups = [];
+    const loose = [];
+    fs.readdirSync(root, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name)).forEach(d => {
+      if (d.name.startsWith('.')) return;
+      const p = path.join(root, d.name);
+      if (d.isDirectory()) groups.push({ name: d.name, dir: p });
+      else if (KNOWN_VIDEO_EXT.includes(path.extname(d.name).toLowerCase())) loose.push(p);
+    });
+    if (loose.length) groups.unshift({ name: path.basename(root), files: loose });
+    const total = { added: 0, alreadyInLibrary: 0, duplicates: 0, unsupported: [], converting: 0 };
+    const out = [];
+    for (const g of groups) {
+      const files = g.files || (() => { const f = []; walk(g.dir, f); return f; })();
+      const vids = files.filter(f => KNOWN_VIDEO_EXT.includes(path.extname(f).toLowerCase()));
+      if (!vids.length) continue;
+      const rep = this.importPaths(g.files ? g.files : [g.dir]);
+      total.added += rep.added.length; total.alreadyInLibrary += rep.alreadyInLibrary.length; total.duplicates += rep.duplicates.length; total.converting += rep.converting || 0; total.unsupported.push(...rep.unsupported);
+      const byPath = new Map(this.data.songs.map(s => [path.resolve(s.originalPath || s.path).toLowerCase(), s]));
+      this.data.songs.forEach(s => byPath.set(path.resolve(s.path).toLowerCase(), s));
+      const ids = vids.map(f => byPath.get(path.resolve(f).toLowerCase())).filter(Boolean).map(s => s.id);
+      let pl = this.pl.playlists.find(p => p.name.trim().toLowerCase() === g.name.trim().toLowerCase());
+      const created = !pl;
+      if (!pl) pl = this.createPlaylist(g.name);
+      const r = this.addToPlaylist(pl.id, ids);
+      out.push({ name: pl.name, playlistId: pl.id, created, videos: vids.length, added: r.added.length, already: ids.length - r.added.length - r.rejected.length, rejected: r.rejected, total: pl.songIds.length });
+    }
+    return { playlists: out, totals: total };
+  }
+
   isPlayable(s) { return s && s.status === 'ok' && !!String(s.title || '').trim() && !!String(s.artist || '').trim(); }
 
   problemFor(s) {
     if (!s) return 'Song was removed from the library';
     if (s.status === 'missing') return 'File missing';
     if (s.status === 'unsupported') return s.statusNote || 'Unsupported media';
+    if (s.status === 'needs-conversion' || s.status === 'converting') return 'Converting to MP4…';
     if (s.status === 'unchecked') return 'Not yet checked';
     if (!String(s.title || '').trim()) return 'Title is required';
     if (!String(s.artist || '').trim()) return 'Artist is required';

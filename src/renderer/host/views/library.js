@@ -5,7 +5,7 @@ App.register('library', {
     el.classList.add('dropzone');
     el.innerHTML = `
       <div class="page-head"><div><div class="eyebrow">Song library</div><h1>Music Library</h1><p>Local music videos (MP4 H.264/AAC recommended). Drag files or folders anywhere on this page.</p></div>
-        <div class="row"><button class="btn" id="lFolder">Import folder</button><button class="btn primary" id="lFiles">Import videos</button></div></div>
+        <div class="row"><button class="btn" id="lFolderPl" title="Each sub-folder becomes a playlist">Import folders as playlists…</button><button class="btn" id="lFolder">Import folder</button><button class="btn primary" id="lFiles">Import videos</button></div></div>
       <div class="panel" style="margin-bottom:14px"><div class="row">
         <input type="search" id="lSearch" placeholder="Search title, artist or file…" style="width:280px" value="${esc(this.q)}">
         <div class="seg" id="lFilter">${[['all', 'All'], ['issues', 'Needs attention'], ['dupes', 'Duplicates'], ['ok', 'Ready']].map(([k, l]) => `<button data-f="${k}" class="${this.filter === k ? 'on' : ''}">${l}</button>`).join('')}</div>
@@ -16,9 +16,10 @@ App.register('library', {
         <select id="lPl"></select><button class="btn sm primary" id="lAdd">Add to playlist</button><button class="btn sm danger" id="lDel">Remove from library</button><button class="btn sm ghost" id="lClr">Clear selection</button></div>
       </div>
       <div class="row" style="margin:0 4px 8px"><div id="lSummary" class="muted small grow"></div><span id="lAudio" class="muted small"></span><button class="btn sm ghost" id="lAudioPause">Pause analysis</button></div>
-      <div class="panel" style="padding:8px 12px"><table class="list"><thead><tr><th style="width:30px"><input type="checkbox" id="lAll"></th><th style="width:76px"></th><th>Song</th><th>Duration</th><th>Clip</th><th title="Automatic volume levelling">Loudness</th><th>Status</th><th style="width:220px"></th></tr></thead><tbody id="lBody"></tbody></table></div>`;
+      <div class="panel" style="padding:8px 12px"><table class="list"><thead><tr><th style="width:30px"><input type="checkbox" id="lAll"></th><th style="width:76px"></th><th>Song</th><th>Duration</th><th title="Automatic volume levelling">Loudness</th><th>Clip</th><th>Status</th><th style="width:220px"></th></tr></thead><tbody id="lBody"></tbody></table></div>`;
     $('#lFiles', el).onclick = async () => { const r = await api('library:pickFiles'); this.report(r); };
     $('#lFolder', el).onclick = async () => { const r = await api('library:pickFolder'); this.report(r); };
+    $('#lFolderPl', el).onclick = async () => { const r = await api('library:pickFolderPlaylists'); if (r) { folderPlaylistReport(r); this.load(); } };
     $('#lAudioPause', el).onclick = async () => { const st = await api('audio:status'); this.audio = await api(st.paused ? 'audio:resume' : 'audio:pause'); this.drawAudio(); };
     $('#lCheck', el).onclick = async () => { const n = await api('library:checkFiles'); toast(n ? `${n} file(s) missing — use Relink` : 'All files found', n ? 'err' : 'ok'); this.load(); };
     $('#lRelinkF', el).onclick = async () => { const n = await api('library:relinkFolder'); if (n != null) { toast(`${n} missing file(s) relinked`, 'ok'); this.load(); } };
@@ -53,6 +54,7 @@ App.register('library', {
     $('#lAudioPause', el).style.display = a.available && (a.pending || a.running || a.paused) ? '' : 'none';
     $('#lAudioPause', el).textContent = a.paused ? 'Resume analysis' : 'Pause analysis';
   },
+  on_convert() { this.on_library(); },
   on_library() { if (this._lt) return; this._lt = setTimeout(() => { this._lt = null; if (this.el && document.body.contains(this.el) && App.view === 'library') this.load(); }, 1500); },
   async addTo(id) {
     const r = await api('playlists:add', { id, songIds: Array.from(this.selected) });
@@ -65,6 +67,7 @@ App.register('library', {
     const parts = [`${r.added.length} imported`];
     if (r.alreadyInLibrary.length) parts.push(`${r.alreadyInLibrary.length} already in library`);
     if (r.duplicates.length) parts.push(`${r.duplicates.length} possible duplicates flagged`);
+    if (r.converting) parts.push(`${r.converting} being converted to MP4`);
     if (r.unsupported.length) parts.push(`${r.unsupported.length} unsupported`);
     toast(parts.join(' · '), r.unsupported.length ? 'err' : 'ok', 6000);
     if (r.unsupported.length || r.duplicates.length) {
@@ -76,13 +79,14 @@ App.register('library', {
   },
   async load() {
     const [lib, pls] = await Promise.all([api('library:list'), api('playlists:list')]);
+    if (App.view !== 'library' || !$('#lBody', this.el)) return; // the host moved to another page meanwhile
     this.songs = lib.songs; this.pls = pls; this.audio = null; this.drawAudio();
     const sel = $('#lPl', this.el);
     if (sel) sel.innerHTML = pls.map(p => `<option value="${p.id}">${esc(p.name)} (${p.songIds.length})</option>`).join('') + '<option value="__new">＋ New playlist…</option>';
     this.draw();
   },
   draw() {
-    const el = this.el; if (!el || !this.songs) return;
+    const el = this.el; if (!el || !this.songs || App.view !== 'library' || !$('#lBody', el)) return;
     const q = this.q.trim().toLowerCase();
     const issue = s => ['missing', 'unsupported'].includes(s.status) || !s.title || !s.artist;
     this.visible = this.songs.filter(s => {
@@ -103,8 +107,10 @@ App.register('library', {
       if (s.status === 'missing') return '<span class="badge bad">MISSING FILE</span>';
       if (s.status === 'unsupported') return `<span class="badge bad" title="${esc(s.statusNote)}">UNSUPPORTED</span>`;
       if (s.status === 'unchecked') return '<span class="badge">CHECKING…</span>';
+      if (s.status === 'needs-conversion') return '<span class="badge pink">QUEUED FOR CONVERSION</span>';
+      if (s.status === 'converting') return `<span class="badge pink">CONVERTING ${(s.conversion && s.conversion.percent) || 0}%</span>`;
       if (!s.title || !s.artist) return '<span class="badge warn">NEEDS TITLE/ARTIST</span>';
-      return `<span class="badge ok">READY${s.height ? ' · ' + s.height + 'p' : ''}</span>`;
+      return `<span class="badge ok">READY${s.height ? ' · ' + s.height + 'p' : ''}</span>${s.converted ? ` <span class="badge" title="Converted copy of ${esc(s.converted.from)}">CONVERTED</span>` : ''}`;
     };
     body.innerHTML = this.visible.map(s => `<tr data-id="${s.id}" class="${this.selected.has(s.id) ? 'sel' : ''}">
       <td><input type="checkbox" data-sel ${this.selected.has(s.id) ? 'checked' : ''}></td>
@@ -114,10 +120,12 @@ App.register('library', {
       <td class="small">${audioCell(s)}</td>
       <td class="muted small">${s.clipStart != null || s.clipEnd != null ? `${fmtTime(s.clipStart || 0)}–${s.clipEnd != null ? fmtTime(s.clipEnd) : 'auto'}` : 'default'}</td>
       <td>${stBadge(s)}${s.duplicateOf ? ' <span class="badge warn">DUPLICATE?</span>' : ''}${s.statusNote && s.status !== 'ok' ? `<div class="tiny muted" style="max-width:240px">${esc(s.statusNote)}</div>` : ''}</td>
-      <td style="text-align:right"><button class="btn sm" data-edit>Edit</button> ${s.status === 'missing' ? '<button class="btn sm primary" data-relink>Relink</button>' : ''} ${s.duplicateOf ? '<button class="btn sm" data-notdup>Not a duplicate</button>' : ''}</td></tr>`).join('');
+      <td style="text-align:right">${s.status === 'unsupported' ? `<button class="btn sm primary" data-convert>${s.conversion && s.conversion.state === 'failed' ? 'Retry convert' : 'Convert to MP4'}</button> ` : ''}${['converting', 'needs-conversion'].includes(s.status) ? '<button class="btn sm ghost" data-cancelconv>Cancel</button> ' : ''}<button class="btn sm" data-edit>Edit</button> ${s.status === 'missing' ? '<button class="btn sm primary" data-relink>Relink</button>' : ''} ${s.duplicateOf ? '<button class="btn sm" data-notdup>Not a duplicate</button>' : ''}</td></tr>`).join('');
     $$('tr[data-id]', body).forEach(tr => {
       const id = tr.dataset.id;
       $('[data-sel]', tr).onchange = (e) => { e.target.checked ? this.selected.add(id) : this.selected.delete(id); this.draw(); };
+      const cv = $('[data-convert]', tr); if (cv) cv.onclick = async () => { await api('convert:start', { ids: [id] }); toast('Converting to MP4 in the background', 'ok'); this.load(); };
+      const cc = $('[data-cancelconv]', tr); if (cc) cc.onclick = async () => { await api('convert:cancel', { id }); this.load(); };
       $('[data-edit]', tr).onclick = () => editSong(this.songs.find(s => s.id === id), () => this.load());
       const rl = $('[data-relink]', tr); if (rl) rl.onclick = async () => { const s = await api('library:relink', { id }); if (s) { toast('File relinked', 'ok'); this.load(); } };
       const nd = $('[data-notdup]', tr); if (nd) nd.onclick = async () => { await api('library:update', { id, fields: { duplicateOf: null } }); this.load(); };
@@ -163,3 +171,12 @@ function audioCell(s) {
   if (a.status === 'unavailable') return '<span class="badge" title="' + esc(a.error || '') + '">n/a</span>';
   return `<span class="badge bad" title="${esc(a.error || '')}">ANALYSIS FAILED</span><div class="tiny muted">plays at original volume</div>`;
 }
+
+/** Report after importing a folder tree as playlists. */
+function folderPlaylistReport(r) {
+  const t = r.totals;
+  modal({ title: 'Folders imported as playlists', size: 'mid', body:
+    (r.playlists.length ? r.playlists.map(p => `<div class="check-row"><span class="ic ok">✓</span><div class="grow"><b>${esc(p.name)}</b> ${p.created ? '<span class="badge pink">NEW</span>' : '<span class="badge">UPDATED</span>'}<div class="muted small">${p.videos} video(s) in the folder · ${p.added} added · ${p.already} already in it${p.rejected.length ? ` · ${p.rejected.length} duplicate(s) refused` : ''} · playlist now has ${p.total} songs</div></div></div>`).join('') : '<div class="empty">No videos were found in that folder or its sub-folders.</div>') +
+    `<p class="muted small" style="margin-top:12px">${t.added} new video(s) imported${t.converting ? ` · ${t.converting} being converted to MP4 in the background` : ''}${t.alreadyInLibrary ? ` · ${t.alreadyInLibrary} were already in the library` : ''}. Importing again later only adds new videos.</p>` });
+}
+window.folderPlaylistReport = folderPlaylistReport;

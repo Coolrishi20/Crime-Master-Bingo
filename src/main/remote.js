@@ -5,6 +5,7 @@
  * and broadcasts state. No media is ever served to the phone.
  */
 const http = require('http');
+const https = require('https');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
@@ -40,6 +41,8 @@ class RemoteServer {
   constructor(opts) {
     this.opts = opts;
     this.port = opts.port || 8787;
+    this.httpsPort = opts.tls ? (opts.httpsPort || this.port + 1) : null; // secure twin (live camera QR scanning)
+    this.httpsError = null;
     this.pin = RemoteServer.newPin();
     this.clients = new Set();
     this.ackCache = new Map();   // command id -> ack (duplicate-command protection)
@@ -57,8 +60,10 @@ class RemoteServer {
     const addrs = localAddresses();
     return {
       running: this.running, port: this.port, pin: this.pin, error: this.lastError,
-      addresses: addrs.map(a => ({ name: a.name, address: a.address, url: `http://${a.address}:${this.port}/` })),
+      addresses: addrs.map(a => ({ name: a.name, address: a.address, url: `http://${a.address}:${this.port}/`, secureUrl: this.httpsRunning ? `https://${a.address}:${this.httpsPort}/` : null })),
       url: addrs.length ? `http://${addrs[0].address}:${this.port}/` : `http://localhost:${this.port}/`,
+      secureUrl: this.httpsRunning ? (addrs.length ? `https://${addrs[0].address}:${this.httpsPort}/` : `https://localhost:${this.httpsPort}/`) : null,
+      httpsPort: this.httpsPort, httpsError: this.httpsError,
       connected: Array.from(this.clients).filter(c => c.authed).map(c => ({ deviceId: c.deviceId, name: c.deviceName, ip: c.ip, since: c.since })),
       devices: this.opts.devices.list().map(d => ({ id: d.id, name: d.name, pairedAt: d.pairedAt, lastSeen: d.lastSeen, online: Array.from(this.clients).some(c => c.authed && c.deviceId === d.id) }))
     };
@@ -68,8 +73,22 @@ class RemoteServer {
     return new Promise((resolve) => {
       if (this.running) return resolve(this.info());
       this.server = http.createServer((req, res) => this.handleHttp(req, res));
-      this.wss = new WebSocketServer({ server: this.server, path: '/ws', maxPayload: 256 * 1024 });
+      // one WebSocket hub shared by the plain and the secure listener
+      this.wss = new WebSocketServer({ noServer: true, maxPayload: 256 * 1024 });
       this.wss.on('connection', (ws, req) => this.handleWs(ws, req));
+      const upgrade = (req, socket, head) => {
+        if (new URL(req.url, 'http://x').pathname !== '/ws') { socket.destroy(); return; }
+        this.wss.handleUpgrade(req, socket, head, (ws) => this.wss.emit('connection', ws, req));
+      };
+      this.server.on('upgrade', upgrade);
+      if (this.opts.tls && this.httpsPort) {
+        try {
+          this.secure = https.createServer({ key: this.opts.tls.key, cert: this.opts.tls.cert }, (req, res) => this.handleHttp(req, res));
+          this.secure.on('upgrade', upgrade);
+          this.secure.on('error', (e) => { this.httpsRunning = false; this.httpsError = e.code === 'EADDRINUSE' ? `Secure port ${this.httpsPort} is in use` : e.message; this.changed(); });
+          this.secure.listen(this.httpsPort, '0.0.0.0', () => { this.httpsRunning = true; this.httpsError = null; this.changed(); });
+        } catch (e) { this.httpsError = e.message; }
+      }
       this.server.on('error', (e) => { this.lastError = e.code === 'EADDRINUSE' ? `Port ${this.port} is already in use — choose another port in Settings.` : e.message; this.running = false; this.changed(); resolve(this.info()); });
       this.server.listen(this.port, '0.0.0.0', () => {
         this.running = true; this.lastError = null;
@@ -89,6 +108,7 @@ class RemoteServer {
       this.clients.clear();
       if (!this.server) { this.running = false; return resolve(); }
       try { this.wss.close(); } catch (e) { /* */ }
+      if (this.secure) { try { this.secure.close(); } catch (e) { /* */ } this.secure = null; this.httpsRunning = false; }
       this.server.close(() => { this.running = false; this.changed(); resolve(); });
       setTimeout(() => { this.running = false; resolve(); }, 1500);
     });
@@ -101,6 +121,7 @@ class RemoteServer {
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Cache-Control', 'no-store');
     if (p === '/health') { res.writeHead(200, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ ok: true, app: 'Crime Master Bingo' })); }
+    if (p === '/connect.json') { res.writeHead(200, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ httpPort: this.port, httpsPort: this.httpsRunning ? this.httpsPort : null })); }
     let file = null;
     if (this.opts.extraFiles && this.opts.extraFiles[p]) file = this.opts.extraFiles[p];
     else if (this.opts.mounts && Object.keys(this.opts.mounts).some(m => p.startsWith(m))) {

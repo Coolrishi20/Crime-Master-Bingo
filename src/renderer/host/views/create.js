@@ -8,7 +8,7 @@ App.register('create', {
     if (!this.data || arg === 'new') {
       this.data = { name: '', date: new Date().toISOString().slice(0, 10), venue: '', useLogo: !!App.settings.appearance.logo, playlistId: null, cards: 100,
         settings: { clipMode: gd.clipMode, defaultStart: gd.defaultStart, shuffle: gd.shuffle, volume: gd.volume, autoAdvance: gd.autoAdvance, autoAdvanceGap: gd.autoAdvanceGap,
-          overlay: Object.assign({}, gd.overlay), crawler: Object.assign({}, gd.crawler), patternPosition: gd.patternPosition } };
+          overlay: Object.assign({}, gd.overlay), crawler: Object.assign({}, gd.crawler), screens: Object.assign({ welcome: true, end: true, startTime: '', message: '' }, gd.screens || {}), patternPosition: gd.patternPosition } };
       this.step = 1; this.created = null;
     }
     // continuing set-up of an existing game
@@ -95,6 +95,8 @@ App.register('create', {
         <div class="form-grid">
           <label class="field">Winning-pattern panel<select id="gPP">${['top-right', 'top-left', 'bottom-right', 'bottom-left'].map(p => `<option ${s.patternPosition === p ? 'selected' : ''} value="${p}">${p.replace('-', ' ')}</option>`).join('')}</select></label>
           <label class="field">Song title position<select id="gOP">${['bottom-left', 'bottom-center', 'top-left'].map(p => `<option ${s.overlay.position === p ? 'selected' : ''} value="${p}">${p.replace('-', ' ')}</option>`).join('')}</select></label>
+          <label class="field">We start at (welcome screen countdown)<input type="time" id="gStartAt" value="${esc((s.screens && s.screens.startTime) || '')}"></label>
+          <label class="field">Welcome message (optional)<input type="text" id="gWMsg" maxlength="120" value="${esc((s.screens && s.screens.message) || '')}" placeholder="e.g. Grab your cards at the bar!"></label>
           <label class="field">Reveal song title after<select id="gRev">${[0, 5, 10, 15, 20, 30].map(v => `<option value="${v}" ${Number(s.overlay.revealDelay || 0) === v ? 'selected' : ''}>${v ? v + ' seconds (guess first)' : 'Immediately'}</option>`).join('')}</select></label>
           <label class="field">Crawler speed: <span id="gCSV">${s.crawler.speed}</span>/10<input type="range" id="gCS" min="1" max="10" value="${s.crawler.speed}"></label>
           <label class="field">Crawler text size: <span id="gCFV">${s.crawler.fontSize}</span>px<input type="range" id="gCF" min="18" max="56" value="${s.crawler.fontSize}"></label>
@@ -118,7 +120,7 @@ App.register('create', {
     pv(); $('#gPP', b).onchange = pv; $('#gOP', b).onchange = pv;
     $('#gCS', b).oninput = e => { $('#gCSV', b).textContent = e.target.value; };
     $('#gCF', b).oninput = e => { $('#gCFV', b).textContent = e.target.value; };
-    this.collectFn = () => { s.overlay.revealDelay = Number($('#gRev', b).value); s.patternPosition = $('#gPP', b).value; s.overlay.position = $('#gOP', b).value; s.crawler.speed = Number($('#gCS', b).value); s.crawler.fontSize = Number($('#gCF', b).value); };
+    this.collectFn = () => { s.screens = Object.assign({ welcome: true, end: true }, s.screens || {}, { startTime: $('#gStartAt', b).value, message: $('#gWMsg', b).value }); s.overlay.revealDelay = Number($('#gRev', b).value); s.patternPosition = $('#gPP', b).value; s.overlay.position = $('#gOP', b).value; s.crawler.speed = Number($('#gCS', b).value); s.crawler.fontSize = Number($('#gCF', b).value); };
   },
   step5(b) {
     const d = this.data;

@@ -39,7 +39,7 @@ App.register('settings', {
           <div class="row" style="margin-top:12px;gap:24px">${toggleHtml('kQ', 'QR codes on cards', s.cards.qr)}${toggleHtml('kB', 'Black & white printing', s.cards.bw)}${toggleHtml('kL', 'Logo on cards', s.cards.useLogo)}</div>
           <p class="muted small">Cards are always printed two per A4 sheet.</p></div>
         <div class="panel"><h2>Gameplay</h2><div class="form-grid"><label class="field">Gap between songs (s)<input type="number" id="gG" min="0" max="30" value="${gd.autoAdvanceGap}"></label><label class="field">Volume (%)<input type="number" id="gV" min="0" max="100" value="${gd.volume}"></label></div>
-          <div style="display:flex;flex-direction:column;gap:10px;margin-top:12px">${toggleHtml('gS', 'Shuffle playlist for new games', gd.shuffle)}${toggleHtml('gA', 'Auto-play next song', gd.autoAdvance)}${toggleHtml('gP', 'Pause music during bingo verification', gd.pauseOnClaim)}${toggleHtml('gW', 'Winner animation on TV', gd.winnerAnimation)}</div>
+          <div style="display:flex;flex-direction:column;gap:10px;margin-top:12px">${toggleHtml('gWel', 'Welcome screen on the TV before Round 1', !gd.screens || gd.screens.welcome !== false)}${toggleHtml('gEnd', '“Thanks for playing!” screen after the game', !gd.screens || gd.screens.end !== false)}${toggleHtml('lConv', 'Convert unplayable videos to MP4 automatically', !s.library || s.library.autoConvert !== false)}${toggleHtml('gS', 'Shuffle playlist for new games', gd.shuffle)}${toggleHtml('gA', 'Auto-play next song', gd.autoAdvance)}${toggleHtml('gP', 'Pause music during bingo verification', gd.pauseOnClaim)}${toggleHtml('gW', 'Winner animation on TV', gd.winnerAnimation)}</div>
           <p class="muted small">Winners are always confirmed by the host. Auto-save is always on (every change is saved immediately, crash-safe).</p></div>
         <div class="panel"><h2>Audio — automatic volume levelling</h2>
           <div class="row">${toggleHtml('aLev', 'AUTO VOLUME LEVELLING', gd.audio.levelling)}</div>
@@ -79,10 +79,12 @@ App.register('settings', {
         video: { displayId: v('#sDisp') || null, aspect: v('#sAsp'), audioDeviceId: v('#sAudio'), fullscreen: c('#sFs') },
         cards: { textScale: n('#kT') / 100, qr: c('#kQ'), bw: c('#kB'), useLogo: c('#kL') },
         remote: { autoStart: c('#rA') },
+        library: { autoConvert: c('#lConv') },
         updates: { auto: c('#upAuto') },
         gameDefaults: { clipMode: v('#sClip') === 'full' ? 'full' : Number(v('#sClip')), defaultStart: n('#sStart'), autoAdvanceGap: n('#gG'), volume: n('#gV'), shuffle: c('#gS'), autoAdvance: c('#gA'), pauseOnClaim: c('#gP'), winnerAnimation: c('#gW'), patternPosition: v('#pPos'),
           overlay: { position: v('#oPos'), titleSize: n('#oT'), artistSize: n('#oA'), opacity: n('#oO') / 100, duration: n('#oD'), revealDelay: n('#oR'), enabled: c('#oOn') },
           crawler: { speed: Math.max(1, Math.min(10, n('#cS'))), fontSize: n('#cF'), height: n('#cH'), separator: v('#cSep') },
+          screens: Object.assign({}, gd.screens || {}, { welcome: c('#gWel'), end: c('#gEnd') }),
           audio: { levelling: c('#aLev'), targetLufs: n('#aT'), maxBoostDb: n('#aB'), fadeIn: n('#aFi'), fadeOut: n('#aFo'), ceilingDbtp: gd.audio.ceilingDbtp, muted: false } }
       };
       App.settings = await api('settings:update', patch);

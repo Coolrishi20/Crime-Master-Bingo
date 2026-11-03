@@ -19,7 +19,17 @@ tick **Private networks** and click **Allow**.
 ### Import your music videos — *Music Library*
 - Click **Import videos**, **Import folder**, or drag files/folders onto the page.
 - Best format: **MP4 with H.264 video and AAC audio**. MOV, M4V, WebM and MKV also work
-  if Windows can decode them. AVI/WMV/FLV are refused with a message.
+  if Windows can decode them.
+- **AVI, WMV, FLV, MPG and other formats, or videos with codecs Windows can't play,
+  are converted automatically.** The app makes a playable MP4 copy in the background
+  and never changes your original file. The Status column shows *Converting 45%*,
+  then *Ready · Converted*. If a file can't be converted (e.g. it's damaged), you'll
+  see **Retry convert**. Turn automatic conversion off in Settings → Gameplay.
+- **Import folders as playlists…** (Music Library or Playlists): choose a top folder
+  and every sub-folder becomes a playlist with the folder's name. For example,
+  *Music Videos\80s* becomes an **80s** playlist. Sub-folders inside those are
+  included, and videos loose in the top folder go into a playlist named after it.
+  Run it again later and only new videos are added.
 - **No file size or number limit.** Videos are never copied or uploaded. The app
   remembers where each file is and plays it from there. Keep your videos in one folder
   (or on one drive) that you don't move.
@@ -100,11 +110,30 @@ The TV shows **only**:
 Plus the **winner** / **"Not a Bingo"** screens (section 4). The TV never shows card
 numbers (unless you switch that on), upcoming songs, or anything private.
 
+### Welcome & end-of-night screens
+Before Round 1 the TV shows a **welcome screen**:
+- your logo, the event name and venue;
+- the three winning patterns;
+- an optional message, such as *"Grab your cards at the bar!"*;
+- a live countdown to your start time (*"WE START AT 8PM · 12:34 to go"*).
+Set the time and message in Create Game (step 4) or during the night in Host Game → TV
+crawler tab. The screen disappears automatically when Round 1 starts.
+
+After the game, the TV shows **THANKS FOR PLAYING!** with the full numbered list of
+every song played, handy for "what was that song?". Both screens can be switched off
+per game, and the defaults are in Settings → Gameplay.
+
 ### Connect your phone — *Mobile Host Connection*
 1. Put the phone on the **same Wi-Fi** as the laptop. No internet is needed; a phone
    hotspot or a travel router works.
 2. Scan the QR code with the phone camera. It opens the remote and pairs
    automatically (or type the address and the 6-digit PIN).
+   The QR code uses a **secure link**, so the phone's camera can scan card QR codes
+   live. **The first time on each phone**, the browser warns that the connection
+   isn't private; that's this laptop's own security certificate, which is fine on
+   your own network. Tap **Advanced → Proceed** (Android/Chrome) or **Show Details →
+   visit this website** (iPhone). If a phone won't accept it, use the **standard
+   link** shown under the QR code; scanning then takes a photo instead.
 3. No app or APK to install: the remote runs in Safari/Chrome. To get an app icon, use
    **Share → Add to Home Screen** (iPhone) or **⋮ → Add to Home screen** (Android).
 4. The phone stays paired and reconnects by itself after locking or a Wi-Fi drop.

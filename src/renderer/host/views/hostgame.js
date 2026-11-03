@@ -266,9 +266,17 @@ App.register('host', {
         <label class="field">Show for (0 = whole song): ${o.duration}s<input type="range" min="0" max="60" step="5" value="${o.duration}" data-o="duration"></label>
         <label class="field">Reveal title after<select data-o="revealDelay">${[0, 5, 10, 15, 20, 30].map(v => `<option value="${v}" ${Number(o.revealDelay || 0) === v ? 'selected' : ''}>${v ? v + ' s (guess first)' : 'Immediately'}</option>`).join('')}</select></label></div>
         <div class="row" style="margin-top:12px">${toggleHtml('ovOn', 'Show title & artist on TV', o.enabled)}</div>
+        <h2 style="margin-top:18px">Welcome &amp; end-of-night screens</h2>
+        <div class="row" style="gap:22px">${toggleHtml('scW', 'Welcome screen before Round 1', g.settings.screens.welcome)}${toggleHtml('scE', '“Thanks for playing!” screen after the game', g.settings.screens.end)}</div>
+        <div class="form-grid" style="margin-top:10px"><label class="field">We start at (e.g. 20:00)<input type="time" id="scT" value="${esc(g.settings.screens.startTime || '')}"></label>
+        <label class="field">Welcome message (optional)<input type="text" id="scM" maxlength="120" value="${esc(g.settings.screens.message || '')}" placeholder="e.g. Grab your cards at the bar!"></label></div>
         <h2 style="margin-top:18px">TV winner &amp; wrong-claim screens</h2>
         <div class="row" style="gap:22px">${toggleHtml('tvW', 'Winner screen when a winner is confirmed', g.settings.tvScreens.winner)}${toggleHtml('tvR', '“Not a Bingo” screen when a claim is rejected', g.settings.tvScreens.wrongClaim)}${toggleHtml('tvC', 'Show the card number on the TV', g.settings.tvScreens.showCardNumber)}</div>
         <label class="field" style="max-width:260px;margin-top:10px">Show for ${g.settings.tvScreens.seconds} seconds<input type="range" min="3" max="20" value="${g.settings.tvScreens.seconds}" id="tvS"></label>`;
+      $('#scW', box).onchange = (e) => App.cmd('setScreens', { welcome: e.target.checked });
+      $('#scE', box).onchange = (e) => App.cmd('setScreens', { end: e.target.checked });
+      $('#scT', box).onchange = (e) => App.cmd('setScreens', { startTime: e.target.value });
+      $('#scM', box).onchange = (e) => App.cmd('setScreens', { message: e.target.value });
       $('#tvW', box).onchange = (e) => App.cmd('setTvScreens', { winner: e.target.checked });
       $('#tvR', box).onchange = (e) => App.cmd('setTvScreens', { wrongClaim: e.target.checked });
       $('#tvC', box).onchange = (e) => App.cmd('setTvScreens', { showCardNumber: e.target.checked });

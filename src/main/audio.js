@@ -57,7 +57,7 @@ class AudioAnalyser {
   }
 
   needs(s) {
-    if (s.status === 'missing' || s.status === 'unsupported' || !s.fingerprint) return false;
+    if (['missing', 'unsupported', 'needs-conversion', 'converting'].includes(s.status) || !s.fingerprint) return false;
     const a = s.audio;
     if (!a) return true;
     if (a.fp !== s.fingerprint) return true;

@@ -1,4 +1,20 @@
-# Crime Master Bingo — Test report (v1.2.0)
+# Crime Master Bingo — Test report (v1.3.0)
+
+## v1.3.0 additions
+- Unit tests: **115 / 115 passed**. New tests cover:
+  - folders → playlists, including nested folders, loose files and re-runs that add only new songs;
+  - AVI, WMV, FLV and MPG files imported and queued for conversion;
+  - **real conversions** of AVI (MPEG-4/MP3), WMV (WMV2/WMA) and FLV to H.264/AAC MP4, with originals byte-identical afterwards and a damaged file failing cleanly with no leftover partial files;
+  - when the welcome and end screens appear;
+  - the secure phone link: HTTPS page, `/connect.json`, pairing over WSS, and the standard link still working.
+- `test/e2e/v13-check.js` in the real app: **13 / 13 passed**, from source and again against the **packaged** app. It covers decade folders becoming playlists, the AVI converted in the app and passing the playability check, the welcome screen countdown and message, and the end screen listing every played song with no card numbers.
+- The live QR scan was tested with a phone browser on the secure link and a **fake camera playing a card's QR code**: card 007 was read and checked live.
+- Regression: v1.1 acceptance **83 / 83**, delayed reveal **6 / 6**.
+- The Windows build bundles the H.264 (libx264) encoder in ffmpeg. This was checked by inspecting the binary; it can't be run in this environment.
+- **Not yet verified on real devices:** each phone accepting the secure link's certificate. Chrome/Android shows *Proceed*; iPhone Safari's handling of self-signed certificates for live connections varies by iOS version, so the standard link remains as a fallback. Conversion speed on your laptop is also untested; a 4-minute HD video should take roughly 1–3 minutes.
+
+---
+
 
 ## v1.2.0 additions
 - Unit tests: **109 / 109 passed**. The 8 new tests cover:

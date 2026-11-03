@@ -23,6 +23,7 @@
       window.cmb.on('audience', (a) => { this.audience.open = a.open; this.updateSide(); this.emit('audience'); });
       window.cmb.on('update', (u) => { this.update = u; this.drawUpdatePill(); if (this.drawUpdateSettings && this.view === 'settings') this.drawUpdateSettings(u); });
       this.update = await api('update:status'); this.drawUpdatePill();
+      window.cmb.on('library-convert', (c) => { this.convert = c; this.emit('convert', c); });
       window.cmb.on('library-audio', (a) => { if (App.view === 'library' && views.library) { views.library.audio = a; views.library.drawAudio(); views.library.on_library(); } });
       window.cmb.on('backup-progress', (p) => this.emit('backup', p));
       window.cmb.on('event', (e) => { if (e.name === 'error') toast(e.payload.message, 'err', 7000); this.emit('event', e); });

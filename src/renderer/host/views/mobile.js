@@ -10,7 +10,9 @@ App.register('mobile', {
     box.innerHTML = `<div class="cols c2">
       <div class="panel" style="text-align:center">
         ${r.running ? `<div class="eyebrow">Scan with your phone camera</div><div class="qrbox" style="margin:14px 0"><img src="${r.qr}" alt="QR code"></div>
-          <div class="muted small">or open this address in Safari / Chrome:</div><div class="display" style="font-size:24px;margin:6px 0 2px">${esc(r.url)}</div>
+          <div class="muted small">or open this address in Safari / Chrome:</div><div class="display" style="font-size:24px;margin:6px 0 2px">${esc(r.qrUrl || r.url)}</div>
+          ${r.secureMode ? `<div class="check-row" style="text-align:left;margin-top:10px"><span class="ic ok">🔒</span><div><b>Secure link — live QR scanning with the phone camera</b><div class="muted small">First time on each phone the browser warns that the connection isn't private (it's this laptop's own certificate). Tap <b>Advanced → Proceed</b> (Android / Chrome) or <b>Show Details → visit this website</b> (iPhone). Only needed once per phone.</div></div></div>
+            <details style="text-align:left;margin-top:8px"><summary class="muted small" style="cursor:pointer">Standard link (no warning, camera takes a photo instead)</summary><div class="row" style="margin-top:8px"><img src="${r.plainQr}" style="width:120px;height:120px;background:#fff;border-radius:8px;padding:4px"><div class="small">${esc(r.url)}</div></div></details>` : (r.httpsError ? `<div class="badge warn" style="margin-top:8px">Secure link unavailable: ${esc(r.httpsError)}</div>` : '')}
           ${r.addresses && r.addresses.length > 1 ? `<div class="tiny muted">Other addresses: ${r.addresses.slice(1).map(a => esc(a.url)).join(' · ')}</div>` : ''}
           <div class="eyebrow" style="margin-top:16px">Pairing PIN</div><div class="pin">${esc(r.pin)}</div>
           <div class="row" style="justify-content:center;margin-top:8px"><button class="btn sm" id="mPin">New PIN</button><button class="btn sm danger" id="mStop">Stop remote service</button></div>`
@@ -24,11 +26,13 @@ App.register('mobile', {
           <li>Windows may ask to allow Crime Master Bingo through the firewall the first time — choose <b style="color:#fff">Private networks → Allow</b>.</li></ol>
         <h2>Paired devices</h2>
         ${r.devices && r.devices.length ? r.devices.map(d => `<div class="check-row"><span class="dot ${d.online ? 'on' : ''}" style="margin-top:6px"></span><div class="grow"><b>${esc(d.name)}</b><div class="muted small">${d.online ? 'Connected now' : (d.lastSeen ? 'Last seen ' + new Date(d.lastSeen).toLocaleString() : 'Paired ' + new Date(d.pairedAt).toLocaleString())}</div></div><button class="btn sm danger" data-rev="${d.id}">Remove</button></div>`).join('') : '<div class="muted small">No phones paired yet.</div>'}
+        <div class="row" style="margin-top:16px">${toggleHtml('mSecure', 'Secure link (live QR scanning on phones)', !!(App.settings.remote && App.settings.remote.secure !== false))}</div>
         ${this.compact ? '' : `<h2 style="margin-top:18px">Network port</h2><div class="row"><input type="number" id="mPort" value="${r.port || 8787}" style="width:110px"><button class="btn sm" id="mPortGo">Change port</button><span class="muted tiny">Default 8787</span></div>`}
       </div></div>`;
     const b = (id, fn) => { const x = box.querySelector(id); if (x) x.onclick = fn; };
     b('#mStart', async () => { App.remote = await api('remote:start'); this.draw(); });
     b('#mStop', async () => { if (await confirmBox('Stop the remote service?', 'Connected phones will disconnect. The laptop keeps working normally.', 'Stop', true)) { App.remote = await api('remote:stop'); this.draw(); } });
+    const sec = box.querySelector('#mSecure'); if (sec) sec.onchange = async (e) => { App.remote = await api('remote:setSecure', { secure: e.target.checked }); App.settings = await api('settings:get'); this.draw(); };
     b('#mPin', async () => { App.remote = await api('remote:newPin'); this.draw(); });
     b('#mPortGo', async () => { App.remote = await api('remote:setPort', { port: Number(box.querySelector('#mPort').value) }); this.draw(); });
     $$('[data-rev]', box).forEach(x => x.onclick = async () => { if (await confirmBox('Remove this phone?', 'It will be disconnected immediately and must pair again with the PIN.', 'Remove', true)) { App.remote = await api('remote:revoke', { deviceId: x.dataset.rev }); this.draw(); } });

@@ -34,6 +34,7 @@ function defaultGameSettings() {
     pauseOnClaim: true,
     winnerAnimation: true,
     tvScreens: { winner: true, wrongClaim: true, showCardNumber: false, seconds: 7 },
+    screens: { welcome: true, startTime: '', message: '', end: true },
     overlay: { enabled: true, position: 'bottom-left', titleSize: 64, artistSize: 38, opacity: 0.78, duration: 0, revealDelay: 0 },
     crawler: { speed: 4, fontSize: 30, height: 72, separator: 'diamond', paused: false },
     audio: defaultAudio(),
@@ -76,6 +77,7 @@ class GameEngine {
     game.settings.crawler = Object.assign({}, d.crawler, (game.settings.crawler || {}));
     game.settings.audio = Object.assign({}, d.audio, (game.settings.audio || {}));
     game.settings.tvScreens = Object.assign({}, d.tvScreens, (game.settings.tvScreens || {}));
+    game.settings.screens = Object.assign({}, d.screens, (game.settings.screens || {}));
     game.playback = Object.assign({ index: -1, status: 'idle', position: 0, recovered: false }, game.playback || {});
     game.played = game.played || [];
     game.skipped = game.skipped || [];
@@ -328,7 +330,7 @@ class GameEngine {
   dispatch(action, args = {}, source = 'desktop') {
     const fn = this.actions[action];
     if (!fn) throw new Error(`Unknown action: ${action}`);
-    const allowedWhenFinished = ['showTvScreen', 'setTvScreens', 'openChecker', 'closeChecker', 'checkClaim', 'freezeClaims', 'addClaim', 'closeSession', 'confirmClaim', 'dismissClaim', 'removeClaim', 'viewClaim', 'setCrawler', 'setOverlay', 'reopenGame', 'setVolume', 'setAudio', 'reverseCredit'];
+    const allowedWhenFinished = ['setScreens', 'showTvScreen', 'setTvScreens', 'openChecker', 'closeChecker', 'checkClaim', 'freezeClaims', 'addClaim', 'closeSession', 'confirmClaim', 'dismissClaim', 'removeClaim', 'viewClaim', 'setCrawler', 'setOverlay', 'reopenGame', 'setVolume', 'setAudio', 'reverseCredit'];
     if (this.game.status === 'finished' && !allowedWhenFinished.includes(action)) {
       throw new Error('This game has ended. Re-open it from Game History to continue.');
     }
@@ -352,7 +354,7 @@ class GameEngine {
       // technical credit
       grantCredit: this.aGrantCredit, reverseCredit: this.aReverseCredit,
       showTvScreen: this.aShowTvScreen, setTvScreens: this.aSetTvScreens,
-      completeRound: this.aCompleteRound,
+      completeRound: this.aCompleteRound, setScreens: this.aSetScreens,
       queueSong: this.aQueueSong, unqueueSong: this.aUnqueueSong, skipNext: this.aSkipNext, resetQueue: this.aResetQueue,
       excludeSong: this.aExcludeSong, includeSong: this.aIncludeSong,
       updateSong: this.aUpdateSong
@@ -1010,6 +1012,21 @@ class GameEngine {
     return { ok: true };
   }
 
+  /** Welcome (before Round 1) and end-of-night TV screens. */
+  aSetScreens(args) {
+    const sc = this.settings.screens;
+    if (args.welcome != null) sc.welcome = !!args.welcome;
+    if (args.end != null) sc.end = !!args.end;
+    if (args.startTime != null) {
+      const t = String(args.startTime).trim();
+      if (t && !/^([01]?\d|2[0-3]):[0-5]\d$/.test(t)) throw new Error('Start time must look like 20:00');
+      sc.startTime = t;
+    }
+    if (args.message != null) sc.message = String(args.message).slice(0, 120);
+    this.touch('audience', false);
+    return { ok: true, screens: sc };
+  }
+
   aSetTvScreens(args) {
     const t = this.settings.tvScreens;
     ['winner', 'wrongClaim', 'showCardNumber'].forEach(k => { if (args[k] != null) t[k] = !!args[k]; });
@@ -1121,8 +1138,22 @@ class GameEngine {
       history: g.played.map((p, i) => { const x = this.song(p.songId) || {}; return { n: i + 1, title: x.displayTitle || x.title, artist: x.artist, credit: p.kind === 'credit' }; }),
       overlay: this.settings.overlay,
       crawler: this.settings.crawler,
-      patternPosition: this.settings.patternPosition
+      patternPosition: this.settings.patternPosition,
+      screen: this.audienceScreen()
     };
+  }
+
+  /** Which full-screen TV page to show: welcome (before Round 1), end (after the game), or none. */
+  audienceScreen() {
+    const g = this.game; const sc = this.settings.screens;
+    if (g.round.number === 0 && g.status !== 'finished' && sc.welcome) {
+      return { mode: 'welcome', name: g.name, venue: g.venue || '', date: g.date || '', startTime: sc.startTime || '', message: sc.message || '' };
+    }
+    if (g.status === 'finished' && sc.end) {
+      const winners = g.claims.filter(c => c.status === 'confirmed').length;
+      return { mode: 'end', name: g.name, venue: g.venue || '', winners, songs: g.played.length };
+    }
+    return { mode: 'none' };
   }
 
   /** Host view (desktop + phone). */
@@ -1152,7 +1183,7 @@ class GameEngine {
       credits: g.credits.map(c => ({ id: c.id, songId: c.songId, title: c.title, artist: c.artist, reason: c.reason, at: c.at, status: c.status })),
       unavailable: Object.keys(this.unavailable).filter(id => this.song(id) && !played.has(id)).map(id => ({ songId: id, title: this.song(id).title, artist: this.song(id).artist, reason: this.unavailable[id] })),
       creditReasons: CREDIT_REASONS,
-      settings: { clipMode: this.settings.clipMode, volume: this.settings.volume, autoAdvance: this.settings.autoAdvance, autoAdvanceGap: this.settings.autoAdvanceGap, pauseOnClaim: this.settings.pauseOnClaim, crawler: this.settings.crawler, overlay: this.settings.overlay, audio: this.settings.audio, patternPosition: this.settings.patternPosition, winnerAnimation: this.settings.winnerAnimation, tvScreens: this.settings.tvScreens, defaultStart: this.settings.defaultStart },
+      settings: { clipMode: this.settings.clipMode, volume: this.settings.volume, autoAdvance: this.settings.autoAdvance, autoAdvanceGap: this.settings.autoAdvanceGap, pauseOnClaim: this.settings.pauseOnClaim, crawler: this.settings.crawler, overlay: this.settings.overlay, audio: this.settings.audio, patternPosition: this.settings.patternPosition, winnerAnimation: this.settings.winnerAnimation, tvScreens: this.settings.tvScreens, screens: this.settings.screens, defaultStart: this.settings.defaultStart },
       audienceConnected: this.audienceConnected,
       lastError: this.lastError
     };
