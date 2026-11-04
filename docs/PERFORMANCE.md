@@ -1,4 +1,4 @@
-# Crime Master Bingo — Performance report (v1.5.0-rc.1)
+# Anthem Square (formerly Crime Master Bingo) — Performance report
 
 This report covers the Phase 1 fixes for tester feedback: high RAM use, stuttering video
 (worse with the phone remote), Show in Folder, and custom Bingo rules. **All numbers below
@@ -177,6 +177,34 @@ of RAM**: smooth playback, no stuttering. That's encouraging, but it says nothin
 4 GB target. The real-hardware checks below are still needed. A 4 GB / 2-core limit can be
 simulated on a bigger laptop with *msconfig → Boot → Advanced options*. That's useful, but it
 doesn't reproduce a slow processor or graphics.
+
+## v1.7.0-rc.1: the Anthem Square redesign vs 1.6 (same conditions)
+
+The redesign must not make hosting heavier. The integrated benchmark was run twice, back to
+back, on the same machine: the unchanged **1.6.0-rc.1** build first, then **1.7.0-rc.1**.
+Both runs used a Round-Based game, Low Resource Mode, 2 pinned cores, 1080p video with
+overlay and crawler, the phone remote in use and 75 songs with claims.
+
+| Metric | 1.6.0-rc.1 | 1.7.0-rc.1 (Anthem Square) |
+|---|---|---|
+| Playback RAM, TV only (T1a avg) | 907 MB | 889 MB |
+| Full system with phone (T1b avg) | 948 MB | 937 MB |
+| Peak RAM (extended session) | 1178 MB | 1165 MB |
+| CPU, full system (T1b avg) | 47% | 46% |
+| CPU, extended session (T4 avg) | 48% | 48% |
+| Dropped frames, extended session (T4) | 186/22690 (0.8%) | 146/22686 (0.6%) |
+| TV stalls > 50 ms, extended session (T4) | 44 | 24 |
+| TV stalls > 50 ms, active phone commands (T2) | 3 | 0 |
+| Unexpected video reloads | 0 | 0 |
+| Data to the phone (T1b idle / T2 commands) | 264 / 402 KB/min | 264 / 422 KB/min |
+| Integrated checks | 10/10 | 10/10 |
+
+- **No regression.** The new look uses slightly less memory (about 10–18 MB) and the TV had
+  fewer stalls, which fits the removal of the blur and glow effects on the TV panels. CPU is
+  unchanged.
+- Phone data during commands is about 5% higher (the theme travels with the state). That is
+  about 0.3 KB/s, with no measurable effect.
+- Same caveats as above: Linux container, no GPU, not a 4 GB Windows laptop.
 
 ## Still to test on real hardware (release gate for 1.5.0 final)
 
