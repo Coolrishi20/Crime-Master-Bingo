@@ -6,7 +6,7 @@ App.register('checker', { render() {} });
 App.openChecker = async function (cardNo, opts = {}) {
   if (!App.game) return toast('Load a game first', 'err');
   if (App._checker) { if (cardNo) App._checker.add(String(cardNo)); return; }
-  if (!App.game.round.number) return toast('Start Round 1 before checking claims', 'err');
+  if (!App.game.round.number) return toast(App.game.mode === 'checklist' ? 'Start the game before checking claims' : 'Start Round 1 before checking claims', 'err');
   const fr = await App.cmd('freezeClaims');
   if (!fr || fr.ok === false) return;
   const SL = { pending: ['VALID — awaiting decision', 'warn'], confirmed: ['WINNER', 'ok'], invalid: ['NOT VALID', 'bad'], rejected: ['REJECTED', 'bad'], dismissed: ['DISMISSED', ''], duplicate: ['ALREADY WON', 'warn'] };
@@ -26,7 +26,7 @@ App.openChecker = async function (cardNo, opts = {}) {
   const sess = () => App.game && App.game.session;
   const drawHead = () => {
     const s = sess(); if (!s) return;
-    body.querySelector('#ckFrozen').innerHTML = `<div class="grow"><div class="vt" style="font-size:26px">❄ CLAIMS FROZEN</div><div class="small" style="margin-top:4px;color:#fff">Session ${esc(s.id)} · Round ${s.round} — ${esc(s.roundLabel)} · <b>${s.snapshotCount}</b> eligible songs frozen · music paused at ${fmtTime(s.position)}</div><div class="muted tiny">Songs that finish after this moment can't affect these claims. Several winners can be confirmed.</div></div>`;
+    body.querySelector('#ckFrozen').innerHTML = `<div class="grow"><div class="vt" style="font-size:26px">❄ CLAIMS FROZEN</div><div class="small" style="margin-top:4px;color:#fff">Session ${esc(s.id)} · ${App.game.mode === 'checklist' ? `Rules checklist — ${App.game.checklist.completed} of ${App.game.checklist.total} completed` : `Round ${s.round} — ${esc(s.roundLabel)}`} · <b>${s.snapshotCount}</b> eligible songs frozen · music paused at ${fmtTime(s.position)}</div><div class="muted tiny">Songs that finish after this moment can't affect these claims. Several winners can be confirmed.</div></div>`;
   };
   const drawList = () => {
     const s = sess(); const list = body.querySelector('#ckList'); if (!s || !list) return;
@@ -40,20 +40,33 @@ App.openChecker = async function (cardNo, opts = {}) {
     selected = r.claimId; drawList();
     const dup = r.alreadyWinner && r.status !== 'confirmed';
     const cls = r.status === 'confirmed' ? 'valid' : dup ? 'dup' : (r.valid ? 'valid' : 'invalid');
-    const title = r.status === 'confirmed' ? 'WINNER CONFIRMED' : dup ? 'ALREADY A WINNER' : (r.valid ? 'VALID BINGO!' : 'NOT VALID');
+    const ck = r.mode === 'checklist' ? r.checklist : null;
+    const title = r.status === 'confirmed' ? (ck && ck.awarded ? 'WINNER — ' + ck.awarded.label : 'WINNER CONFIRMED') : ck && !r.valid ? (ck.onlyCompleted ? 'RULE ALREADY COMPLETED' : 'NOT A VALID BINGO') : dup ? 'ALREADY A WINNER' : (r.valid ? 'VALID BINGO!' : 'NOT VALID');
+    const ex = (id) => { const it = App.game.checklist && App.game.checklist.items.find(i => i.id === id); return it ? it.example : Array(25).fill(false); };
+    let pick = ck && ck.qualifying.length === 1 ? ck.qualifying[0].itemId : null;
+    const side = ck ? `<div style="min-width:220px;max-width:280px"><div class="eyebrow">${r.status === 'confirmed' ? 'Awarded' : r.valid ? 'Valid for — choose one' : 'Open rules'}</div>
+        ${r.status === 'confirmed' && ck.awarded ? `<div class="ck-opt on"><div class="ck-pat">${patternGridHtml(ex(ck.awarded.itemId), 'green')}</div><b>${esc(ck.awarded.label)}</b></div>`
+          : r.valid ? ck.qualifying.map(q => `<label class="ck-opt ${pick === q.itemId ? 'on' : ''}"><input type="radio" name="ckPick" value="${q.itemId}" ${pick === q.itemId ? 'checked' : ''}><div class="ck-pat">${patternGridHtml(ex(q.itemId))}</div><b>${esc(q.label)}</b></label>`).join('')
+          : `<div class="small">${ck.available.map(a => esc(a.label)).join(', ') || 'None — every rule is completed'}</div>`}
+        ${ck.alreadyCompleted.length ? `<div class="tiny muted" style="margin-top:6px">Already completed: ${ck.alreadyCompleted.map(a => esc(a.label)).join(', ')}</div>` : ''}${ck.alreadyWon.length ? `<div class="tiny muted">This card already won: ${ck.alreadyWon.map(a => esc(a.label)).join(', ')}</div>` : ''}</div>` : '';
     out.innerHTML = `
       ${r.duplicateEntry ? '<div class="badge warn" style="margin-bottom:8px">This card was already entered in this session — showing the same result</div>' : ''}
       <div class="verdict ${cls}"><div class="grow"><div class="vt">${title}</div><div style="font-weight:700;margin-top:4px;font-size:15px">${esc(r.explanation || ('Card ' + r.cardLabel + ' — ' + r.headline))}</div>
           ${r.completingSong ? `<div class="small" style="margin-top:6px">🎵 Completed by song <b>#${r.completingSong.n}</b>: <b>${esc(r.completingSong.title)}</b> — ${esc(r.completingSong.artist)}${r.completingSong.credit ? ' (technical credit)' : ''}</div>` : ''}
           ${r.best ? `<div class="small" style="margin-top:6px">Closest pattern: <b>${esc(r.best.description)}</b> — <b>${r.best.missing}</b> more song${r.best.missing === 1 ? '' : 's'} needed</div>` : ''}</div>
-        <div style="text-align:right;min-width:170px"><div class="eyebrow">Round ${r.round} · to win</div><div class="display" style="font-size:20px">${esc(r.roundLabel)}</div><div style="width:64px;margin:6px 0 0 auto">${patternGridHtml(App.game && App.game.roundRules ? App.game.roundRules[r.round].examples[0] : CMBPatterns.examples(r.round)[0])}</div></div></div>
+        ${ck ? side : `<div style="text-align:right;min-width:170px"><div class="eyebrow">Round ${r.round} · to win</div><div class="display" style="font-size:20px">${esc(r.roundLabel)}</div><div style="width:64px;margin:6px 0 0 auto">${patternGridHtml(App.game && App.game.roundRules ? App.game.roundRules[r.round].examples[0] : CMBPatterns.examples(r.round)[0])}</div></div>`}</div>
       <div class="bcard">${r.grid.map(c => `<div class="bcell ${c.winning ? 'win' : (c.played ? 'played' : '')} ${c.inBest && !c.winning ? 'best' : ''} ${c.needed ? 'needed' : ''} ${c.completing ? 'completing' : ''}">${c.playedNo ? `<span class="pn">${c.credit ? 'TC ' : '#'}${c.playedNo}</span>` : (c.needed ? '<span class="pn need">NEEDED</span>' : '')}<b>${esc(c.title)}</b><span>${esc(c.artist)}</span></div>`).join('')}</div>
       <div class="row small muted" style="margin-top:10px;gap:14px;flex-wrap:wrap"><span><span class="lgd win"></span> winning line</span><span><span class="lgd played"></span> played (credited)</span><span><span class="lgd unplayed"></span> not played yet</span>${r.best ? '<span><span class="lgd needed"></span> still needed for the closest pattern</span>' : ''}<span>TC = technical credit</span>${r.completingSong ? '<span><span class="lgd completing"></span> winning song</span>' : ''}</div>
-      <div class="row small muted" style="margin-top:6px;gap:16px"><span>${r.grid.filter(c => c.played).length}/25 on this card · checked against ${r.playedCount} frozen songs</span>${r.printed ? '' : '<span style="color:var(--amber)">⚠ card not marked as issued</span>'}${r.otherRoundWins.length ? `<span>Also won round ${r.otherRoundWins.join(', ')}</span>` : ''}</div>
+      <div class="row small muted" style="margin-top:6px;gap:16px"><span>${r.grid.filter(c => c.played).length}/25 on this card · checked against ${r.playedCount} frozen songs</span>${r.printed ? '' : '<span style="color:var(--amber)">⚠ card not marked as issued</span>'}${r.otherRoundWins.length ? `<span>Also won round ${r.otherRoundWins.join(', ')}</span>` : ''}${r.otherRuleWins && r.otherRuleWins.length ? `<span>This card also won: ${r.otherRuleWins.map(esc).join(', ')}</span>` : ''}</div>
       ${r.review ? `<div class="badge warn" style="margin-top:8px">${esc(r.review)}</div>` : ''}
-      <div class="row" style="margin-top:14px">${r.status === 'confirmed' ? '<button class="btn" id="ckTvWin">📺 Show winner screen on TV</button>' : ''}${['invalid', 'rejected'].includes(r.status) ? '<button class="btn" id="ckTvWrong">📺 Show “Not a Bingo” on TV</button>' : ''}${r.status === 'pending' ? `<button class="btn success lg" id="ckConfirm">✓ Confirm winner</button><button class="btn danger" id="ckReject">Reject claim</button>` : (r.status === 'invalid' ? '<button class="btn danger" id="ckReject">Reject claim</button>' : '')}</div>`;
+      <div class="row" style="margin-top:14px">${r.status === 'confirmed' ? '<button class="btn" id="ckTvWin">📺 Show winner screen on TV</button>' : ''}${['invalid', 'rejected'].includes(r.status) ? '<button class="btn" id="ckTvWrong">📺 Show “Not a Bingo” on TV</button>' : ''}${r.status === 'pending' ? `<button class="btn success lg" id="ckConfirm">✓ Confirm winner${ck && ck.qualifying.length > 1 ? ' for the chosen rule' : ''}</button><button class="btn danger" id="ckReject">Reject claim</button>` : (r.status === 'invalid' ? '<button class="btn danger" id="ckReject">Reject claim</button>' : '')}</div>`;
     const c = out.querySelector('#ckConfirm');
-    if (c) c.onclick = async () => { const x = await App.cmd('confirmClaim', { claimId: r.claimId }); if (x && x.ok !== false) { toast(`Card ${r.cardLabel} confirmed as a Round ${r.round} winner`, 'ok', 5000); renderResult(x); } };
+    $$('input[name=ckPick]', out).forEach(i => i.onchange = () => { pick = i.value; $$('.ck-opt', out).forEach(l => l.classList.toggle('on', l.querySelector('input') && l.querySelector('input').checked)); });
+    if (c) c.onclick = async () => {
+      if (ck && !pick) return toast('This card qualifies for more than one rule — choose which rule to award', 'err', 5000);
+      const x = await App.cmd('confirmClaim', ck ? { claimId: r.claimId, itemId: pick } : { claimId: r.claimId });
+      if (x && x.ok !== false) { toast(ck ? `Card ${r.cardLabel} wins ${x.checklist && x.checklist.awarded ? x.checklist.awarded.label : ''}` : `Card ${r.cardLabel} confirmed as a Round ${r.round} winner`, 'ok', 5000); renderResult(x); }
+    };
     const tw = out.querySelector('#ckTvWin'); if (tw) tw.onclick = () => App.cmd('showTvScreen', { claimId: r.claimId, type: 'winner' });
     const tr = out.querySelector('#ckTvWrong'); if (tr) tr.onclick = () => App.cmd('showTvScreen', { claimId: r.claimId, type: 'wrong' });
     const j = out.querySelector('#ckReject'); if (j) j.onclick = async () => { const x = await App.cmd('dismissClaim', { claimId: r.claimId }); if (x && x.ok !== false) renderResult(x); };

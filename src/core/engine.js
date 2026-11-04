@@ -42,12 +42,27 @@ function defaultGameSettings() {
     // winning rules per round (v1.5): one or more rules, any of which wins
     rounds: JSON.parse(JSON.stringify(rules.DEFAULT_ROUND_RULES)),
     roundCount: 3, // host-defined number of rounds (1–10); the last round ends the game
+    mode: 'rounds',         // 'rounds' (Round-Based Bingo) or 'checklist' (Rules Checklist Bingo)
+    checklist: JSON.parse(JSON.stringify(DEFAULT_CHECKLIST)), // checklist mode: [{ id, rule }]
     afterWinner: 'ask',      // when a round has a winner: 'ask' the host, or go to 'intermission' automatically
     intermissionMinutes: 10
   };
 }
 
 const MAX_ROUNDS = 10;
+/** Default Rules Checklist (any order). */
+const DEFAULT_CHECKLIST = [{ id: 'k1', rule: { id: 'fast5', mode: 'any' } }, { id: 'k2', rule: { id: 'line' } }, { id: 'k3', rule: { id: 'diagonal' } }, { id: 'k4', rule: { id: 'lShape' } }, { id: 'k5', rule: { id: 'full' } }];
+/** Validate a checklist: keeps item ids stable (claims refer to them), gives new items an id. */
+function normaliseChecklist(list) {
+  const out = []; const seen = new Set();
+  (Array.isArray(list) ? list : []).forEach(x => {
+    const raw = x && x.rule ? x.rule : x;
+    let rule; try { rule = rules.normaliseRule(raw); } catch (e) { return; }
+    let id = x && typeof x.id === 'string' && /^[\w-]{1,24}$/.test(x.id) && !seen.has(x.id) ? x.id : 'k_' + crypto.randomBytes(3).toString('hex');
+    seen.add(id); out.push({ id, rule });
+  });
+  return out.slice(0, 20);
+}
 /** Standard rules for rounds 1–3; any extra round starts as One Line until the host picks. */
 function defaultRuleSet(n) { return JSON.parse(JSON.stringify(rules.DEFAULT_ROUND_RULES[n] || [{ id: 'line' }])); }
 
@@ -92,6 +107,9 @@ class GameEngine {
     const src = Object.assign({}, d.rounds, game.settings.rounds || {}); const rs = {};
     for (let n = 1; n <= cnt; n++) { try { rs[n] = rules.normaliseRuleSet(src[n] || defaultRuleSet(n)); } catch (e) { rs[n] = defaultRuleSet(n); } }
     game.settings.rounds = rs;
+    game.settings.mode = game.settings.mode === 'checklist' ? 'checklist' : 'rounds';
+    game.settings.checklist = normaliseChecklist(game.settings.checklist && game.settings.checklist.length ? game.settings.checklist : DEFAULT_CHECKLIST);
+    if (game.settings.mode === 'checklist' && !game.settings.checklist.length) game.settings.checklist = normaliseChecklist(DEFAULT_CHECKLIST);
     game.playback = Object.assign({ index: -1, status: 'idle', position: 0, recovered: false }, game.playback || {});
     game.played = game.played || [];
     game.skipped = game.skipped || [];
@@ -101,6 +119,7 @@ class GameEngine {
     game.players = game.players || [];
     if (game.playersOpen === undefined) game.playersOpen = true;
     game.intermission = game.intermission || null;
+    game.checklistClosed = !!game.checklistClosed;
     game.claimSessions = game.claimSessions || [];
     game.queue = game.queue || [];       // host-queued songs (play next, in order)
     game.deferred = game.deferred || []; // skipped from Up Next — still eligible later
@@ -129,6 +148,34 @@ class GameEngine {
     this._info = this._info || {};
     if (!this._info[key]) this._info[key] = rules.roundInfo(this.rr(n));
     return this._info[key];
+  }
+  /* ------------------------------------------------ Rules Checklist mode (v1.6) */
+  isChecklist() { return this.settings.mode === 'checklist'; }
+  ckItems() { return this.settings.checklist || []; }
+  ckItem(id) { return this.ckItems().find(i => i.id === id) || null; }
+  ckInfo(item) { this._ck = this._ck || {}; const k = JSON.stringify(item.rule); if (!this._ck[k]) this._ck[k] = rules.roundInfo({ round: 0, rules: [item.rule] }); return this._ck[k]; }
+  ckWinners(id) { return this.game.claims.filter(c => c.status === 'confirmed' && c.itemId === id); }
+  /** A rule is completed once a winner is confirmed. Rules completed IN the given claim session stay
+      open for that session only, so simultaneous winners checked against the same frozen snapshot all count. */
+  ckOpen(sessionId) { return this.ckItems().filter(it => { const w = this.ckWinners(it.id); return !w.length || (sessionId && w.every(c => c.sessionId === sessionId)); }); }
+  ckRuleSet(items) { return { round: 0, rules: items.map(i => i.rule) }; }
+  /** Which still-open rules a card satisfies on a song set (the card can't win the same rule twice). */
+  ckQualify(card, set, sessionId) {
+    const open = this.ckOpen(sessionId); const out = { open, eligible: [], alreadyWon: [], completed: [] };
+    const sat = (it) => rules.checkCard(card.cells, set, this.ckRuleSet([it])).valid;
+    open.forEach(it => { if (!sat(it)) return; if (this.ckWinners(it.id).some(c => c.cardNo === card.no)) out.alreadyWon.push(it); else out.eligible.push(it); });
+    this.ckItems().filter(it => !open.includes(it)).forEach(it => { if (sat(it)) out.completed.push(it); });
+    return out;
+  }
+  ckOpenFor(cardNo, sessionId) { return this.ckOpen(sessionId).filter(it => !this.ckWinners(it.id).some(c => c.cardNo === cardNo)); }
+  checklistView() {
+    const items = this.ckItems().map((it, i) => {
+      const w = this.ckWinners(it.id); const inf = this.ckInfo(it);
+      return { id: it.id, n: i + 1, rule: it.rule, label: inf.label, short: inf.short, text: inf.rule, example: inf.examples[0], examples: inf.examples, status: w.length ? 'completed' : 'available', completedAt: w.length ? w.map(c => c.confirmedAt).sort()[0] : null,
+        winners: w.map(c => ({ claimId: c.id, cardNo: c.cardNo, cardLabel: formatCardNo(c.cardNo), owner: this.ownerOf(c.cardNo), at: c.confirmedAt })) };
+    });
+    const done = items.filter(i => i.status === 'completed').length;
+    return { items, total: items.length, completed: done, allDone: items.length > 0 && done === items.length, closed: !!this.game.checklistClosed };
   }
   roundLocked(n) { const r = this.game.round; return n < r.number || (n === r.number && r.status !== 'ready'); }
   roundRulesView() {
@@ -365,7 +412,7 @@ class GameEngine {
   dispatch(action, args = {}, source = 'desktop') {
     const fn = this.actions[action];
     if (!fn) throw new Error(`Unknown action: ${action}`);
-    const allowedWhenFinished = ['endIntermission', 'playerRemove', 'playerRename', 'setPlayersOpen', 'setScreens', 'showTvScreen', 'setTvScreens', 'openChecker', 'closeChecker', 'checkClaim', 'freezeClaims', 'addClaim', 'closeSession', 'confirmClaim', 'dismissClaim', 'removeClaim', 'viewClaim', 'setCrawler', 'setOverlay', 'reopenGame', 'setVolume', 'setAudio', 'reverseCredit'];
+    const allowedWhenFinished = ['closeChecklist', 'endIntermission', 'playerRemove', 'playerRename', 'setPlayersOpen', 'setScreens', 'showTvScreen', 'setTvScreens', 'openChecker', 'closeChecker', 'checkClaim', 'freezeClaims', 'addClaim', 'closeSession', 'confirmClaim', 'dismissClaim', 'removeClaim', 'viewClaim', 'setCrawler', 'setOverlay', 'reopenGame', 'setVolume', 'setAudio', 'reverseCredit'];
     if (this.game.status === 'finished' && !allowedWhenFinished.includes(action)) {
       throw new Error('This game has ended. Re-open it from Game History to continue.');
     }
@@ -396,6 +443,7 @@ class GameEngine {
       // home play: phone cards for players
       setRoundRules: this.aSetRoundRules, setRoundCount: this.aSetRoundCount,
       startIntermission: this.aStartIntermission, endIntermission: this.aEndIntermission,
+      setGameMode: this.aSetGameMode, changeAward: this.aChangeAward, setChecklist: this.aSetChecklist, closeChecklist: this.aCloseChecklist,
       playerJoin: this.aPlayerJoin, playerRemove: this.aPlayerRemove, playerRename: this.aPlayerRename, playerBingo: this.aPlayerBingo, setPlayersOpen: this.aSetPlayersOpen
     };
   }
@@ -479,7 +527,7 @@ class GameEngine {
   aPrevious(args = {}) {
     this.assertExpected(args);
     const pb = this.game.playback;
-    if (this.game.round.number === 0) throw new Error('Start Round 1 first.');
+    if (this.game.round.number === 0) throw new Error(this.isChecklist() ? 'Start the game first.' : 'Start Round 1 first.');
     const target = pb.index > 0 ? pb.index - 1 : 0;
     this.loadIndex(target, { autoplay: true });
     this.touch('state');
@@ -490,7 +538,7 @@ class GameEngine {
     this.assertExpected(args);
     const pb = this.game.playback;
     if (pb.index < 0) throw new Error('No song to replay yet.');
-    if (this.game.round.number === 0) throw new Error('Start Round 1 first.');
+    if (this.game.round.number === 0) throw new Error(this.isChecklist() ? 'Start the game first.' : 'Start Round 1 first.');
     // The TV still has this video loaded → just seek back to the clip start (no reload, no
     // decoder re-initialisation). Only reload when the player was cleared or after recovery.
     if (['playing', 'paused', 'loading'].includes(pb.status) && this.audienceConnected && !pb.recovered && this.loadToken != null) {
@@ -563,7 +611,7 @@ class GameEngine {
 
   aJumpTo(args) {
     const i = Number(args.index);
-    if (this.game.round.number === 0) throw new Error('Start Round 1 first.');
+    if (this.game.round.number === 0) throw new Error(this.isChecklist() ? 'Start the game first.' : 'Start Round 1 first.');
     const cur = this.currentSongId();
     const pb = this.game.playback;
     if (cur && !this.isPlayed(cur) && ['playing', 'loading', 'paused'].includes(pb.status) && !this.game.skipped.includes(cur)) this.game.skipped.push(cur);
@@ -575,7 +623,7 @@ class GameEngine {
   aMarkPlayed(args, source) {
     const id = args.songId || this.currentSongId();
     if (!id || !this.song(id)) throw new Error('No song selected');
-    if (this.game.round.number === 0) throw new Error('Start Round 1 first.');
+    if (this.game.round.number === 0) throw new Error(this.isChecklist() ? 'Start the game first.' : 'Start Round 1 first.');
     const added = this.addPlayed(id, true);
     if (added) this.audit('mark-played', { songId: id, title: this.song(id).title, artist: this.song(id).artist }, source);
     this.touch('state');
@@ -660,6 +708,7 @@ class GameEngine {
     const g = this.game;
     if (g.intermission) { g.intermission = null; this.audit('intermission-end', { by: 'start-round' }); }
     const n = Number(args.round || (g.round.number + 1));
+    if (this.isChecklist() && n !== 1) throw new Error('A Rules Checklist game has no rounds — press Start game once.');
     if (!Number.isInteger(n) || n < 1 || n > this.roundCount()) throw new Error(`Round must be between 1 and ${this.roundCount()}`);
     if (n < g.round.number) throw new Error(`Round ${g.round.number} has already started — rounds cannot go backwards.`);
     if (n === g.round.number && g.round.status === 'active') return { ok: true, already: true };
@@ -688,6 +737,7 @@ class GameEngine {
    */
   aCompleteRound(args, source) {
     const g = this.game;
+    if (this.isChecklist()) throw new Error('A Rules Checklist game has no rounds — rules are ticked off as they are won. Use End game to finish.');
     const n = g.round.number;
     // Replayed / duplicate command (double tap, laptop + phone, crash replay): harmless no-op.
     if (args.fromRound != null && (Number(args.fromRound) !== n || (g.round.status === 'ended' && g.status === 'finished'))) return { ok: true, already: true, round: g.round };
@@ -887,7 +937,8 @@ class GameEngine {
     const g = this.game;
     const open = this.activeSession();
     if (open) return { ok: true, sessionId: open.id, existing: true, paused: !!g.playback.pausedForClaim };
-    if (!g.round.number) throw new Error('No round has started yet.');
+    if (!g.round.number) throw new Error(this.isChecklist() ? 'Start the game first.' : 'No round has started yet.');
+    if (this.isChecklist() && g.checklistClosed) throw new Error('All rules are completed and claims are closed — the music continues without further Bingo claims.');
     const pb = g.playback;
     const prevStatus = pb.status;
     let paused = false;
@@ -937,8 +988,8 @@ class GameEngine {
     // Duplicate entry of the same card in this session: show the same result, no new claim.
     const existing = g.claims.find(c => c.sessionId === session.id && c.cardNo === card.no && c.status !== 'removed');
     if (existing) return Object.assign(this.claimView(existing), { duplicateEntry: true });
-    const res = this.evaluate(card, session.round, session.snapshot.map(x => x.songId));
-    const alreadyWinner = g.claims.find(c => c.cardNo === card.no && c.round === session.round && c.status === 'confirmed');
+    const res = this.evaluate(card, session.round, session.snapshot.map(x => x.songId), session.snapshot, session.id);
+    const alreadyWinner = this.isChecklist() ? (res.checklist.onlyCompleted && res.checklist.alreadyWon.length && !res.checklist.alreadyCompleted.length) : g.claims.find(c => c.cardNo === card.no && c.round === session.round && c.status === 'confirmed');
     const claim = {
       id: uid('c_'), sessionId: session.id, cardNo: card.no, round: session.round, at: this.nowIso(), source,
       valid: res.valid, headline: res.headline, reason: res.reason, playedCount: session.snapshot.length, winningCells: res.winningCells,
@@ -966,23 +1017,27 @@ class GameEngine {
     const session = g.claimSessions.find(s => s.id === claim.sessionId) || null;
     const card = this.findCard(claim.cardNo);
     const ids = this.sessionPlayedIds(session);
-    const res = this.evaluate(card, claim.round, ids, session ? session.snapshot : null);
+    const res = this.evaluate(card, claim.round, ids, session ? session.snapshot : null, claim.sessionId);
+    const ck = this.isChecklist();
     return {
+      mode: ck ? 'checklist' : 'rounds', checklist: ck ? Object.assign({}, res.checklist, { awarded: claim.itemId ? { itemId: claim.itemId, label: claim.itemLabel } : null }) : null,
       ok: true, claimId: claim.id, sessionId: claim.sessionId || null, status: claim.status, cardNo: claim.cardNo, cardLabel: formatCardNo(claim.cardNo), owner: this.ownerOf(claim.cardNo), round: claim.round,
-      roundLabel: this.info(claim.round).label, roundStatus: g.round.status,
+      roundLabel: ck ? 'RULES CHECKLIST' : this.info(claim.round).label, roundStatus: g.round.status,
       valid: res.valid, headline: res.headline, reason: res.reason,
-      alreadyWinner: claim.status === 'duplicate' || (claim.status !== 'confirmed' && g.claims.some(c => c.cardNo === claim.cardNo && c.round === claim.round && c.status === 'confirmed')),
-      otherRoundWins: g.claims.filter(c => c.cardNo === claim.cardNo && c.status === 'confirmed' && c.round !== claim.round).map(c => c.round),
+      alreadyWinner: claim.status === 'duplicate' || (!ck && claim.status !== 'confirmed' && g.claims.some(c => c.cardNo === claim.cardNo && c.round === claim.round && c.status === 'confirmed')),
+      otherRoundWins: ck ? [] : g.claims.filter(c => c.cardNo === claim.cardNo && c.status === 'confirmed' && c.round !== claim.round).map(c => c.round),
+      otherRuleWins: ck ? g.claims.filter(c => c.cardNo === claim.cardNo && c.status === 'confirmed' && c.id !== claim.id).map(c => c.itemLabel) : [],
       qualifiedAtSong: res.qualifiedAtSong, completingSong: res.completingSong || null, explanation: res.explanation,
       best: res.best ? { description: res.best.description, missing: res.best.missing, missingCells: res.best.missingCells, cells: res.best.cells } : null,
-      roundRule: this.info(claim.round).rule, playedCount: ids.length,
+      roundRule: ck ? 'Any open rule, in any order' : this.info(claim.round).rule, playedCount: ids.length,
       printed: !!card.printed, review: claim.review || null,
       grid: res.grid, winningCells: res.winningCells, lines: res.lines
     };
   }
 
-  evaluate(card, round, playedIds, snapshot) {
+  evaluate(card, round, playedIds, snapshot, sessionId) {
     const set = new Set(playedIds);
+    if (this.isChecklist()) return this.evaluateChecklist(card, set, playedIds, snapshot, sessionId);
     const res = rules.checkCard(card.cells, set, this.rr(round));
     const win = new Set(res.winningCells);
     const order = new Map(playedIds.map((id, i) => [id, i + 1]));
@@ -1002,15 +1057,66 @@ class GameEngine {
     return res;
   }
 
+  /**
+   * Checklist claim check — the SAME rule engine, given every still-open rule at once.
+   * Reports each rule the card qualifies for; the host then picks the one to award.
+   */
+  evaluateChecklist(card, set, playedIds, snapshot, sessionId) {
+    const q = this.ckQualify(card, set, sessionId);
+    const elig = q.eligible;
+    const checkSet = this.ckRuleSet(elig.length ? elig : (q.open.length ? q.open : this.ckItems()));
+    const res = rules.checkCard(card.cells, set, checkSet);
+    res.valid = elig.length > 0;
+    const lab = (it) => this.ckInfo(it).label;
+    res.checklist = {
+      qualifying: elig.map(it => ({ itemId: it.id, label: lab(it) })),
+      alreadyCompleted: q.completed.map(it => ({ itemId: it.id, label: lab(it) })),
+      alreadyWon: q.alreadyWon.map(it => ({ itemId: it.id, label: lab(it) })),
+      available: q.open.map(it => ({ itemId: it.id, label: lab(it) })),
+      onlyCompleted: !elig.length && (q.completed.length > 0 || q.alreadyWon.length > 0)
+    };
+    if (!res.valid) { res.winningCells = []; res.lines = []; }
+    const win = new Set(res.winningCells);
+    const order = new Map(playedIds.map((id, i) => [id, i + 1]));
+    const kinds = new Map((snapshot || this.game.played.map(p => ({ songId: p.songId, kind: p.kind }))).map(x => [x.songId, x.kind || 'played']));
+    res.best = res.valid || !q.open.length ? null : rules.bestProgress(card.cells, set, this.ckRuleSet(q.open));
+    const bestCells = new Set(res.best ? res.best.cells : []); const needed = new Set(res.best ? res.best.missingCells : []);
+    res.qualifiedAtSong = res.valid ? rules.qualifiedAt(card.cells, playedIds, this.ckRuleSet(elig)) : null;
+    const completingId = res.qualifiedAtSong ? playedIds[res.qualifiedAtSong - 1] : null;
+    res.grid = card.cells.map((id, i) => {
+      const s = this.song(id) || { title: '?', artist: '' };
+      const label = (this.game.cardsLocked && this.game.lockedLabels && this.game.lockedLabels[id]) || null;
+      return { songId: id, title: label ? label.title : (s.displayTitle || s.title), artist: s.artist, played: set.has(id), credit: set.has(id) && kinds.get(id) === 'credit', playedNo: order.get(id) || null, winning: win.has(i), inBest: bestCells.has(i), needed: needed.has(i), completing: id === completingId };
+    });
+    if (completingId) { const cs = this.song(completingId) || {}; res.completingSong = { n: res.qualifiedAtSong, songId: completingId, title: cs.displayTitle || cs.title, artist: cs.artist, credit: kinds.get(completingId) === 'credit' }; }
+    const cardL = 'Card #' + formatCardNo(card.no);
+    if (res.valid) {
+      res.headline = 'Valid for: ' + res.checklist.qualifying.map(x => x.label).join(', ');
+      res.reason = elig.length > 1 ? 'This card qualifies for more than one rule — choose which one to award.' : 'Confirm to award this rule.';
+      res.explanation = `${cardL} — VALID for ${res.checklist.qualifying.map(x => x.label).join(' and ')}.${elig.length > 1 ? ' Choose ONE rule to award.' : ''}`;
+    } else if (res.checklist.onlyCompleted) {
+      const names = res.checklist.alreadyCompleted.concat(res.checklist.alreadyWon).map(x => x.label);
+      res.headline = 'RULE ALREADY COMPLETED';
+      res.reason = `${names.join(', ')} ${names.length > 1 ? 'have' : 'has'} already been awarded${res.checklist.alreadyWon.length ? ' (this card already won it)' : ''}. No other open rule is complete on this card.`;
+      res.explanation = `${cardL}: ${res.reason}`;
+    } else {
+      res.headline = 'NOT A VALID BINGO';
+      res.reason = !q.open.length ? 'Every rule has already been completed.' : (res.best ? `The closest open rule is ${res.best.description}, which still needs ${res.best.missing} song${res.best.missing === 1 ? '' : 's'}.` : 'No open rule is complete on this card.');
+      res.explanation = `Not a Bingo! ${cardL} doesn't complete any open rule. ${res.reason} Open rules: ${q.open.map(lab).join(', ') || 'none'}.`;
+    }
+    return res;
+  }
+
   aConfirmClaim(args, source) {
     const g = this.game;
     const claim = g.claims.find(c => c.id === args.claimId);
     if (!claim) throw new Error('Claim not found');
     if (claim.status === 'confirmed') return { ok: true, already: true };
     if (['removed', 'dismissed', 'rejected'].includes(claim.status)) throw new Error('This claim was ' + claim.status + ' — check the card again to re-open it.');
-    if (g.claims.some(c => c.cardNo === claim.cardNo && c.round === claim.round && c.status === 'confirmed')) throw new Error(`Card ${formatCardNo(claim.cardNo)} is already a confirmed winner in this round.`);
     const session = g.claimSessions.find(s => s.id === claim.sessionId);
     if (session && session.status !== 'open') throw new Error('That claim session is closed.');
+    if (this.isChecklist()) return this.confirmChecklistClaim(claim, session, args, source);
+    if (g.claims.some(c => c.cardNo === claim.cardNo && c.round === claim.round && c.status === 'confirmed')) throw new Error(`Card ${formatCardNo(claim.cardNo)} is already a confirmed winner in this round.`);
     // Re-verify against the SAME frozen snapshot — other winners never invalidate this claim.
     const card = this.findCard(claim.cardNo);
     const res = rules.checkCard(card.cells, new Set(this.sessionPlayedIds(session)), this.rr(claim.round));
@@ -1023,6 +1129,41 @@ class GameEngine {
     this.log(`WINNER confirmed: card ${formatCardNo(claim.cardNo)}, Round ${claim.round} (${res.headline})`);
     if (this.settings.winnerAnimation) this.event('celebrate', { round: claim.round, label: this.info(claim.round).label });
     if (this.settings.tvScreens.winner) this.tvScreen('winner', claim, res);
+    this.touch('claims');
+    return this.claimView(claim);
+  }
+
+  /** Award ONE rule to a checklist claim (re-verified on the frozen snapshot). */
+  confirmChecklistClaim(claim, session, args, source) {
+    const card = this.findCard(claim.cardNo);
+    const q = this.ckQualify(card, new Set(this.sessionPlayedIds(session)), claim.sessionId);
+    let item = args.itemId ? this.ckItem(args.itemId) : null;
+    if (!item) {
+      if (q.eligible.length === 1) item = q.eligible[0];
+      else if (!q.eligible.length) throw new Error('This card does not complete any open rule for its claim snapshot.');
+      else throw new Error('This card qualifies for more than one rule — choose which rule to award.');
+    }
+    if (!q.eligible.includes(item)) {
+      if (this.ckWinners(item.id).some(c => c.cardNo === claim.cardNo)) throw new Error(`Card ${formatCardNo(claim.cardNo)} has already won ${this.ckInfo(item).label}.`);
+      if (!q.open.includes(item)) throw new Error(`RULE ALREADY COMPLETED — ${this.ckInfo(item).label} has already been awarded.`);
+      throw new Error(`Card ${formatCardNo(claim.cardNo)} does not complete ${this.ckInfo(item).label} on the frozen song list.`);
+    }
+    const label = this.ckInfo(item).label;
+    const firstForRule = !this.ckWinners(item.id).length;
+    claim.status = 'confirmed'; claim.confirmedAt = this.nowIso(); claim.confirmedBy = source || 'laptop';
+    claim.itemId = item.id; claim.itemLabel = label;
+    const res = rules.checkCard(card.cells, new Set(this.sessionPlayedIds(session)), this.ckRuleSet([item]));
+    claim.headline = `${label} — ${res.headline}`;
+    this.audit('winner-confirmed', { sessionId: claim.sessionId, claimId: claim.id, cardNo: claim.cardNo, rule: item.id, ruleLabel: label, headline: res.headline }, source);
+    this.log(`WINNER confirmed: card ${formatCardNo(claim.cardNo)} — ${label}${firstForRule ? ' (rule completed)' : ' (simultaneous winner)'}`);
+    if (this.settings.winnerAnimation) this.event('celebrate', { label });
+    this.event('ruleCompleted', { itemId: item.id, label, first: firstForRule });
+    if (this.settings.tvScreens.winner) {
+      const p = { type: 'winner', checklist: true, label, seconds: Math.max(3, Math.min(30, Number(this.settings.tvScreens.seconds) || 7)), winners: this.ckWinners(item.id).length, pattern: Array.from({ length: 25 }, (_, i) => res.winningCells.includes(i)), last: this.checklistView().allDone };
+      if (this.settings.tvScreens.showCardNumber) p.cardLabel = formatCardNo(claim.cardNo);
+      if (this.settings.tvScreens.showName !== false) { const n = this.ownerOf(claim.cardNo); if (n) p.names = [n]; }
+      this.event('tvScreen', p);
+    }
     this.touch('claims');
     return this.claimView(claim);
   }
@@ -1049,10 +1190,14 @@ class GameEngine {
     const t = this.settings.tvScreens;
     const session = this.game.claimSessions.find(s => s.id === claim.sessionId);
     const winnersInSession = session ? session.claimIds.map(id => this.game.claims.find(c => c.id === id)).filter(c => c && c.status === 'confirmed').length : 1;
-    const payload = { type, round: claim.round, last: claim.round >= this.roundCount(), label: this.info(claim.round).label, seconds: Math.max(3, Math.min(30, Number(t.seconds) || 7)), winners: winnersInSession };
+    const ck = this.isChecklist();
+    const payload = ck ? { type, checklist: true, last: this.checklistView().allDone, label: claim.itemLabel || 'BINGO', seconds: Math.max(3, Math.min(30, Number(t.seconds) || 7)), winners: claim.itemId ? this.ckWinners(claim.itemId).length : 1 }
+      : { type, round: claim.round, last: claim.round >= this.roundCount(), label: this.info(claim.round).label, seconds: Math.max(3, Math.min(30, Number(t.seconds) || 7)), winners: winnersInSession };
+    if (ck && type === 'wrong') payload.label = 'NOT A VALID BINGO';
     if (t.showCardNumber) payload.cardLabel = formatCardNo(claim.cardNo);
     // winner names (phone players / named cards) — never on the "Not a Bingo" screen
-    if (type === 'winner' && t.showName !== false && session) {
+    if (type === 'winner' && t.showName !== false && ck) { const n = this.ownerOf(claim.cardNo); if (n) payload.names = [n]; }
+    else if (type === 'winner' && t.showName !== false && session) {
       const names = session.claimIds.map(id => this.game.claims.find(c => c.id === id)).filter(c => c && c.status === 'confirmed').map(c => this.ownerOf(c.cardNo)).filter(Boolean);
       if (names.length) payload.names = names;
     } else if (type === 'winner' && t.showName !== false) { const n = this.ownerOf(claim.cardNo); if (n) payload.names = [n]; }
@@ -1066,7 +1211,8 @@ class GameEngine {
     const type = args.type === 'wrong' ? 'wrong' : 'winner';
     if (type === 'winner' && claim.status !== 'confirmed') throw new Error('Only a confirmed winner can be shown as a winner.');
     if (type === 'wrong' && claim.valid) throw new Error('This claim is valid.');
-    const res = type === 'winner' ? rules.checkCard(this.findCard(claim.cardNo).cells, new Set(this.sessionPlayedIds(this.game.claimSessions.find(s => s.id === claim.sessionId))), this.rr(claim.round)) : null;
+    const item = claim.itemId ? this.ckItem(claim.itemId) : null;
+    const res = type === 'winner' ? rules.checkCard(this.findCard(claim.cardNo).cells, new Set(this.sessionPlayedIds(this.game.claimSessions.find(s => s.id === claim.sessionId))), item ? this.ckRuleSet([item]) : this.rr(claim.round)) : null;
     this.tvScreen(type, claim, res);
     return { ok: true };
   }
@@ -1135,8 +1281,16 @@ class GameEngine {
         resumed = true;
       } catch (e) { /* nothing to resume */ }
     } else if (s.resumeTo === 'between' && pb.status === 'idle') { /* stays idle until host plays */ }
+    let next = null;
+    if (this.isChecklist()) {
+      const won = s.claimIds.some(id => { const c = g.claims.find(x => x.id === id); return c && c.status === 'confirmed'; });
+      const cv = this.checklistView();
+      if (won && cv.allDone && !g.checklistClosed && g.status !== 'finished') { next = { ask: true, checklistDone: true, total: cv.total }; this.event('checklistDone', next); }
+      this.touch('claims');
+      return { ok: true, resumed, sessionId: s.id, next };
+    }
     // The round now has a winner and the host has finished checking claims → what's next?
-    const r = g.round; let next = null;
+    const r = g.round;
     const winners = g.claims.filter(c => c.status === 'confirmed' && c.round === r.number).length;
     const newWin = s.claimIds.some(id => { const c = g.claims.find(x => x.id === id); return c && c.status === 'confirmed' && c.round === r.number; });
     if (newWin && winners && ['active', 'ended'].includes(r.status) && g.status !== 'finished') {
@@ -1156,9 +1310,29 @@ class GameEngine {
     const claim = this.game.claims.find(c => c.id === args.claimId);
     if (!claim || claim.status !== 'confirmed') throw new Error('That claim is not a confirmed winner.');
     claim.status = 'revoked';
-    claim.revokedAt = this.nowIso();
-    this.audit('winner-revoked', { claimId: claim.id, cardNo: claim.cardNo, round: claim.round }, source);
-    this.log(`Winner REVOKED: card ${formatCardNo(claim.cardNo)}, Round ${claim.round}`);
+    claim.revokedAt = this.nowIso(); if (args.reason) claim.revokeReason = String(args.reason).slice(0, 200);
+    if (claim.itemId && this.game.checklistClosed && !this.checklistView().allDone) this.game.checklistClosed = false; // a rule is open again
+    this.audit('winner-revoked', { claimId: claim.id, cardNo: claim.cardNo, round: claim.round, rule: claim.itemId || null, ruleLabel: claim.itemLabel || null, reason: args.reason || null }, source);
+    this.log(`Winner REVOKED: card ${formatCardNo(claim.cardNo)}, ${claim.itemLabel ? claim.itemLabel : 'Round ' + claim.round}`);
+    this.touch('claims');
+    return { ok: true };
+  }
+
+  /** Checklist correction: move a confirmed award to another rule the card really completed (same frozen snapshot). */
+  aChangeAward(args, source) {
+    if (!this.isChecklist()) throw new Error('Only a Rules Checklist game awards rules.');
+    const g = this.game; const claim = g.claims.find(c => c.id === args.claimId);
+    if (!claim || claim.status !== 'confirmed') throw new Error('That claim is not a confirmed winner.');
+    const item = this.ckItem(args.itemId); if (!item) throw new Error('Unknown rule.');
+    if (item.id === claim.itemId) return { ok: true, unchanged: true };
+    const session = g.claimSessions.find(x => x.id === claim.sessionId);
+    const q = this.ckQualify(this.findCard(claim.cardNo), new Set(this.sessionPlayedIds(session)), claim.sessionId);
+    if (!q.eligible.includes(item)) throw new Error(q.open.includes(item) ? `Card ${formatCardNo(claim.cardNo)} did not complete ${this.ckInfo(item).label} when it was checked.` : `RULE ALREADY COMPLETED — ${this.ckInfo(item).label} has already been awarded.`);
+    const from = claim.itemLabel; claim.itemId = item.id; claim.itemLabel = this.ckInfo(item).label;
+    claim.headline = `${claim.itemLabel} — corrected`;
+    if (g.checklistClosed && !this.checklistView().allDone) g.checklistClosed = false;
+    this.audit('winner-corrected', { claimId: claim.id, cardNo: claim.cardNo, from, to: claim.itemLabel, reason: args.reason || null }, source);
+    this.log(`Award corrected: card ${formatCardNo(claim.cardNo)} — ${from} → ${claim.itemLabel}`);
     this.touch('claims');
     return { ok: true };
   }
@@ -1182,7 +1356,7 @@ class GameEngine {
     if (g.status === 'finished') throw new Error('The game has ended.');
     if (!r.number) throw new Error('Start Round 1 first.');
     if (this.activeSession()) throw new Error('Close the open claim session first.');
-    if (['active', 'ended'].includes(r.status)) {
+    if (['active', 'ended'].includes(r.status) && !this.isChecklist()) {
       if (r.number >= this.roundCount()) throw new Error('This is the last round — complete the game instead.');
       this.aCompleteRound({ fromRound: r.number }, source);
     }
@@ -1204,9 +1378,36 @@ class GameEngine {
     return { ok: true };
   }
 
+  /** Round-Based or Rules Checklist — chosen before the game starts. */
+  aSetGameMode(args, source) {
+    const m = args.mode === 'checklist' ? 'checklist' : 'rounds';
+    if (this.game.round.number > 0 || this.game.claims.length) throw new Error('The game has started — the game mode can no longer be changed.');
+    this.settings.mode = m;
+    if (args.checklist) this.settings.checklist = normaliseChecklist(args.checklist);
+    if (m === 'checklist' && !this.settings.checklist.length) this.settings.checklist = normaliseChecklist(DEFAULT_CHECKLIST);
+    this._ck = {}; this.audit('game-mode', { mode: m }, source); this.touch('state', true);
+    return { ok: true, mode: m };
+  }
+  /** Choose / reorder the checklist rules (before the game starts). Display order never decides who can win first. */
+  aSetChecklist(args, source) {
+    if (this.game.round.number > 0 || this.game.claims.length) throw new Error('The game has started — the checklist is locked. (Use “Correct an award” to fix a mistake.)');
+    const list = normaliseChecklist(args.items);
+    if (!list.length) throw new Error('Choose at least one winning rule.');
+    this.settings.checklist = list; this._ck = {};
+    this.audit('checklist-set', { rules: list.map(i => i.rule.id) }, source); this.touch('state', true);
+    return { ok: true, checklist: this.checklistView() };
+  }
+  /** All rules completed → "continue music without further Bingo claims" (or reopen). */
+  aCloseChecklist(args, source) {
+    this.game.checklistClosed = args.closed !== false;
+    this.audit(this.game.checklistClosed ? 'claims-closed' : 'claims-reopened', {}, source); this.touch('state', true);
+    return { ok: true, closed: this.game.checklistClosed };
+  }
+
   /** The host decides how many rounds the game has (1–10). Rounds already started stay. */
   aSetRoundCount(args, source) {
     const g = this.game;
+    if (this.isChecklist()) throw new Error('A Rules Checklist game has no rounds — edit the checklist instead.');
     const cnt = Number(args.count);
     if (!Number.isInteger(cnt) || cnt < 1 || cnt > MAX_ROUNDS) throw new Error(`Choose between 1 and ${MAX_ROUNDS} rounds.`);
     if (g.status === 'finished') throw new Error('This game has ended.');
@@ -1315,17 +1516,18 @@ class GameEngine {
     if (!r.number || !['active', 'ended'].includes(r.status) || g.status === 'finished') {
       return { result: 'no-round', message: r.number ? 'This round is over — wait for the next one.' : 'The game hasn\'t started yet.' };
     }
-    if (g.claims.some(c => c.cardNo === card.no && c.round === r.number && c.status === 'confirmed')) return { result: 'already', round: r.number };
+    if (this.isChecklist() && g.checklistClosed) return { result: 'no-round', message: 'All rules have been won — thanks for playing!' };
+    if (!this.isChecklist() && g.claims.some(c => c.cardNo === card.no && c.round === r.number && c.status === 'confirmed')) return { result: 'already', round: r.number };
     const open = this.activeSession();
     if (open && g.claims.some(c => c.sessionId === open.id && c.cardNo === card.no && c.status !== 'removed')) return { result: 'checking', round: r.number };
-    const res = rules.checkCard(card.cells, this.playedSet(), this.rr(r.number));
+    const res = this.isChecklist() ? { valid: this.ckQualify(card, this.playedSet(), open && open.id).eligible.length > 0 } : rules.checkCard(card.cells, this.playedSet(), this.rr(r.number));
     pl.calls = (pl.calls || 0) + 1;
     if (!res.valid) {
       this.audit('player-bingo-early', { playerId: pl.id, name: pl.name, cardNo: card.no, round: r.number }, source);
       this.log(`📱 ${pl.name} (card ${formatCardNo(card.no)}) pressed BINGO — not a bingo yet`);
       this.event('playerBingo', { name: pl.name, cardNo: card.no, cardLabel: formatCardNo(card.no), valid: false, round: r.number });
       this.touch('players', false);
-      return { result: 'not-yet', round: r.number, label: this.info(r.number).label };
+      return { result: 'not-yet', round: r.number, label: this.isChecklist() ? 'any open rule' : this.info(r.number).label };
     }
     const view = this.aAddClaim({ cardNo: card.no }, source || ('player:' + pl.name));
     this.event('playerBingo', { name: pl.name, cardNo: card.no, cardLabel: formatCardNo(card.no), valid: true, round: r.number, claimId: view.claimId });
@@ -1344,7 +1546,11 @@ class GameEngine {
     // "one away": how many more of the songs actually played this player needs for the
     // current round (songs only count once their clip has finished, so no title is spoiled)
     let away = null;
-    if (r.number && ['active', 'ended'].includes(r.status) && g.status !== 'finished' && !mine.some(c => c.status === 'confirmed' && c.round === r.number)) {
+    const ck = this.isChecklist();
+    if (ck) {
+      const open = this.ckOpenFor(card.no);
+      if (r.number && r.status === 'active' && g.status !== 'finished' && !g.checklistClosed && open.length) { const b = rules.bestProgress(card.cells, this.playedSet(), this.ckRuleSet(open)); away = b ? b.missing : null; }
+    } else if (r.number && ['active', 'ended'].includes(r.status) && g.status !== 'finished' && !mine.some(c => c.status === 'confirmed' && c.round === r.number)) {
       const b = rules.bestProgress(card.cells, this.playedSet(), this.rr(r.number)); away = b ? b.missing : null;
     }
     return {
@@ -1353,15 +1559,18 @@ class GameEngine {
       played: g.played.map((p, i) => { const l = (g.lockedLabels && g.lockedLabels[p.songId]) || {}; const x = this.song(p.songId) || {}; return { n: i + 1, t: l.title || x.displayTitle || x.title, a: l.artist || x.artist, credit: p.kind === 'credit' }; }),
       me: { id: pl.id, name: pl.name, cardNo: pl.cardNo, cardLabel: formatCardNo(pl.cardNo) },
       cells,
-      round: { number: r.number, status: r.status, label: r.number ? this.info(r.number).label : null, rule: r.number ? this.info(r.number).rule : null, example: r.number ? this.info(r.number).examples[0] : null },
-      wins: mine.filter(c => c.status === 'confirmed').map(c => c.round),
+      mode: ck ? 'checklist' : 'rounds',
+      round: ck ? { number: r.number, status: r.status, label: 'WINNING RULES', rule: 'Win any open rule, in any order.', example: null }
+        : { number: r.number, status: r.status, label: r.number ? this.info(r.number).label : null, rule: r.number ? this.info(r.number).rule : null, example: r.number ? this.info(r.number).examples[0] : null },
+      checklist: ck ? this.ckItems().map(it => ({ id: it.id, label: this.ckInfo(it).label, short: this.ckInfo(it).short, example: this.ckInfo(it).examples[0], done: this.ckWinners(it.id).length > 0, mine: this.ckWinners(it.id).some(c => c.cardNo === card.no) })) : null,
+      wins: mine.filter(c => c.status === 'confirmed').map(c => ck ? c.itemLabel : c.round),
       last: last ? { id: last.id, round: last.round, status: last.status } : null
     };
   }
 
   playersView() {
     return this.game.players.filter(p => !p.removed).map(p => ({ id: p.id, name: p.name, cardNo: p.cardNo, cardLabel: formatCardNo(p.cardNo), joinedAt: p.joinedAt, calls: p.calls || 0,
-      wins: this.game.claims.filter(c => c.cardNo === p.cardNo && c.status === 'confirmed').map(c => c.round) }));
+      wins: this.game.claims.filter(c => c.cardNo === p.cardNo && c.status === 'confirmed').map(c => c.itemLabel || c.round) }));
   }
 
   /**
@@ -1371,7 +1580,26 @@ class GameEngine {
   oneAwayCount() {
     const g = this.game; const r = g.round;
     if (!r.number || r.status !== 'active' || g.status === 'finished') return 0;
+    // only recalculated when a song is played, a winner changes or cards are issued (not on every update)
+    const key = [r.number, g.played.length, g.cards.length, g.cards.filter(c => c.printed).length, g.checklistClosed ? 1 : 0, g.claims.filter(c => c.status === 'confirmed').map(c => c.id + (c.itemId || '')).join(',')].join('|');
+    if (this._oaKey === key) return this._oaVal;
+    this._oaKey = key; this._oaVal = this.oneAwayCountNow();
+    return this._oaVal;
+  }
+  oneAwayCountNow() {
+    const g = this.game; const r = g.round;
     const played = this.playedSet();
+    if (this.isChecklist()) {
+      if (g.checklistClosed) return 0;
+      let k = 0;
+      for (const c of g.cards) {
+        if (!c.printed) continue;
+        const open = this.ckOpenFor(c.no); if (!open.length) continue;
+        const b = rules.bestProgress(c.cells, played, this.ckRuleSet(open));
+        if (b && b.missing === 1) k++;
+      }
+      return k;
+    }
     const won = new Set(g.claims.filter(c => c.status === 'confirmed' && c.round === r.number).map(c => c.cardNo));
     let n = 0;
     for (const c of g.cards) {
@@ -1385,14 +1613,14 @@ class GameEngine {
   ownerOf(no) { const c = this.findCard(no); return (c && c.owner) || null; }
 
   winners() {
-    return this.game.claims.filter(c => c.status === 'confirmed').map(c => ({ claimId: c.id, cardNo: c.cardNo, cardLabel: formatCardNo(c.cardNo), owner: this.ownerOf(c.cardNo), round: c.round, headline: c.headline, at: c.confirmedAt, review: c.review || null }));
+    return this.game.claims.filter(c => c.status === 'confirmed').map(c => ({ claimId: c.id, cardNo: c.cardNo, cardLabel: formatCardNo(c.cardNo), owner: this.ownerOf(c.cardNo), round: c.round, rule: c.itemLabel || null, itemId: c.itemId || null, headline: c.headline, at: c.confirmedAt, review: c.review || null }));
   }
 
   sessionView() {
     const s = this.activeSession();
     if (!s) return null;
     return {
-      id: s.id, openedAt: s.openedAt, openedBy: s.openedBy, round: s.round, roundLabel: this.info(s.round).label, snapshotCount: s.snapshot.length,
+      id: s.id, openedAt: s.openedAt, openedBy: s.openedBy, round: s.round, roundLabel: this.isChecklist() ? 'Rules checklist' : this.info(s.round).label, snapshotCount: s.snapshot.length,
       position: s.playback.position,
       claims: s.claimIds.map(id => this.game.claims.find(c => c.id === id)).filter(c => c && c.status !== 'removed')
         .map(c => ({ claimId: c.id, cardNo: c.cardNo, cardLabel: formatCardNo(c.cardNo), owner: this.ownerOf(c.cardNo), status: c.status, valid: c.valid, headline: c.headline }))
@@ -1420,8 +1648,10 @@ class GameEngine {
       song: s ? { title: s.displayTitle || s.title, artist: s.artist, key: `${pb.index}:${this.loadToken}` } : null,
       playbackStatus: pb.status,
       round: { number: g.round.number, status: g.round.status, label: this.info(g.round.number || 1).label, short: this.info(g.round.number || 1).short, examples: this.info(g.round.number || 1).examples },
-      rounds: this.roundNumbers().map(n => ({ n, label: this.info(n).label, example: this.info(n).examples[0] })),
-      diagonalsCount: this.roundNumbers().some(n => this.info(n).diagonalsCount),
+      mode: this.isChecklist() ? 'checklist' : 'rounds',
+      rounds: this.isChecklist() ? [] : this.roundNumbers().map(n => ({ n, label: this.info(n).label, example: this.info(n).examples[0] })),
+      checklist: this.isChecklist() ? (() => { const v = this.checklistView(); return { total: v.total, completed: v.completed, allDone: v.allDone, items: v.items.map(i => ({ id: i.id, label: i.label, short: i.short, example: i.example, done: i.status === 'completed' })) }; })() : null,
+      diagonalsCount: this.isChecklist() ? this.ckItems().some(i => i.rule.id === 'diagonal') : this.roundNumbers().some(n => this.info(n).diagonalsCount),
       history: g.played.map((p, i) => { const x = this.song(p.songId) || {}; return { n: i + 1, title: x.displayTitle || x.title, artist: x.artist, credit: p.kind === 'credit', round: p.round || 0 }; }),
       overlay: this.settings.overlay,
       crawler: this.settings.crawler,
@@ -1436,6 +1666,7 @@ class GameEngine {
     const g = this.game; const sc = this.settings.screens;
     if (g.intermission && g.status !== 'finished') {
       const n = g.round.number || 1;
+      if (this.isChecklist()) { const v = this.checklistView(); const o = v.items.filter(i => i.status !== 'completed'); return { mode: 'intermission', checklist: true, until: g.intermission.until, message: g.intermission.message || '', name: g.name, next: { n: 0, label: o.length ? `${o.length} RULE${o.length > 1 ? 'S' : ''} STILL TO WIN` : 'ALL RULES WON', example: o.length ? o[0].example : null } }; }
       return { mode: 'intermission', until: g.intermission.until, message: g.intermission.message || '', name: g.name, next: { n, label: this.info(n).label, example: this.info(n).examples[0] } };
     }
     if (g.round.number === 0 && g.status !== 'finished' && sc.welcome) {
@@ -1445,7 +1676,9 @@ class GameEngine {
       const won = g.claims.filter(c => c.status === 'confirmed');
       const byRound = { 1: 0, 2: 0, 3: 0 }; won.forEach(c => { byRound[c.round] = (byRound[c.round] || 0) + 1; });
       // counts only — never card numbers or claim details
-      return { mode: 'end', name: g.name, venue: g.venue || '', date: g.date || '', winners: won.length, winnersByRound: byRound, rounds: g.round.number, songs: g.played.length };
+      const end = { mode: 'end', name: g.name, venue: g.venue || '', date: g.date || '', winners: won.length, winnersByRound: byRound, rounds: g.round.number, songs: g.played.length };
+      if (this.isChecklist()) { const v = this.checklistView(); end.checklist = true; end.byRule = v.items.map(i => ({ label: i.label, winners: i.winners.length })); end.rulesWon = v.completed; end.rulesTotal = v.total; }
+      return end;
     }
     return { mode: 'none' };
   }
@@ -1465,21 +1698,27 @@ class GameEngine {
       current: this.currentView(),
       next: next ? { title: next.displayTitle || next.title, artist: next.artist, number: nextIdx + 1 } : null, // (compat)
       totals: { songs: total, played: g.played.filter(p => p.kind !== 'credit').length, credited: g.played.filter(p => p.kind === 'credit').length, eligible: g.played.length, remaining, skipped: g.skipped.length, cards: g.cards.length, printed: g.cards.filter(c => c.printed).length },
+      mode: this.isChecklist() ? 'checklist' : 'rounds',
+      checklist: this.isChecklist() ? Object.assign(this.checklistView(), { playlistDone: remaining === 0 || pb.status === 'finished' }) : null,
+      checklistRules: this.ckItems().map(it => ({ id: it.id, rule: it.rule, label: this.ckInfo(it).label, example: this.ckInfo(it).examples[0] })),
       roundRules: this.roundRulesView(), roundCount: this.roundCount(), intermission: g.intermission,
-      round: { number: g.round.number, status: g.round.status, label: g.round.number ? this.info(g.round.number).label : null, rule: g.round.number ? this.info(g.round.number).rule : null, short: g.round.number ? this.info(g.round.number).short : null,
+      round: this.isChecklist() ? { number: g.round.number, status: g.round.status, label: 'RULES CHECKLIST', rule: 'Every selected rule is open from the start — win them in any order.', short: 'Any open rule',
+        winners: g.claims.filter(c => c.status === 'confirmed').length, canComplete: false, preQualified: [] } :
+      { number: g.round.number, status: g.round.status, label: g.round.number ? this.info(g.round.number).label : null, rule: g.round.number ? this.info(g.round.number).rule : null, short: g.round.number ? this.info(g.round.number).short : null,
         winners: g.claims.filter(c => c.status === 'confirmed' && c.round === g.round.number).length,
-        canComplete: ['active', 'ended'].includes(g.round.status) && g.status !== 'finished',
+        canComplete: !this.isChecklist() && ['active', 'ended'].includes(g.round.status) && g.status !== 'finished',
         preQualified: (g.rounds[g.round.number] && g.rounds[g.round.number].preQualified) || [] },
       upNext: this.upNextView(),
       history: this.historyView(),
       winners: this.winners(),
       session: this.sessionView(),
       players: this.playersView(), playersOpen: g.playersOpen !== false,
-      claims: g.claims.filter(c => c.status !== 'removed').slice(-30).reverse().map(c => ({ id: c.id, sessionId: c.sessionId || null, cardNo: c.cardNo, cardLabel: formatCardNo(c.cardNo), owner: this.ownerOf(c.cardNo), round: c.round, status: c.status, valid: c.valid, headline: c.headline, at: c.at, source: c.source })),
+      claims: g.claims.filter(c => c.status !== 'removed').slice(-30).reverse().map(c => ({ id: c.id, sessionId: c.sessionId || null, cardNo: c.cardNo, cardLabel: formatCardNo(c.cardNo), owner: this.ownerOf(c.cardNo), round: c.round, rule: c.itemLabel || null, status: c.status, valid: c.valid, headline: c.headline, at: c.at, source: c.source, revokeReason: c.revokeReason || null })),
+      audit: this.isChecklist() ? (g.audit || []).filter(a => /^(winner-|claims-|checklist-|game-mode)/.test(a.type || a.action || '')).slice(-40).reverse() : undefined,
       credits: g.credits.map(c => ({ id: c.id, songId: c.songId, title: c.title, artist: c.artist, reason: c.reason, at: c.at, status: c.status })),
       unavailable: Object.keys(this.unavailable).filter(id => this.song(id) && !played.has(id)).map(id => ({ songId: id, title: this.song(id).title, artist: this.song(id).artist, reason: this.unavailable[id] })),
       creditReasons: CREDIT_REASONS,
-      settings: { afterWinner: this.settings.afterWinner, intermissionMinutes: this.settings.intermissionMinutes, clipMode: this.settings.clipMode, volume: this.settings.volume, autoAdvance: this.settings.autoAdvance, autoAdvanceGap: this.settings.autoAdvanceGap, pauseOnClaim: this.settings.pauseOnClaim, crawler: this.settings.crawler, overlay: this.settings.overlay, audio: this.settings.audio, patternPosition: this.settings.patternPosition, winnerAnimation: this.settings.winnerAnimation, tvScreens: this.settings.tvScreens, screens: this.settings.screens, defaultStart: this.settings.defaultStart },
+      settings: { mode: this.settings.mode, afterWinner: this.settings.afterWinner, intermissionMinutes: this.settings.intermissionMinutes, clipMode: this.settings.clipMode, volume: this.settings.volume, autoAdvance: this.settings.autoAdvance, autoAdvanceGap: this.settings.autoAdvanceGap, pauseOnClaim: this.settings.pauseOnClaim, crawler: this.settings.crawler, overlay: this.settings.overlay, audio: this.settings.audio, patternPosition: this.settings.patternPosition, winnerAnimation: this.settings.winnerAnimation, tvScreens: this.settings.tvScreens, screens: this.settings.screens, defaultStart: this.settings.defaultStart },
       audienceConnected: this.audienceConnected,
       lastError: this.lastError
     };
@@ -1514,4 +1753,4 @@ function createGame({ name, date, venue, logo, songs, playlistId, playlistName, 
   return GameEngine.normalise(game);
 }
 
-module.exports = { GameEngine, createGame, defaultGameSettings, defaultAudio, CLIP_MODES, CREDIT_REASONS };
+module.exports = { GameEngine, createGame, defaultGameSettings, defaultAudio, normaliseChecklist, DEFAULT_CHECKLIST, CLIP_MODES, CREDIT_REASONS };

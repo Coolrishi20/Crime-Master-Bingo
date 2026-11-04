@@ -77,12 +77,21 @@
     });
     c.appendChild(grid);
     var foot = el('div', 'foot');
-    var legend = el('div', 'legend' + (job.rounds.length > 3 ? ' many' : ''));
-    legend.appendChild(el('div', 'lg-title', 'WINNING PATTERNS'));
+    var CKP = job.mode === 'checklist' && job.checklist && job.checklist.length;
+    var LG = CKP ? job.checklist : job.rounds;
+    var legend = el('div', 'legend' + (LG.length > 3 ? ' many' : ''));
+    legend.appendChild(el('div', 'lg-title', CKP ? 'WINNING RULES · ANY ORDER' : 'WINNING PATTERNS'));
     var names = { 1: 'One Line', 2: 'Two Parallel Lines', 3: 'Full House' };
     var sub = { 1: 'any row or column', 2: '2 rows or 2 columns', 3: 'all 25 songs' };
     var std = { 1: 'ONE LINE', 2: 'TWO PARALLEL LINES', 3: 'FULL HOUSE' };
-    job.rounds.forEach(function (r) {
+    if (CKP) job.checklist.forEach(function (r) {
+      var b = el('div', 'lg-round');
+      b.innerHTML = patternSvg(r.pattern) + '<div><b></b><span></span></div>';
+      b.querySelector('b').textContent = r.label.charAt(0) + r.label.slice(1).toLowerCase();
+      b.querySelector('span').textContent = r.short || '';
+      legend.appendChild(b);
+    });
+    else job.rounds.forEach(function (r) {
       var b = el('div', 'lg-round');
       var custom = r.label && r.label !== std[r.n];
       var title = custom ? r.label.charAt(0) + r.label.slice(1).toLowerCase() : names[r.n];
@@ -91,10 +100,10 @@
       b.querySelector('span').textContent = custom ? (r.short || '') : sub[r.n];
       legend.appendChild(b);
     });
-    if (!job.rounds.some(function (r) { return r.diagonals; })) legend.appendChild(el('div', 'lg-nodiag', 'No diagonal lines.'));
+    if (!LG.some(function (r) { return r.diagonals; })) legend.appendChild(el('div', 'lg-nodiag', 'No diagonal lines.'));
     foot.appendChild(legend);
     var small = el('div', 'small');
-    small.appendChild(el('div', null, 'Same card for all ' + job.rounds.length + ' round' + (job.rounds.length === 1 ? '' : 's') + ' · songs stay marked · shout BINGO! and show this card'));
+    small.appendChild(el('div', null, CKP ? 'No rounds · win any rule in any order · one card can win several rules · shout BINGO! and show this card' : 'Same card for all ' + job.rounds.length + ' round' + (job.rounds.length === 1 ? '' : 's') + ' · songs stay marked · shout BINGO! and show this card'));
     var right = el('div'); right.innerHTML = 'Card <b>' + pad(card.no) + '</b> · Batch ' + (card.batch || 1) + ' · Game ' + job.game.id;
     small.appendChild(right);
     foot.appendChild(small);

@@ -98,3 +98,14 @@ body { min-height: 100vh; min-height: 100dvh; user-select: none; -webkit-user-se
 .pl-row.new { background: rgba(255,79,162,.1); border-radius: 8px; }
 #awake { position: fixed; width: 1px; height: 1px; opacity: 0; pointer-events: none; left: 0; top: 0; }
 @media (max-width: 360px) { .pbtn { padding: 5px 9px; font-size: 12px; } .tools .tiny { display: none; } }
+/* Rules Checklist Mode */
+.round.ck { flex-direction: column; align-items: stretch; gap: 8px; }
+.ckrs { display: flex; flex-wrap: wrap; gap: 6px; }
+.ckr { display: flex; align-items: center; gap: 6px; padding: 4px 8px 4px 4px; border-radius: 10px; background: var(--deep, #150d2c); border: 1px solid var(--border); }
+.round .ckr .pg { width: 26px; }
+.round .ckr span { font-family: inherit; font-size: 12px; font-weight: 800; letter-spacing: .03em; }
+.round .ckr b { display: inline; font-size: 13px; color: var(--green); letter-spacing: 0; }
+.ckr.done { opacity: .55; }
+.ckr.done span { text-decoration: line-through; }
+.round .ckr.done .pg i.on { background: var(--green); }
+.ckr.mine { opacity: 1; border-color: var(--green); background: rgba(53,214,143,.14); }

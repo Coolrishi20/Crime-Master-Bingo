@@ -1,3 +1,33 @@
+## Crime Master Bingo 1.6.0 (release candidate 1) — Rules Checklist Mode
+
+**This is a release candidate**, published as a GitHub pre-release. It includes everything
+from 1.5.0-rc.1. The real-hardware checks listed in *docs/PERFORMANCE.md* are still
+outstanding.
+
+### New: Rules Checklist Bingo (a second game mode)
+- When creating a game, choose **Round-Based Bingo** (unchanged) or **Rules Checklist Bingo**.
+- In the checklist mode there are no rounds. The host picks the winning rules (Fast 5, One
+  Line, Two Lines, Diagonal, L Shape, T Shape, Full House and custom patterns), orders them,
+  and can save them as presets. Every rule is open from the start and can be won in any
+  order.
+- Claims are checked by the same rule engine as before, against every open rule. When a card
+  qualifies for several rules, the host chooses which one to award, so one claim completes
+  one rule. Other results: **RULE ALREADY COMPLETED** and **NOT A VALID BINGO** (with the
+  squares still needed and the open rules).
+- Claim Freeze: several cards in one frozen session can win the same rule. Later sessions
+  can't. The same card can't be entered twice in a session.
+- Host Game, the phone remote, player phones and the TV all show the checklist. The TV gets a
+  compact checklist with mini patterns, ticks and a short highlight (an outline only in Low
+  Resource Mode). No round numbers are shown. Confirming a win never reloads the video,
+  reshuffles or changes rounds.
+- **Correct an award** (change the rule or undo the award) asks for confirmation and is kept
+  in an audit log.
+- All rules won → Finish game / View winners / Continue music without more claims. If the
+  playlist ends first, the rules that weren't won are listed.
+- Printed cards are unchanged. The legend lists the rules as “WINNING RULES · ANY ORDER”.
+- The mode and checklist progress are saved and restored after a crash. Older saved games
+  open as Round-Based games.
+
 ## Crime Master Bingo 1.5.0 (release candidate 1) — Faster on low-end laptops, custom rounds & patterns
 
 **This is a release candidate.** It's published as a GitHub *pre-release*, so installed copies

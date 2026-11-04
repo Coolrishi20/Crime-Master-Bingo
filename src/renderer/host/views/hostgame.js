@@ -47,7 +47,7 @@ App.register('host', {
             <div class="statusline" id="hgStatus"></div>
           </div>
           <div class="panel" style="margin-bottom:16px">
-            <h2>Rounds <span class="row" style="gap:8px"><button class="btn sm" id="rRules" title="Winning rules for each round">🎯 Rules…</button><button class="btn sm" id="rComplete">Complete round…</button><button class="btn sm" id="rPause">Pause game</button><button class="btn sm danger" id="rEndGame">End game</button></span></h2>
+            <h2><span id="rTitle">Rounds</span> <span class="row" style="gap:8px"><button class="btn sm" id="rRules" title="Winning rules for each round">🎯 Rules…</button><button class="btn sm" id="rComplete">Complete round…</button><button class="btn sm" id="rPause">Pause game</button><button class="btn sm danger" id="rEndGame">End game</button></span></h2>
             <div id="rStatus"></div>
             <div class="round-btns" id="rBtns"></div>
             <div class="muted small" id="rRule" style="margin-top:10px"></div>
@@ -93,7 +93,7 @@ App.register('host', {
     $('#hgProg', el).onclick = (e) => { const p = g().playback; const dur = (g().current && g().current.duration) || 0; if (!dur) return; const r = e.currentTarget.getBoundingClientRect(); App.cmd('seek', { position: dur * (e.clientX - r.left) / r.width }); };
     $('#hgAud', el).onclick = () => { if (g().audienceConnected) api('audience:fullscreen'); else api('audience:open'); };
     $('#rComplete', el).onclick = () => App.completeRound();
-    $('#rRules', el).onclick = () => this.editRules();
+    $('#rRules', el).onclick = () => (App.game.mode === 'checklist' ? this.editChecklist() : this.editRules());
     $('#rPause', el).onclick = () => App.cmd(g().gamePaused ? 'resumeGame' : 'pauseGame');
     $('#rEndGame', el).onclick = async () => { if (await confirmBox('End the game?', 'Playback stops and the game is saved as finished. All cards, songs played and winners are kept in Game History.', 'End game', true)) App.cmd('endGame'); };
     $$('#hgTabs button', el).forEach(b => b.onclick = () => { this.tab = b.dataset.t; this.drawTab(); });
@@ -111,7 +111,7 @@ App.register('host', {
     const g = App.game; const el = this.el; if (!g || !$('#hgName', el)) return;
     const pb = g.playback; const cur = g.current;
     $('#hgName', el).textContent = g.name;
-    $('#hgRound', el).textContent = g.round.number ? `ROUND ${g.round.number} · ${g.round.label}${g.round.status === 'ended' ? ' · ENDED' : ''}` : 'NOT STARTED';
+    $('#hgRound', el).textContent = g.mode === 'checklist' ? `RULES CHECKLIST · ${g.checklist.completed} OF ${g.checklist.total} WON${g.round.number ? '' : ' · NOT STARTED'}` : g.round.number ? `ROUND-BASED · ROUND ${g.round.number} · ${g.round.label}${g.round.status === 'ended' ? ' · ENDED' : ''}` : 'ROUND-BASED · NOT STARTED';
     $('#hgRound', el).className = 'chip' + (g.round.status === 'active' ? '' : ' dim');
     $('#hgCount', el).innerHTML = `SONG ${g.totals.played}<small> / ${g.totals.songs} played</small>`;
     $('#hgAud', el).textContent = g.audienceConnected ? '⛶ TV fullscreen (F)' : '📺 Open audience window';
@@ -119,7 +119,7 @@ App.register('host', {
     $('#hgRecover', el).innerHTML = pb.recovered && pb.index >= 0 ? `<div class="banner"><div class="grow"><h3>Game restored</h3><div class="muted">Everything was saved. Song ${pb.index + 1} is ready to resume from ${fmtTime(pb.position)}. Press Play when you're ready.</div></div></div>` : (g.status === 'finished' ? `<div class="banner"><div class="grow"><h3>This game has ended</h3><div class="muted">Results are saved in Game History.</div></div><button class="btn" id="hgReopen">Re-open game</button></div>` : '');
     if ($('#hgReopen', el)) $('#hgReopen', el).onclick = () => App.cmd('reopenGame');
     const playing = ['playing', 'loading'].includes(pb.status);
-    $('#hgTitle', el).textContent = cur ? cur.title : (g.round.number ? 'Ready' : 'Start Round 1 to begin');
+    $('#hgTitle', el).textContent = cur ? cur.title : (g.round.number ? 'Ready' : (g.mode === 'checklist' ? 'Start the game to begin' : 'Start Round 1 to begin'));
     $('#hgArtist', el).textContent = cur ? cur.artist : '';
     $('#hgNowLbl', el).textContent = cur ? `Song ${cur.number} of ${g.totals.songs} · ${pb.status === 'between' ? 'finished' : pb.status}${cur.played ? ' · ✓ counted' : ''}` : 'Now playing';
     $('#hgNext', el).textContent = g.next ? `Up next: ${g.next.title} — ${g.next.artist}` : (g.totals.remaining ? '' : 'All songs played');
@@ -151,7 +151,7 @@ App.register('host', {
     else if (g.gamePaused) { st.textContent = '⏸ Game paused.'; st.classList.add('warn'); }
     else if (pb.status === 'between') st.textContent = 'Next song starting…';
     else if (pb.status === 'finished') st.textContent = 'Every song has been played.';
-    else st.textContent = g.round.number === 0 ? 'Press START ROUND 1 when the room is ready.' : '';
+    else st.textContent = g.round.number === 0 ? (g.mode === 'checklist' ? 'Press START GAME when the room is ready.' : 'Press START ROUND 1 when the room is ready.') : '';
     this.drawRounds(); this.updateProgress(); this.drawWinners(); this.drawTab(); this.drawUpNext();
     if (cur && this.thumbFor !== cur.songId) { this.thumbFor = cur.songId; this.loadThumb(cur.songId); }
   },
@@ -197,7 +197,46 @@ App.register('host', {
     await modal({ title: '🎯 Winning rules — ' + esc(App.game.name), size: 'mid', body, buttons: [{ label: 'Done', kind: 'primary', value: true }] });
   },
 
+  /** Rules Checklist Mode: the checklist replaces the round buttons. */
+  drawChecklist() {
+    const g = App.game; const el = this.el; const ck = g.checklist; const R = g.round;
+    $('#rTitle', el).textContent = 'Winning rules checklist';
+    $('#rRules', el).style.display = R.number ? 'none' : ''; $('#rRules', el).textContent = '✎ Edit checklist…';
+    $('#rComplete', el).style.display = 'none';
+    const key = JSON.stringify([ck, R, g.status]);
+    if (key === this._ckKey && $('#rBtns', el).firstChild) return; this._ckKey = key;
+    const fin = g.status === 'finished';
+    let banner = '';
+    if (!R.number && !fin) banner = `<div class="banner" style="margin:4px 0 12px"><div class="grow"><h3>Ready — ${ck.total} rule${ck.total > 1 ? 's' : ''}, any order</h3><div class="muted small">Every rule is open from the start. There are no rounds — confirmed winners tick rules off.</div></div><button class="btn primary lg" id="ckStart">▶ Start game</button></div>`;
+    else if (ck.allDone && !fin) banner = `<div class="banner" style="margin:4px 0 12px;border-color:var(--green);background:var(--green-soft)"><div class="grow"><h3>🏆 ALL BINGO RULES COMPLETED</h3><div class="muted small">${ck.closed ? 'Claims are closed — the music carries on.' : 'Finish the game, or keep the music going without more claims.'}</div></div>${ck.closed ? '<button class="btn" id="ckReopen">Re-open claims</button>' : '<button class="btn" id="ckMusic">▶ Continue music without claims</button>'}<button class="btn" id="ckView">View winners</button><button class="btn primary lg" id="ckFinish">🏁 Finish game</button></div>`;
+    else if (ck.playlistDone && !fin) { const o = ck.items.filter(i => i.status !== 'completed'); banner = `<div class="banner" style="margin:4px 0 12px;border-color:var(--amber);background:rgba(255,200,87,.12)"><div class="grow"><h3>Every song has been played</h3><div class="muted small">${o.length} rule${o.length > 1 ? 's were' : ' was'} not won: <b style="color:#fff">${o.map(i => esc(i.label)).join(', ')}</b>. You can still check claims, or finish the game.</div></div><button class="btn" id="ckView">View winners</button><button class="btn primary lg" id="ckFinish">🏁 Finish game</button></div>`; }
+    banner = banner.replace('<div class="banner" style="', '<div class="banner ck-banner" style="');
+    $('#rStatus', el).innerHTML = banner + `<div class="ck-count"><b class="display">${ck.completed} OF ${ck.total}</b> RULES COMPLETED<div class="ck-bar"><i style="width:${ck.total ? ck.completed / ck.total * 100 : 0}%"></i></div></div>`;
+    $('#rBtns', el).className = 'ck-list';
+    $('#rBtns', el).innerHTML = ck.items.map(i => `<div class="ck-item ${i.status}"><div class="ck-pat">${patternGridHtml(i.example, i.status === 'completed' ? 'green' : 'pink')}</div><div class="grow"><b>${esc(i.label)}</b>${i.status === 'completed' ? ' <span class="badge ok">✓ COMPLETED</span>' : ' <span class="badge">AVAILABLE</span>'}
+        <div class="tiny muted">${esc(i.short)}</div>${i.winners.map(w => `<div class="small ck-win">🏆 Card <b>${w.cardLabel}</b>${w.owner ? ' · <span style="color:var(--pink)">' + esc(w.owner) + '</span>' : ''} <span class="muted tiny">${new Date(w.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span> <button class="btn sm ghost" data-fix="${w.claimId}">Correct…</button></div>`).join('')}</div></div>`).join('');
+    const audit = (g.audit || []).filter(a => /winner-(revoked|corrected)|claims-/.test(a.action));
+    $('#rRule', el).innerHTML = `Any open rule, in any order. The list order is for display only.${audit.length ? `<details style="margin-top:8px"><summary>Corrections log (${audit.length})</summary>${audit.map(a => `<div class="tiny">${new Date(a.at).toLocaleTimeString()} · ${esc(a.action.replace('winner-', ''))} · card ${esc(String(a.cardNo || ''))} ${a.from ? esc(a.from) + ' → ' + esc(a.to) : esc(a.ruleLabel || '')}${a.reason ? ' — “' + esc(a.reason) + '”' : ''} <span class="muted">(${esc(a.source)})</span></div>`).join('')}</details>` : ''}`;
+    const on = (id, fn) => { const b = $('#' + id, el); if (b) b.onclick = fn; };
+    on('ckStart', async () => { if (!await confirmBox('Start the game?', `All ${ck.total} rules are open from the start. The TV shows the checklist and the music starts.`, 'Start game')) return; if (!g.audienceConnected) await api('audience:open'); const r = await App.cmd('startRound', { round: 1 }); if (r && r.warning) toast(r.warning, 'err'); });
+    on('ckFinish', async () => { if (await confirmBox('Finish the game?', `${ck.completed} of ${ck.total} rules were won. Playback stops and the TV shows the end screen.`, 'Finish game')) App.cmd('endGame'); });
+    on('ckView', () => App.viewWinners());
+    on('ckMusic', () => App.cmd('closeChecklist', { closed: true }));
+    on('ckReopen', () => App.cmd('closeChecklist', { closed: false }));
+    $$('[data-fix]', el).forEach(b => b.onclick = () => App.correctAward(b.dataset.fix));
+  },
+
+  /** Before the start: edit the checklist (choose, reorder, remove, presets). */
+  async editChecklist() {
+    const body = document.createElement('div'); let items = null;
+    body.innerHTML = '<p class="muted small" style="margin-top:0">The checklist can be changed until the game starts. Cards don\'t change.</p><div id="ecEd"></div>';
+    checklistEditor(body.querySelector('#ecEd'), App.game.checklistRules.map(r => ({ id: r.id, rule: r.rule })), (l) => { items = l; });
+    const ok = await modal({ title: '🎯 Winning rules checklist', size: 'mid', body, buttons: [{ label: 'Cancel', value: false }, { label: 'Save checklist', kind: 'primary', value: true }] });
+    if (ok && items) { const x = await App.cmd('setChecklist', { items }); if (x && x.ok) toast(`Checklist saved — ${items.length} rule${items.length > 1 ? 's' : ''}`, 'ok'); }
+  },
+
   drawRounds() {
+    if (App.game.mode === 'checklist') return this.drawChecklist();
     const g = App.game; const box = $('#rBtns', this.el); const R = g.round;
     box.innerHTML = Array.from({ length: g.roundCount || 3 }, (_, i) => i + 1).map(n => {
       const active = R.number === n && R.status === 'active';
@@ -250,10 +289,10 @@ App.register('host', {
 
   drawWinners() {
     const g = App.game;
-    $('#hgWinners', this.el).innerHTML = g.winners.length ? g.winners.map(w => `<div class="winner-row"><span class="cn">${w.cardLabel}</span><div class="grow"><b>Round ${w.round}</b>${w.owner ? ` · <span style="color:var(--pink)">${esc(w.owner)}</span>` : ''}<div class="small muted">${esc(w.headline)}</div></div><button class="btn sm ghost" data-undo="${w.claimId}" title="Undo">Undo</button></div>`).join('') : '<div class="muted small">No winners confirmed yet.</div>';
-    $$('[data-undo]', this.el).forEach(b => b.onclick = async () => { if (await confirmBox('Undo this winner?', 'The card will no longer be listed as a winner. Use this only to correct a mistake.', 'Undo winner', true)) App.cmd('revokeWinner', { claimId: b.dataset.undo }); });
+    $('#hgWinners', this.el).innerHTML = g.winners.length ? g.winners.map(w => `<div class="winner-row"><span class="cn">${w.cardLabel}</span><div class="grow"><b>${w.rule ? esc(w.rule) : 'Round ' + w.round}</b>${w.owner ? ` · <span style="color:var(--pink)">${esc(w.owner)}</span>` : ''}<div class="small muted">${esc(w.headline)}</div></div><button class="btn sm ghost" data-undo="${w.claimId}" title="${g.mode === 'checklist' ? 'Correct this award' : 'Undo'}">${g.mode === 'checklist' ? 'Correct…' : 'Undo'}</button></div>`).join('') : '<div class="muted small">No winners confirmed yet.</div>';
+    $$('[data-undo]', this.el).forEach(b => b.onclick = async () => { if (App.game.mode === 'checklist') return App.correctAward(b.dataset.undo); if (await confirmBox('Undo this winner?', 'The card will no longer be listed as a winner. Use this only to correct a mistake.', 'Undo winner', true)) App.cmd('revokeWinner', { claimId: b.dataset.undo }); });
     const sLabel = { pending: ['VALID · awaiting', 'warn'], confirmed: ['WINNER', 'ok'], invalid: ['NOT VALID', 'bad'], rejected: ['REJECTED', 'bad'], dismissed: ['DISMISSED', ''], duplicate: ['ALREADY WON', 'warn'], revoked: ['UNDONE', ''] };
-    $('#hgClaims', this.el).innerHTML = g.claims.length ? g.claims.slice(0, 12).map(c => `<div class="hist-item" style="cursor:pointer" data-card="${c.cardNo}"><span class="n">${c.cardLabel}</span><div class="t"><b>R${c.round}</b>${c.owner ? ` <b style="color:var(--pink)">${esc(c.owner)}</b>` : ''} <span>${esc(c.headline)}</span></div><span class="badge ${sLabel[c.status][1]}">${sLabel[c.status][0]}</span></div>`).join('') : '<div class="muted small">No claims checked yet.</div>';
+    $('#hgClaims', this.el).innerHTML = g.claims.length ? g.claims.slice(0, 12).map(c => `<div class="hist-item" style="cursor:pointer" data-card="${c.cardNo}"><span class="n">${c.cardLabel}</span><div class="t"><b>${c.rule ? esc(c.rule) : 'R' + c.round}</b>${c.owner ? ` <b style="color:var(--pink)">${esc(c.owner)}</b>` : ''} <span>${esc(c.headline)}</span></div><span class="badge ${sLabel[c.status][1]}">${sLabel[c.status][0]}</span></div>`).join('') : '<div class="muted small">No claims checked yet.</div>';
     $$('[data-card]', this.el).forEach(r => r.onclick = () => App.openChecker(r.dataset.card));
   },
 

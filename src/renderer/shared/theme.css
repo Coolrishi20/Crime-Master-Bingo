@@ -47,3 +47,4 @@ html.low-res *, html.low-res *::before, html.low-res *::after { animation: none 
 html.low-res .es-glow { display: none !important; }
 html.low-res #crawlViewport, html.low-res .es-viewport { -webkit-mask-image: none !important; mask-image: none !important; }
 html.low-res .es-thanks { filter: none !important; -webkit-text-fill-color: #fff !important; background: none !important; }
+.pgrid.green i.on { background: var(--green); box-shadow: 0 0 8px rgba(53, 214, 143, .45); }

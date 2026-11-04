@@ -20,12 +20,13 @@ const { _electron: electron, chromium } = require('playwright');
 const path = require('path'); const fs = require('fs'); const os = require('os');
 const APP = path.resolve(process.env.APP || path.join(__dirname, '..', '..'));
 const LABEL = process.env.LABEL || 'run'; const MODE = process.env.MODE || 'normal';
+const GAME = process.env.GAME === 'checklist' ? 'checklist' : 'rounds'; // Round-Based or Rules Checklist game
 const SONGS = Number(process.env.SONGS || 75); const CPUS = process.env.CPUS || '0,1';
 const MEDIA = process.argv[2]; const OUTF = process.argv[3] || path.join(os.tmpdir(), `bench-${LABEL}.json`);
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const t0 = Date.now(); const log = (...a) => console.log(`[${((Date.now() - t0) / 1000).toFixed(0).padStart(5)}s]`, ...a);
 const waitFor = async (fn, ms = 30000, step = 250) => { const t = Date.now(); while (Date.now() - t < ms) { try { const v = await fn(); if (v) return v; } catch (e) { /* */ } await sleep(step); } return null; };
-const R = { label: LABEL, mode: MODE, cpus: CPUS, startedAt: new Date().toISOString(), host: { cpus: os.cpus().length, cpuModel: os.cpus()[0].model, totalMemMB: Math.round(os.totalmem() / 1048576), platform: `${os.platform()} ${os.release()}` }, samples: [], phases: {}, checks: [], notes: [] };
+const R = { label: LABEL, mode: MODE, game: GAME, cpus: CPUS, startedAt: new Date().toISOString(), host: { cpus: os.cpus().length, cpuModel: os.cpus()[0].model, totalMemMB: Math.round(os.totalmem() / 1048576), platform: `${os.platform()} ${os.release()}` }, samples: [], phases: {}, checks: [], notes: [] };
 const check = (ok, name, detail) => { R.checks.push({ ok: !!ok, name, detail: detail == null ? '' : String(detail) }); log(ok ? 'PASS' : 'FAIL', name, detail == null ? '' : '— ' + detail); };
 
 (async () => {
@@ -115,7 +116,7 @@ const check = (ok, name, detail) => { R.checks.push({ ok: !!ok, name, detail: de
   await phase('import100', async () => { const t = Date.now(); await inv('library:importPaths', files.slice(40, 100)); await ready(100); await host.evaluate(() => App.show('library')); await sleep(3000); const s = await mark('after import 100 (library open)'); return { importSec: Math.round((Date.now() - t) / 1000), memMB: s.totalMB }; });
   const songs = (await inv('library:list')).songs;
   const pl = await inv('playlists:create', { name: 'Bench 100' }); await inv('playlists:add', { id: pl.id, songIds: songs.map(s => s.id) });
-  const g = await inv('games:create', { name: 'Bench Night', venue: 'Lab', playlistId: pl.id, cards: 100, settings: { clipMode: 'full', autoAdvance: true, autoAdvanceGap: 1 } });
+  const g = await inv('games:create', { name: 'Bench Night', venue: 'Lab', playlistId: pl.id, cards: 100, settings: Object.assign({ clipMode: 'full', autoAdvance: true, autoAdvanceGap: 1 }, GAME === 'checklist' ? { mode: 'checklist' } : {}) });
   await phase('pdf100', async () => { const t = Date.now(); const f = path.join(DATA, 'cards.pdf'); await inv('cards:exportPdf', { id: g.id, file: f, confirmLock: true }); const s = await mark('after PDF of 100 cards'); return { pdfSec: Math.round((Date.now() - t) / 1000), memMB: s.totalMB, pdfKB: Math.round(fs.statSync(f).size / 1024) }; });
 
   engineInfo = () => ev(() => { const e = global.__cmb.engine; return { played: e.game.played.length, index: e.game.playback.index, status: e.game.playback.status, round: e.game.round.number, rstatus: e.game.round.status }; });
@@ -191,6 +192,9 @@ const check = (ok, name, detail) => { R.checks.push({ ok: !!ok, name, detail: de
   /* T3: bingo check from the phone while everything runs */
   const cardsTruth = await ev(() => { const g = global.__cmb.engine.game; return g.cards.slice(0, 30).map(c => ({ no: c.no, cells: c.cells })); });
   const rules = require(path.join(APP, 'src', 'core', 'rules'));
+  const openRules = (cardNo) => ev((no) => { const g = global.__cmb.engine.game; const s = g.claimSessions[g.claimSessions.length - 1]; const sid = s && s.status === 'open' ? s.id : null;
+    return (g.settings.checklist || []).filter(it => { const w = g.claims.filter(c => c.status === 'confirmed' && c.itemId === it.id); return (!w.length || (sid && w.every(c => c.sessionId === sid))) && !w.some(c => c.cardNo === no); }).map(it => it.rule); }, cardNo);
+  const truthFor = async (card, set, round) => { if (GAME !== 'checklist') return rules.checkCard(card.cells, set, round).valid; const open = await openRules(card.no); return open.some(r => rules.checkCard(card.cells, set, { round: 0, rules: [r] }).valid); };
   const phoneCheck = async (cardNo, decide) => {
     await tab('play');
     const before = await tvPerf(); const eBefore = await engineLoads();
@@ -202,9 +206,10 @@ const check = (ok, name, detail) => { R.checks.push({ ok: !!ok, name, detail: de
     const verdict = (await phone.textContent('#ckResult .verdict .vt')).trim();
     const e = await ev(() => { const g = global.__cmb.engine.game; const s = g.claimSessions[g.claimSessions.length - 1]; return { snapshot: s ? s.snapshot.map(x => x.songId) : [], round: g.round.number, pos: g.playback.position }; });
     const card = cardsTruth.find(c => c.no === cardNo);
-    const truth = rules.checkCard(card.cells, new Set(e.snapshot), e.round).valid;
-    const phoneValid = /VALID BINGO|WINNER/.test(verdict) && !/NOT VALID/.test(verdict);
+    const truth = await truthFor(card, new Set(e.snapshot), e.round);
+    const phoneValid = /VALID BINGO|WINNER/.test(verdict) && !/NOT (A )?VALID|ALREADY/.test(verdict);
     let decided = null;
+    if (decide && phoneValid && await phone.$('#ckPicks input') && !(await phone.$('#ckPicks input:checked'))) await phone.click('#ckPicks .ck-opt input');
     if (decide && phoneValid && await phone.$('#ckConfirm')) { await phone.click('#ckConfirm'); await modalOk(); decided = 'confirmed'; await sleep(800); }
     else if (await phone.$('#ckReject')) { await phone.click('#ckReject'); await modalOk(); decided = 'rejected'; await sleep(500); }
     await phone.click('#ckResume').catch(() => {}); await modalOk(); await sleep(1500);
@@ -213,7 +218,7 @@ const check = (ok, name, detail) => { R.checks.push({ ok: !!ok, name, detail: de
     return { cardNo, verdict, phoneValid, truth, accurate: phoneValid === truth, desktopAgrees: desk === phoneValid, decided, resumed: !after.paused, posBefore: before.t, posAfter: after.t, reloads: Math.max(0, (after.loadstarts - before.loadstarts) - (eAfter - eBefore)), songChanges: eAfter - eBefore, srcSame: before.src === after.src || eAfter !== eBefore };
   };
   // pick a card that is (likely) valid for round 1 now, and one that is not
-  const pickCard = async (wantValid) => { const e = await ev(() => { const g = global.__cmb.engine.game; return { played: g.played.map(p => p.songId), round: g.round.number }; }); const set = new Set(e.played); const c = cardsTruth.find(c => rules.checkCard(c.cells, set, e.round).valid === wantValid); return c ? c.no : null; };
+  const pickCard = async (wantValid) => { const e = await ev(() => { const g = global.__cmb.engine.game; return { played: g.played.map(p => p.songId), round: g.round.number }; }); const set = new Set(e.played); for (const c of cardsTruth) { if ((await truthFor(c, set, e.round)) === wantValid) return c.no; } return null; };
   await phase('T3_phone_bingo_check', async () => {
     const out = [];
     const bad = await pickCard(false); if (bad) out.push(await phoneCheck(bad, false));
@@ -249,7 +254,9 @@ const check = (ok, name, detail) => { R.checks.push({ ok: !!ok, name, detail: de
       }
       // round changes from the phone: after ~1/3 and ~2/3 of the songs
       const wantRound = e.played >= Math.round(target * 2 / 3) ? 3 : e.played >= Math.round(target / 3) ? 2 : 1;
-      if (wantRound > e.round && e.rstatus === 'active') {
+      if (GAME === 'checklist') {
+        if (wantRound > completed.length + 1 && e.rstatus === 'active') { const good = await pickCard(true); if (good) claims.push(await phoneCheck(good, true)); completed.push((await ev(() => global.__cmb.engine.checklistView().completed))); const ee = await engineInfo(); if (ee.status !== "playing" && ee.status !== "loading" && ee.status !== "between") await cmd("play").catch(() => {}); }
+      } else if (wantRound > e.round && e.rstatus === 'active') {
         const good = await pickCard(true); if (good) claims.push(await phoneCheck(good, true));
         try { await tab('rounds'); await phone.click('#endRound'); await modalOk(); await sleep(1500); const sb = await phone.$('#startReady'); if (sb) { await sb.click(); await modalOk(); } } catch (err) { /* */ }
         await sleep(2000);
@@ -268,7 +275,8 @@ const check = (ok, name, detail) => { R.checks.push({ ok: !!ok, name, detail: de
   await mark(`after ${SONGS} songs`);
   const fin = await engineInfo(); R.final = fin;
   check(fin.played >= SONGS, `${SONGS} songs played`, fin.played);
-  check(R.phases.T4_extended.extra.roundsReached.length >= 2, 'Advanced through 3 rounds from the phone', JSON.stringify(R.phases.T4_extended.extra.roundsReached));
+  if (GAME === 'checklist') { const rr = R.phases.T4_extended.extra.roundsReached; check(rr.length >= 2 && rr[rr.length - 1] >= 2, 'Checklist: rules awarded from the phone, no round changes', JSON.stringify(rr)); }
+  else check(R.phases.T4_extended.extra.roundsReached.length >= 2, 'Advanced through 3 rounds from the phone', JSON.stringify(R.phases.T4_extended.extra.roundsReached));
   clearInterval(sampler);
   R.durationMin = Math.round((Date.now() - t0) / 60000);
   fs.writeFileSync(OUTF, JSON.stringify(R, null, 1));

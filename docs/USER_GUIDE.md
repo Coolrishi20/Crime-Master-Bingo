@@ -213,6 +213,54 @@ get a host-only warning listing them. Nothing is awarded automatically; they sti
 to claim. Completing Round 3 ends the night with *"FULL HOUSE! That's a wrap!"*. A
 double press, or the laptop and phone pressing at once, never skips a round.
 
+### Rules Checklist Mode (instead of rounds)
+In **Create Game → Game details**, choose the game mode:
+- **Round-Based Bingo** (the default). Round 1, 2, 3… each with its own winning rule. You move
+  between rounds. Nothing about this mode has changed.
+- **Rules Checklist Bingo.** There are no rounds. You pick a list of winning rules, for example
+  Fast 5, One Line, Diagonal, L Shape and Full House. **All of them are open from the start,
+  and players can win them in any order.** Each rule is ticked off when its winner is
+  confirmed. The music never stops for a round change.
+
+Setting up the checklist: tick the rules to add (**＋ Add rules…**). That includes the custom
+patterns from Settings → Bingo Rules. Use ▲ ▼ to change the order and ✕ to remove a rule.
+**Save as preset…** keeps the list for next time, and **Restore default checklist** brings
+back the standard five. The order is only how the list is shown; it never decides which rule
+can be won first. The checklist can be changed in Host Game (**✎ Edit checklist…**) until you
+press **Start game**. Cards are not changed, and the printed card legend lists the rules as
+“WINNING RULES · ANY ORDER”.
+
+During the game:
+- **Host Game** shows the checklist instead of the round buttons: each rule with a mini
+  pattern, AVAILABLE or ✓ COMPLETED, its winners, and **“2 OF 5 RULES COMPLETED”**.
+- **Checking a BINGO** works as usual (Claim Freeze, laptop or phone). The card is checked
+  against every rule that is still open, and the result lists what it is **valid for**. If it
+  qualifies for more than one rule (a full row is also a Fast 5), **you choose which ONE rule to
+  award**. A single claim never completes two rules.
+- **RULE ALREADY COMPLETED** means the card only has patterns that someone else has already
+  won. **NOT A VALID BINGO** shows the played squares, the squares still needed and the open
+  rules.
+- **Simultaneous winners:** while one claim session is frozen, several cards can win the same
+  rule. Once the session is closed, the rule is closed for later claims.
+- **The same card can win several different rules**, one per claim, but never the same rule
+  twice.
+- **Correct an award** (*Correct…* next to a winner, on the laptop or the phone) moves the
+  award to another rule that the card had really completed, or undoes it. It always asks
+  first and is recorded in the corrections log.
+- **The TV** replaces the round's pattern panel with a compact **Winning Rules** checklist:
+  mini patterns, ✓ ticks and “2 / 5”. A newly won rule flashes briefly (just an outline in Low
+  Resource Mode). Round numbers are never shown.
+- **Phone remote:** the *Rules* tab shows the checklist, winners, *Correct* buttons and Start /
+  Finish game. The claim checker shows the rule choices. **Player phones** show which rules
+  are still open and which ones they have won.
+- **All rules won →** you're asked: **Finish game**, **View winners** or **Continue music
+  without more Bingo claims**. If the playlist runs out first, Host Game lists the rules that
+  weren't won and you can finish anyway. Nothing is marked as won unless it really was.
+
+Everything is saved as it happens: the mode, the rules and their order, statuses, winners,
+claim sessions and corrections. After a crash or restart the checklist comes back exactly as
+it was.
+
 ### Up Next (host only)
 The laptop's **Up next** panel and the phone's **Play** tab show the next song: title,
 artist, file name, length, start point, clip length, and whether it's **READY** (a red

@@ -8,7 +8,7 @@ App.register('create', {
     if (!this.data || arg === 'new') {
       this.data = { name: '', date: new Date().toISOString().slice(0, 10), venue: '', useLogo: !!App.settings.appearance.logo, playlistId: null, cards: 100,
         settings: { clipMode: gd.clipMode, defaultStart: gd.defaultStart, shuffle: gd.shuffle, volume: gd.volume, autoAdvance: gd.autoAdvance, autoAdvanceGap: gd.autoAdvanceGap,
-          overlay: Object.assign({}, gd.overlay), crawler: Object.assign({}, gd.crawler), screens: Object.assign({ welcome: true, end: true, startTime: '', message: '' }, gd.screens || {}), patternPosition: gd.patternPosition } };
+          overlay: Object.assign({}, gd.overlay), crawler: Object.assign({}, gd.crawler), screens: Object.assign({ welcome: true, end: true, startTime: '', message: '' }, gd.screens || {}), patternPosition: gd.patternPosition, mode: gd.mode || 'rounds', checklist: JSON.parse(JSON.stringify(gd.checklist || [])) } };
       this.step = 1; this.created = null;
     }
     // continuing set-up of an existing game
@@ -58,9 +58,13 @@ App.register('create', {
       <label class="field">Date<input type="date" id="gDate" value="${esc(d.date)}"></label>
       <label class="field">Venue (optional)<input type="text" id="gVenue" value="${esc(d.venue)}" placeholder="e.g. The Red Lion"></label></div>
       <div class="row" style="margin-top:16px">${toggleHtml('gLogo', 'Use my logo on cards & TV', d.useLogo)}<button class="btn sm" id="gPick">${App.settings.appearance.logo ? 'Change logo…' : 'Upload logo…'}</button>
-      ${App.settings.appearance.logo ? `<img src="${fileUrl(App.settings.appearance.logo)}" style="max-height:40px;background:#fff;border-radius:6px;padding:4px">` : '<span class="muted small">No logo uploaded</span>'}</div>`;
+      ${App.settings.appearance.logo ? `<img src="${fileUrl(App.settings.appearance.logo)}" style="max-height:40px;background:#fff;border-radius:6px;padding:4px">` : '<span class="muted small">No logo uploaded</span>'}</div>
+      <h2 style="margin-top:22px">Game mode</h2>${modeCardsHtml(d.settings.mode)}
+      <div id="gCk" style="margin-top:14px;${d.settings.mode === 'checklist' ? '' : 'display:none'}"><div class="eyebrow" style="margin-bottom:8px">Winning rules checklist</div><div id="gCkEd"></div></div>`;
+    const ck = checklistEditor($('#gCkEd', b), d.settings.checklist, (l) => { d.settings.checklist = l; });
+    $$('input[name=gmode]', b).forEach(r => r.onchange = () => { d.settings.mode = r.value; $$('.mode-card', b).forEach(c => c.classList.toggle('on', c.querySelector('input').checked)); $('#gCk', b).style.display = r.value === 'checklist' ? '' : 'none'; });
     $('#gPick', b).onclick = async () => { this.collectFn(); const p = await api('settings:pickLogo'); if (p) { App.settings = await api('settings:get'); App.applyAppearance(); this.data.useLogo = true; this.draw(); } };
-    this.collectFn = () => { d.name = $('#gName', b).value; d.date = $('#gDate', b).value; d.venue = $('#gVenue', b).value; d.useLogo = $('#gLogo', b).checked; };
+    this.collectFn = () => { d.settings.checklist = ck.get(); d.name = $('#gName', b).value; d.date = $('#gDate', b).value; d.venue = $('#gVenue', b).value; d.useLogo = $('#gLogo', b).checked; };
   },
   async step2(b) {
     const pls = await api('playlists:list');
@@ -153,8 +157,8 @@ App.register('create', {
     b.innerHTML = `<div style="text-align:center;padding:30px 10px">
       <div class="eyebrow">Everything is ready</div><div class="display" style="font-size:48px;margin:8px 0">${esc(g ? g.name : '')}</div>
       <p class="muted">${g ? `${g.totals.songs} songs · ${g.totals.cards} cards · ${g.settings.clipMode === 'full' ? 'full songs' : g.settings.clipMode + '-second clips'}` : ''}</p>
-      <div style="display:flex;justify-content:center;gap:24px;margin:20px 0">${Array.from({ length: (g && g.roundCount) || 3 }, (_, i) => i + 1).map(n => { const r = (g && g.roundRules && g.roundRules[n]) || { label: CMBPatterns.LABELS[n], examples: CMBPatterns.examples(n) }; return `<div style="width:130px"><div style="width:70px;margin:0 auto 8px">${patternGridHtml(r.examples[0])}</div><b class="small">Round ${n}</b><div class="tiny muted">${esc(r.label)}</div></div>`; }).join('')}</div>
-      <p class="muted small">Winning rules can be changed in Host Game → 🎯 Rules until each round starts.</p>
+      ${g && g.mode === 'checklist' ? `<div class="eyebrow" style="margin-top:14px">Rules checklist — win in any order</div><div style="display:flex;justify-content:center;gap:18px;margin:14px 0;flex-wrap:wrap">${g.checklist.items.map(i => `<div style="width:110px"><div style="width:60px;margin:0 auto 8px">${patternGridHtml(i.example)}</div><div class="tiny" style="font-weight:800">${esc(i.label)}</div></div>`).join('')}</div>` : `<div style="display:flex;justify-content:center;gap:24px;margin:20px 0">${Array.from({ length: (g && g.roundCount) || 3 }, (_, i) => i + 1).map(n => { const r = (g && g.roundRules && g.roundRules[n]) || { label: CMBPatterns.LABELS[n], examples: CMBPatterns.examples(n) }; return `<div style="width:130px"><div style="width:70px;margin:0 auto 8px">${patternGridHtml(r.examples[0])}</div><b class="small">Round ${n}</b><div class="tiny muted">${esc(r.label)}</div></div>`; }).join('')}</div>`}
+      <p class="muted small">${g && g.mode === 'checklist' ? 'The checklist can be changed in Host Game until the game starts.' : 'Winning rules can be changed in Host Game → 🎯 Rules until each round starts.'}</p>
       <button class="btn primary xl" id="go">▶ START ROUND 1</button>
       <p class="muted small" style="margin-top:14px">Round 1 can also be started from your phone.</p></div>`;
     $('#cNext', this.el).style.display = 'none';

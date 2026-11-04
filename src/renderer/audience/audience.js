@@ -224,7 +224,35 @@
   window.__reveal = function () { return reveal ? { done: reveal.done, delay: reveal.delay, text: $('ovTitle').textContent } : null; };
 
   /* ------------------------------------------------------------- pattern */
+  /* Rules Checklist Mode: compact checklist with mini patterns and ticks (no round numbers) */
+  var ckDone = {}, ckListKey = null;
+  function renderChecklistPanel() {
+    var ck = state.checklist, r = state.round || { number: 0 };
+    var panel = $('pattern');
+    panel.className = panel.className.replace(/\bpos-\S+/g, '').trim() + ' pos-' + (state.patternPosition || 'top-right');
+    panel.classList.add('checklist'); panel.classList.remove('ready'); panel.classList.toggle('ended', ck.allDone);
+    clearInterval(patternTimer); patternTimer = null; patternRound = null;
+    $('ptRound').textContent = 'WINNING RULES';
+    $('ptToWin').textContent = ck.completed + ' / ' + ck.total;
+    $('ptSub').textContent = !r.number ? 'Win them in any order!' : ck.allDone ? 'ALL RULES WON!' : (ck.total - ck.completed) + ' still to win · any order';
+    var key = JSON.stringify(ck.items);
+    if (key === ckListKey) return; ckListKey = key;
+    var list = $('ptList'); var first = !list.children.length && !Object.keys(ckDone).length;
+    list.innerHTML = '';
+    list.classList.toggle('many', ck.items.length > 6);
+    ck.items.forEach(function (it) {
+      var row = document.createElement('div'); row.className = 'pt-ck' + (it.done ? ' done' : '');
+      if (it.done && !ckDone[it.id] && !first) row.classList.add('just'); // completion highlight
+      ckDone[it.id] = it.done;
+      var g = document.createElement('div'); CMBPatterns.render(g, it.example, it.done ? 'green' : 'pink'); row.appendChild(g);
+      var t = document.createElement('span'); t.className = 'lb'; t.textContent = it.label; row.appendChild(t);
+      var m = document.createElement('span'); m.className = 'tick'; m.textContent = it.done ? '✓' : ''; row.appendChild(m);
+      list.appendChild(row);
+    });
+  }
   function renderPattern() {
+    if (state.mode === 'checklist' && state.checklist) return renderChecklistPanel();
+    $('pattern').classList.remove('checklist'); ckListKey = null;
     var r = state.round || { number: 0, status: 'pending' };
     var n = r.number || 1;
     var panel = $('pattern');
@@ -232,6 +260,7 @@
     panel.classList.toggle('ended', r.status === 'ended');
     panel.classList.toggle('ready', r.status === 'ready');
     $('ptRound').textContent = (r.status === 'ready' ? 'NEXT · ' : '') + (r.number === 0 ? 'ROUND 1' : 'ROUND ' + r.number);
+    $('ptToWin').textContent = 'TO WIN';
     $('ptLabel').textContent = r.label || CMBPatterns.LABELS[n];
     $('ptSub').textContent = r.number === 0 ? 'Get ready to play!' : (r.status === 'ended' ? 'Round complete' : r.status === 'ready' ? 'Starting soon!' : (r.short || CMBPatterns.SHORT[n]));
     var pkey = n + '|' + (r.label || '');
@@ -322,9 +351,9 @@
     if (sc.mode === 'intermission') {
       $('imName').textContent = sc.name || '';
       $('imMsg').textContent = sc.message || 'Grab a drink — back soon!';
-      $('imNextN').textContent = 'NEXT: ROUND ' + sc.next.n;
+      $('imNextN').textContent = sc.checklist ? 'STILL TO WIN' : 'NEXT: ROUND ' + sc.next.n;
       $('imNextL').textContent = sc.next.label;
-      CMBPatterns.render($('imGrid'), sc.next.example || roundExample(sc.next.n), 'pink');
+      CMBPatterns.render($('imGrid'), sc.next.example || (sc.checklist ? Array(25).fill(false) : roundExample(sc.next.n)), 'pink');
       var imTick = function () {
         if (!sc.until) { $('imCount').textContent = ''; return; }
         var left = Math.round((new Date(sc.until) - new Date()) / 1000);
@@ -338,8 +367,18 @@
       $('wlName').textContent = sc.name || '';
       $('wlMeta').textContent = [sc.venue, sc.date].filter(Boolean).join('  \u00b7  ');
       var img = $('wlLogo'); if (logoUrl) { img.src = logoUrl; img.classList.add('has'); } else img.classList.remove('has');
-      var rkey = JSON.stringify((state.rounds || []).map(function (x) { return x.label; }));
-      if ($('wlRounds').getAttribute('data-k') !== rkey) {
+      var CKW = state.mode === 'checklist' && state.checklist;
+      var rkey = CKW ? 'ck' + JSON.stringify(state.checklist.items.map(function (x) { return x.label; })) : JSON.stringify((state.rounds || []).map(function (x) { return x.label; }));
+      if (CKW && $('wlRounds').getAttribute('data-k') !== rkey) {
+        $('wlRounds').setAttribute('data-k', rkey); $('wlRounds').innerHTML = '';
+        $('wlRounds').classList.toggle('many', state.checklist.items.length > 5);
+        state.checklist.items.forEach(function (it) {
+          var d = document.createElement('div'); d.className = 'wl-round';
+          var g = document.createElement('div'); CMBPatterns.render(g, it.example, 'pink'); d.appendChild(g);
+          var t = document.createElement('div'); t.innerHTML = '<b>TO WIN</b><span></span>'; t.querySelector('span').textContent = it.label; d.appendChild(t);
+          $('wlRounds').appendChild(d);
+        });
+      } else if (!CKW && $('wlRounds').getAttribute('data-k') !== rkey) {
         $('wlRounds').setAttribute('data-k', rkey); $('wlRounds').innerHTML = '';
         (state.rounds || [{ n: 1 }, { n: 2 }, { n: 3 }]).map(function (x) { return x.n; }).forEach(function (n) {
           var d = document.createElement('div'); d.className = 'wl-round';
@@ -348,7 +387,7 @@
           $('wlRounds').appendChild(d);
         });
       }
-      document.querySelector('.wl-nodiag').textContent = state.diagonalsCount ? 'Same card all night \u00b7 songs stay marked' : 'Same card all night \u00b7 songs stay marked \u00b7 diagonals don\'t count';
+      document.querySelector('.wl-nodiag').textContent = CKW ? 'No rounds \u00b7 win the rules in any order \u00b7 songs stay marked' : state.diagonalsCount ? 'Same card all night \u00b7 songs stay marked' : 'Same card all night \u00b7 songs stay marked \u00b7 diagonals don\'t count';
       $('wlMsg').textContent = sc.message || '';
       $('wlJoin').classList.toggle('hidden', !sc.join);
       drawLobby(sc.players || []);
@@ -368,7 +407,7 @@
     if (sc.mode === 'end') {
       $('esSub').textContent = [sc.name, sc.venue, sc.date ? fmtDate(sc.date) : ''].filter(Boolean).join('  \u00b7  ');
       var eimg = $('esLogo'); if (logoUrl) { eimg.src = logoUrl; eimg.classList.add('has'); } else eimg.classList.remove('has');
-      var stats = [[sc.songs, sc.songs === 1 ? 'SONG PLAYED' : 'SONGS PLAYED'], [sc.rounds || 0, (sc.rounds === 1 ? 'ROUND' : 'ROUNDS')], [sc.winners || 0, sc.winners === 1 ? 'WINNER' : 'WINNERS']];
+      var stats = [[sc.songs, sc.songs === 1 ? 'SONG PLAYED' : 'SONGS PLAYED'], sc.checklist ? [sc.rulesWon + '/' + sc.rulesTotal, 'RULES WON'] : [sc.rounds || 0, (sc.rounds === 1 ? 'ROUND' : 'ROUNDS')], [sc.winners || 0, sc.winners === 1 ? 'WINNER' : 'WINNERS']];
       $('esStats').innerHTML = stats.map(function (x) { return '<div class="es-stat"><b>' + x[0] + '</b><span>' + x[1] + '</span></div>'; }).join('');
       var key = JSON.stringify(state.history.map(function (h) { return h.n + h.title + h.round; }));
       if (key !== endKey) {
@@ -377,7 +416,7 @@
         var n = state.history.length; list.className = 'es-list' + (n <= 8 ? ' c1' : n <= 22 ? ' c2' : '');
         var lastRound = -1;
         state.history.forEach(function (h) {
-          if (h.round && h.round !== lastRound) {
+          if (h.round && h.round !== lastRound && !sc.checklist) {
             lastRound = h.round;
             var hd = document.createElement('div'); hd.className = 'es-round';
             var g = document.createElement('div'); CMBPatterns.render(g, roundExample(h.round), 'pink'); hd.appendChild(g);
@@ -423,7 +462,7 @@
 
   window.cmb.on('audience-state', applyState);
   window.cmb.on('app-settings', applyAppSettings);
-  window.cmb.on('event', function (e) { if (!e) return; if (e.name === 'celebrate') celebrate(); if (e.name === 'tvScreen') showTakeover(e.payload); });
+  window.cmb.on('event', function (e) { if (!e) return; if (e.name === 'celebrate') celebrate(); if (e.name === 'ruleCompleted') ckListKey = null; if (e.name === 'tvScreen') showTakeover(e.payload); });
 
   /* ------------------------------------------------------------- winner / wrong-claim screens */
   var toTimer = null, confettiRaf = null;
@@ -450,7 +489,7 @@
       return;
     }
     el.className = p.type === 'winner' ? 'winner' : 'wrong';
-    $('toEyebrow').textContent = 'ROUND ' + p.round + ' \u00b7 ' + p.label;
+    $('toEyebrow').textContent = p.checklist ? (p.type === 'winner' ? 'RULE COMPLETED \u2713 \u00b7 ' + p.label : 'WINNING RULES CHECKLIST') : 'ROUND ' + p.round + ' \u00b7 ' + p.label;
     $('toTitle').textContent = p.type === 'winner' ? 'BINGO!' : 'NOT A BINGO';
     $('toCard').textContent = p.cardLabel ? 'CARD ' + p.cardLabel : '';
     $('toCard').className = 'to-card' + (p.cardLabel ? ' show' : '');
@@ -458,13 +497,14 @@
       var nm = (p.names || []).map(function (n) { return String(n).toUpperCase(); });
       $('toSub').textContent = nm.length ? (nm.length === 1 ? nm[0] + ' WINS!' : nm.slice(0, -1).join(', ') + ' & ' + nm[nm.length - 1] + ' WIN!') : (p.winners > 1 ? p.winners + ' WINNERS!' : 'WE HAVE A WINNER!');
       $('toSub').classList.toggle('named', nm.length > 0);
-      $('toMsg').textContent = !p.last ? 'Keep your cards — songs stay marked for the next round.' : 'Congratulations!';
-      CMBPatterns.render($('toGrid'), p.pattern || roundExample(p.round), '');
+      $('toMsg').textContent = p.checklist ? (p.last ? 'Every rule has been won — congratulations!' : 'Keep your cards — the other rules are still up for grabs.') : !p.last ? 'Keep your cards — songs stay marked for the next round.' : 'Congratulations!';
+      CMBPatterns.render($('toGrid'), p.pattern || (p.checklist ? Array(25).fill(true) : roundExample(p.round)), '');
       startConfetti();
     } else {
       $('toSub').textContent = 'KEEP PLAYING!';
       $('toMsg').textContent = "Sorry — that card doesn't have a winning pattern yet. Check the played songs below and keep listening!";
-      CMBPatterns.render($('toGrid'), roundExample(p.round), 'pink');
+      var openRule = p.checklist && state && state.checklist ? state.checklist.items.filter(function (i) { return !i.done; })[0] : null;
+      CMBPatterns.render($('toGrid'), p.checklist ? (openRule ? openRule.example : Array(25).fill(false)) : roundExample(p.round), 'pink');
       stopConfetti();
     }
     clearTimeout(toTimer);

@@ -175,3 +175,18 @@ input { font-family: inherit; }
   #picker #pkList { columns: 2; column-gap: 16px; }
   #picker .hist { break-inside: avoid; }
 }
+
+/* Rules Checklist Mode */
+.pgrid.green i.on { background: var(--green); }
+.ck-count { font-weight: 800; letter-spacing: .08em; font-size: 12px; color: var(--lav); margin: 4px 0 10px; }
+.ck-count b { color: #fff; font-size: 20px; letter-spacing: 0; margin-right: 4px; }
+.ck-bar { height: 8px; border-radius: 4px; background: var(--panel2); overflow: hidden; margin-top: 6px; }
+.ck-bar i { display: block; height: 100%; background: var(--green); transition: width .4s ease; }
+.ck-item { display: flex; gap: 12px; align-items: flex-start; padding: 12px; border-radius: 14px; border: 1px solid var(--border); background: var(--panel); margin-bottom: 8px; }
+.ck-item.completed { border-color: rgba(53,214,143,.6); background: rgba(53,214,143,.1); }
+.ck-item .small { margin-top: 4px; }
+.ck-pat { width: 44px; flex: none; }
+.ck-opt { display: flex; align-items: center; gap: 10px; padding: 12px; margin: 6px 0; border-radius: 12px; border: 1px solid var(--border); background: var(--panel); color: #fff; font-size: 16px; }
+.ck-opt.on { border-color: var(--green); background: rgba(53,214,143,.14); }
+.ck-opt input { width: 22px; height: 22px; accent-color: var(--green); }
+.btn.mini { display: inline-block; width: auto; padding: 3px 12px; font-size: 12px; min-height: 0; margin-left: 6px; vertical-align: middle; }

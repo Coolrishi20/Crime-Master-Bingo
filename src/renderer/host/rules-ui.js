@@ -51,7 +51,7 @@
     });
     const body = document.createElement('div');
     const draw = () => {
-      body.innerHTML = `<p class="muted small" style="margin-top:0">Tick one or more patterns. If you tick several, <b style="color:#fff">any one of them</b> wins the round. Every check — on this laptop or the phone — uses exactly these rules.</p>
+      body.innerHTML = `<p class="muted small" style="margin-top:0">${opts.checklist ? 'Tick the rules to <b style="color:#fff">add to the checklist</b>. Each one is won separately, in any order, and ticked off when its winner is confirmed.' : 'Tick one or more patterns. If you tick several, <b style="color:#fff">any one of them</b> wins the round. Every check — on this laptop or the phone — uses exactly these rules.'}</p>
         <div class="rule-cards">${cat.map(c => `<label class="rule-card ${sel[c.id] ? 'on' : ''}" data-id="${c.id}"><input type="checkbox" ${sel[c.id] ? 'checked' : ''}>
           <div class="rc-pats">${c.examples.slice(0, c.id === 'full' || c.id === 'fast5' ? 1 : 2).map(e => patternGridHtml(e)).join('')}</div>
           <div class="rc-tx"><b>${esc(c.label)}</b><span>${esc(c.short)}</span></div></label>`).join('')}</div>
@@ -76,7 +76,7 @@
     let pt = null;
     const preview = () => {
       clearTimeout(pt); pt = setTimeout(async () => {
-        const box = $('#rPrev', body); if (!box) return;
+        const box = $('#rPrev', body); if (!box) return; if (opts.checklist) { box.style.display = 'none'; return; }
         try {
           const i = await apiQuiet('rules:info', { rules: build(), round: opts.round || 1 });
           box.innerHTML = `<div class="eyebrow">Preview — what players see</div><div class="row" style="align-items:flex-start;gap:16px"><div class="rp-grids">${i.examples.slice(0, 6).map(e => patternGridHtml(e)).join('')}</div><div class="grow"><div class="display" style="font-size:22px">${esc(i.label)}</div><div class="small" style="margin-top:4px">${esc(i.rule)}</div></div></div>`;
@@ -98,6 +98,54 @@
 
   /** − / + stepper for the number of rounds. */
   function roundCountHtml(n, locked) { return `<div class="row rc-step"><b>Rounds</b><button class="btn sm" data-rc="-1" ${n <= Math.max(1, locked || 1) ? 'disabled' : ''}>−</button><span class="display" style="font-size:26px;min-width:30px;text-align:center">${n}</span><button class="btn sm" data-rc="1" ${n >= 10 ? 'disabled' : ''}>＋</button><span class="muted small">The last round ends the game.</span></div>`; }
+  /**
+   * Rules Checklist editor (Rules Checklist Mode): choose, preview, reorder, remove rules; presets.
+   * `items` = [{ id, rule }]; onChange(items) after every change. Display order never affects who can win.
+   */
+  function checklistEditor(box, items, onChange, opts = {}) {
+    let list = (items || []).map(x => ({ id: x.id || newId(), rule: x.rule }));
+    function newId() { return 'k_' + Math.random().toString(36).slice(2, 8); }
+    const draw = async () => {
+      let info = [];
+      try { info = await apiQuiet('rules:checklistInfo', { items: list }); } catch (e) { info = []; }
+      const presets = (App.settings.checklistPresets || []);
+      box.innerHTML = `<div class="ck-edit">${info.map((it, i) => `<div class="ck-row" data-i="${i}"><span class="ck-n">${i + 1}</span><div class="ck-pat">${patternGridHtml(it.examples[0])}</div><div class="grow"><b>${esc(it.label)}</b><div class="tiny muted">${esc(it.short)}</div></div>
+          <button class="btn sm ghost" data-up="${i}" ${i === 0 ? 'disabled' : ''} title="Move up">▲</button><button class="btn sm ghost" data-dn="${i}" ${i === info.length - 1 ? 'disabled' : ''} title="Move down">▼</button><button class="btn sm ghost" data-rm="${i}" ${info.length <= 1 ? 'disabled' : ''} title="Remove">✕</button></div>`).join('')}</div>
+        <div class="row" style="margin-top:10px;flex-wrap:wrap;gap:8px"><button class="btn sm primary" id="ckAdd">＋ Add rules…</button>
+          <select id="ckPreset" class="sm"><option value="">Load a saved checklist…</option>${presets.map((p, i) => `<option value="${i}">${esc(p.name)} (${p.items.length})</option>`).join('')}</select>
+          <button class="btn sm" id="ckSave">Save as preset…</button>${presets.length ? '<button class="btn sm ghost" id="ckDelP">Delete a preset…</button>' : ''}<button class="btn sm ghost" id="ckDef">Restore default checklist</button></div>
+        <p class="muted tiny" style="margin:8px 0 0">The order is only how the list is shown — every rule is open from the start and can be won in any order.</p>`;
+      const set = (l) => { list = l; onChange(list.slice()); draw(); };
+      $$('[data-up]', box).forEach(b => b.onclick = () => { const i = Number(b.dataset.up); const l = list.slice(); [l[i - 1], l[i]] = [l[i], l[i - 1]]; set(l); });
+      $$('[data-dn]', box).forEach(b => b.onclick = () => { const i = Number(b.dataset.dn); const l = list.slice(); [l[i + 1], l[i]] = [l[i], l[i + 1]]; set(l); });
+      $$('[data-rm]', box).forEach(b => b.onclick = () => { const l = list.slice(); l.splice(Number(b.dataset.rm), 1); set(l); });
+      $('#ckAdd', box).onclick = async () => { const r = await ruleEditor([], { title: 'Add rules to the checklist', checklist: true }); if (r && r.length) set(list.concat(r.map(rule => ({ id: newId(), rule })))); };
+      $('#ckPreset', box).onchange = (e) => { const p = presets[Number(e.target.value)]; if (p) { set(p.items.map(x => ({ id: newId(), rule: x.rule }))); toast('Loaded “' + p.name + '”', 'ok'); } };
+      $('#ckSave', box).onclick = async () => {
+        const name = await promptBox('Save checklist', 'Name for this checklist', '', 'Save');
+        if (!name) return;
+        App.settings = await api('settings:update', { checklistPresets: presets.filter(p => p.name !== name).concat([{ name, items: list }]) });
+        toast('Checklist saved as “' + name + '”', 'ok'); draw();
+      };
+      if ($('#ckDelP', box)) $('#ckDelP', box).onclick = async () => {
+        const v = await modal({ title: 'Delete a saved checklist', body: `<select id="dp">${presets.map((p, i) => `<option value="${i}">${esc(p.name)}</option>`).join('')}</select>`, buttons: [{ label: 'Cancel', value: null }, { label: 'Delete', kind: 'danger', value: (b) => Number(b.querySelector('#dp').value) }] });
+        if (v == null) return; App.settings = await api('settings:update', { checklistPresets: presets.filter((p, i) => i !== v) }); draw();
+      };
+      $('#ckDef', box).onclick = () => set([{ rule: { id: 'fast5', mode: 'any' } }, { rule: { id: 'line' } }, { rule: { id: 'diagonal' } }, { rule: { id: 'lShape' } }, { rule: { id: 'full' } }].map(x => ({ id: newId(), rule: x.rule })));
+    };
+    onChange(list.slice());
+    draw();
+    return { get: () => list.slice() };
+  }
+
+  /** Two cards: Round-Based or Rules Checklist. */
+  function modeCardsHtml(mode) {
+    return `<div class="mode-cards"><label class="mode-card ${mode !== 'checklist' ? 'on' : ''}"><input type="radio" name="gmode" value="rounds" ${mode !== 'checklist' ? 'checked' : ''}><b>Round-Based Bingo</b><span>Round 1, 2, 3… each round has its own winning rule. You move between rounds.</span></label>
+      <label class="mode-card ${mode === 'checklist' ? 'on' : ''}"><input type="radio" name="gmode" value="checklist" ${mode === 'checklist' ? 'checked' : ''}><b>Rules Checklist Bingo</b><span>No rounds. Pick the winning rules; all are open from the start and are ticked off as people win them, in any order.</span></label></div>`;
+  }
+
+  window.checklistEditor = checklistEditor;
+  window.modeCardsHtml = modeCardsHtml;
   window.roundCountHtml = roundCountHtml;
   window.ruleEditor = ruleEditor;
   window.customPatternDialog = customPatternDialog;

@@ -12,7 +12,7 @@ App.register('dashboard', {
       ${rec && !active ? `<div class="banner"><div class="grow"><h3>${rec.crashed ? 'RESUME LAST GAME' : 'Continue your last game'}</h3>
         <div class="muted">${rec.crashed ? 'Crime Master Bingo did not close normally. ' : ''}<b style="color:#fff">${esc(rec.name)}</b> — Round ${rec.round || '–'}, ${rec.played} songs played. Cards, history, claims and winners are all saved.</div></div>
         <button class="btn primary lg" id="dResume">▶ Resume last game</button></div>` : ''}
-      ${active ? `<div class="banner"><div class="grow"><h3>${esc(active.name)}</h3><div class="muted">${active.round.number ? `Round ${active.round.number} · ${esc(active.round.label)} (${active.round.status})` : 'Not started'} · ${active.totals.played}/${active.totals.songs} songs played · ${active.totals.cards} cards</div></div>
+      ${active ? `<div class="banner"><div class="grow"><h3>${esc(active.name)}</h3><div class="muted">${active.mode === 'checklist' ? `Rules Checklist · ${active.checklist.completed} of ${active.checklist.total} rules won` : active.round.number ? `Round ${active.round.number} · ${esc(active.round.label)} (${active.round.status})` : 'Not started'} · ${active.totals.played}/${active.totals.songs} songs played · ${active.totals.cards} cards</div></div>
         <button class="btn primary lg" id="dHost">▶ Go to Host Game</button></div>` : ''}
       <div class="cols c3" style="margin-bottom:18px">
         <div class="panel"><div class="stat"><span class="k">Music videos</span><span class="big-num">${lib.songs.length}</span><span class="muted small">${ok} ready${issues ? ` · <span style="color:var(--red)">${issues} need attention</span>` : ''}</span></div></div>
@@ -25,7 +25,7 @@ App.register('dashboard', {
             .map(([t, done, v]) => `<div class="check-row" style="cursor:pointer" data-go="${v}"><span class="ic ${done ? 'ok' : 'warn'}">${done ? '✓' : '•'}</span><div class="grow">${esc(t)}</div><span class="muted small">Open ›</span></div>`).join('')}
         </div>
         <div class="panel"><h2>Recent games</h2>
-          ${games.length ? games.slice(0, 6).map(g => `<div class="check-row"><div class="grow"><b>${esc(g.name)}</b><div class="muted small">${esc(g.date)} · ${g.status === 'finished' ? 'Finished' : g.status === 'live' ? 'In progress' : 'Set-up'} · ${g.played}/${g.songs} songs · ${g.cards} cards</div></div><button class="btn sm" data-open="${g.id}">${g.status === 'finished' ? 'View' : 'Open'}</button></div>`).join('') : '<div class="empty">No games yet.</div>'}
+          ${games.length ? games.slice(0, 6).map(g => `<div class="check-row"><div class="grow"><b>${esc(g.name)}</b><div class="muted small">${esc(g.date)} · ${g.mode === 'checklist' ? 'Rules Checklist' : 'Round-Based'} · ${g.status === 'finished' ? 'Finished' : g.status === 'live' ? 'In progress' : 'Set-up'} · ${g.played}/${g.songs} songs · ${g.cards} cards</div></div><button class="btn sm" data-open="${g.id}">${g.status === 'finished' ? 'View' : 'Open'}</button></div>`).join('') : '<div class="empty">No games yet.</div>'}
           <div class="muted tiny" style="margin-top:10px">Keyboard: <span class="kbd">Space</span> play/pause · <span class="kbd">→</span> next · <span class="kbd">←</span> replay · <span class="kbd">B</span> bingo check · <span class="kbd">F</span> TV fullscreen</div>
         </div>
       </div>`;

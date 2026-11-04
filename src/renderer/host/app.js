@@ -17,7 +17,7 @@
       this.applyAppearance();
       document.querySelectorAll('#nav a').forEach(a => a.addEventListener('click', () => this.show(a.dataset.view)));
       const st = await api('game:state'); this.game = st.game;
-      window.cmb.on('state', (s) => { this.game = s.game; this.updateSide(); this.emit('state'); if (this._askingNext && this._askRound && (!this.game || this.game.round.number !== this._askRound || this.game.round.status === 'ready' || this.game.intermission || this.game.status === 'finished') && this._askClose) this._askClose(); });
+      window.cmb.on('state', (s) => { this.game = s.game; this.updateSide(); this.emit('state'); if (this._askingNext && this._askRound && (!this.game || this.game.round.number !== this._askRound || this.game.round.status === 'ready' || this.game.intermission || this.game.status === 'finished') && this._askClose) this._askClose(); if (this._askingNext && !this._askRound && this._askClose && (!this.game || this.game.status === 'finished' || (this.game.checklist && (this.game.checklist.closed || !this.game.checklist.allDone)))) this._askClose(); });
       window.cmb.on('tick', (t) => { if (this.game) { this.game.playback.position = t.position; } this.emit('tick', t); });
       window.cmb.on('remote', (r) => { this.remote = r; this.updateSide(); this.emit('remote'); });
       window.cmb.on('audience', (a) => { this.audience.open = a.open; this.updateSide(); this.emit('audience'); });
@@ -51,6 +51,7 @@
 
     /** After a round has a winner (claim session closed): intermission or next round? */
     async whatNext(p) {
+      if (p && p.checklistDone) return this.checklistDone(p);
       if (this._askingNext) return; this._askingNext = true; this._askRound = p.round;
       try {
         const body = document.createElement('div');
@@ -68,6 +69,39 @@
         if (r === 'next') { const x = await this.cmd('completeRound', { fromRound: p.round }); if (x && x.ok !== false) await this.cmd('startRound', { round: p.nextRound }); return; }
         if (r.go === 'break') { const x = await this.cmd('startIntermission', { minutes: r.minutes, message: r.message }); if (x && x.ok) toast('Intermission — the TV shows the break screen', 'ok'); }
       } finally { this._askingNext = false; this._askClose = null; this._askRound = null; }
+    },
+
+    /** Rules Checklist: every rule has a confirmed winner. */
+    async checklistDone(p) {
+      if (this._askingNext) return; this._askingNext = true;
+      try {
+        const r = await modal({ title: '🏆 ALL BINGO RULES COMPLETED', body: `<p>All ${p.total} winning rules have a confirmed winner. What would you like to do?</p>`,
+          buttons: [{ label: '▶ Continue music without more Bingo claims', value: 'music' }, { label: '🏆 View winners', value: 'view' }, { label: '🏁 Finish game', kind: 'primary', value: 'finish' }], dismissValue: null,
+          onMount: (b, close) => { this._askClose = () => close(null); } });
+        if (r === 'finish') { await this.cmd('endGame'); toast('Game finished — that\'s a wrap!', 'ok'); }
+        else if (r === 'view') this.viewWinners();
+        else if (r === 'music') { await this.cmd('closeChecklist', { closed: true }); toast('Claims closed — the music keeps playing', 'ok'); }
+      } finally { this._askingNext = false; this._askClose = null; }
+    },
+    viewWinners() {
+      const g = this.game; if (!g || !g.checklist) return;
+      const body = `<div class="ck-winners">${g.checklist.items.map(i => `<div class="ck-wrow"><div class="ck-pat">${patternGridHtml(i.example)}</div><div class="grow"><b>${esc(i.label)}</b><div class="small">${i.winners.length ? i.winners.map(w => `Card <b>${w.cardLabel}</b>${w.owner ? ' · ' + esc(w.owner) : ''} <span class="muted tiny">${new Date(w.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>`).join('<br>') : '<span class="muted">Not won</span>'}</div></div>${i.winners.length ? '<span class="badge ok">✓</span>' : ''}</div>`).join('')}</div>`;
+      modal({ title: `Winners — ${g.checklist.completed} of ${g.checklist.total} rules`, size: 'mid', body, buttons: [{ label: 'Close', kind: 'primary', value: true }] });
+    },
+    /** Correct a confirmed checklist award: move it to another rule the card completed, or undo it. */
+    async correctAward(claimId) {
+      const g = this.game; const w = g.winners.find(x => x.claimId === claimId); if (!w) return;
+      const v = await this.cmd('viewClaim', { claimId }); if (!v || v.ok === false) return;
+      const alts = (v.checklist && v.checklist.qualifying || []).filter(q => q.itemId !== w.itemId);
+      const body = `<p>Card <b>${w.cardLabel}</b>${w.owner ? ' (' + esc(w.owner) + ')' : ''} was awarded <b>${esc(w.rule)}</b>.</p>
+        ${alts.length ? `<label class="field">Award a different rule instead<select id="caTo"><option value="">— keep ${esc(w.rule)} —</option>${alts.map(a => `<option value="${a.itemId}">${esc(a.label)}</option>`).join('')}</select></label>` : '<p class="muted small">This card did not complete any other open rule when it was checked.</p>'}
+        <label class="field">Reason (kept in the audit log)<input type="text" id="caWhy" maxlength="200" placeholder="e.g. wrong card number entered"></label>`;
+      const r = await modal({ title: 'Correct an award', body, buttons: [{ label: 'Cancel', value: null }, { label: 'Undo this award', kind: 'danger', value: (b) => ({ undo: true, reason: b.querySelector('#caWhy').value.trim() }) }].concat(alts.length ? [{ label: 'Change rule', kind: 'primary', value: (b) => ({ to: b.querySelector('#caTo').value, reason: b.querySelector('#caWhy').value.trim() }) }] : []) });
+      if (!r) return;
+      if (r.undo) { if (await confirmBox('Undo this award?', `${esc(w.rule)} becomes available again (unless another card also won it in the same claim session). The change is kept in the audit log.`, 'Undo award', true)) { const x = await this.cmd('revokeWinner', { claimId, reason: r.reason }); if (x && x.ok) toast('Award undone', 'ok'); } return; }
+      if (!r.to) return;
+      const to = alts.find(a => a.itemId === r.to);
+      if (await confirmBox('Change the awarded rule?', `Card ${w.cardLabel}: <b>${esc(w.rule)}</b> → <b>${esc(to.label)}</b>. ${esc(w.rule)} becomes available again.`, 'Change rule')) { const x = await this.cmd('changeAward', { claimId, itemId: r.to, reason: r.reason }); if (x && x.ok) toast('Award corrected', 'ok'); }
     },
 
     listeners: {},

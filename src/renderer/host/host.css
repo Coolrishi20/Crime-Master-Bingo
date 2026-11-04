@@ -243,3 +243,38 @@ video.scan { width: 100%; max-height: 300px; background: #000; border-radius: 10
 .rs-item b { display: block; font-size: 11px; letter-spacing: .14em; color: var(--pink); text-transform: uppercase; }
 .rs-item span { display: block; font-family: var(--display); font-size: 18px; line-height: 1.1; }
 .rs-item em { display: block; font-style: normal; font-size: 11px; color: var(--amber); }
+
+/* ---- Rules Checklist Mode ---- */
+.mode-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.mode-card { display: flex; flex-direction: column; gap: 4px; padding: 14px 16px; border-radius: 14px; border: 1px solid var(--border-soft); background: var(--bg-2); cursor: pointer; position: relative; }
+.mode-card.on { border-color: var(--pink); background: var(--pink-soft); }
+.mode-card input { position: absolute; top: 14px; right: 14px; accent-color: var(--pink); width: 18px; height: 18px; }
+.mode-card b { color: #fff; font-size: 16px; padding-right: 26px; }
+.mode-card span { color: var(--muted); font-size: 13px; line-height: 1.4; }
+.ck-edit { display: flex; flex-direction: column; gap: 6px; }
+.ck-row { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 10px; background: var(--bg-2); border: 1px solid var(--border-soft); }
+.ck-row b { color: #fff; }
+.ck-n { width: 22px; text-align: center; color: var(--muted); font-weight: 800; }
+.ck-pat { width: 38px; flex: none; }
+.ck-pat .pgrid { gap: 2px; }
+.ck-count { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-weight: 800; letter-spacing: .08em; font-size: 13px; color: var(--muted); margin-bottom: 10px; }
+.ck-count b { color: #fff; font-size: 22px; letter-spacing: 0; }
+.ck-bar { flex: 1 1 120px; height: 8px; border-radius: 4px; background: var(--bg-2); overflow: hidden; }
+.ck-bar i { display: block; height: 100%; background: var(--green); transition: width .4s ease; }
+.ck-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px; }
+.ck-item { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--border-soft); background: var(--bg-2); min-width: 0; }
+.ck-item b { color: #fff; }
+.ck-item.completed { border-color: rgba(53, 214, 143, .55); background: var(--green-soft); }
+.ck-win { margin-top: 4px; }
+.ck-win .btn { padding: 2px 8px; }
+.ck-opt { display: flex; align-items: center; gap: 8px; padding: 6px 8px; margin-top: 6px; border-radius: 10px; border: 1px solid var(--border-soft); background: var(--bg-2); cursor: pointer; }
+.ck-opt.on { border-color: var(--green); background: var(--green-soft); }
+.ck-opt input { accent-color: var(--green); }
+.ck-opt b { color: #fff; }
+.ck-winners { display: flex; flex-direction: column; gap: 8px; }
+.ck-wrow { display: flex; gap: 12px; align-items: center; padding: 8px 10px; border-radius: 10px; background: var(--bg-2); }
+.ck-wrow b { color: #fff; }
+@media (max-width: 760px) { .mode-cards { grid-template-columns: 1fr; } }
+.ck-banner { flex-wrap: wrap; }
+.ck-banner > .grow { flex: 1 1 100%; min-width: 0; }
+.ck-banner h3 { font-size: 22px; }

@@ -9,7 +9,7 @@ const QRCode = require('qrcode');
 const { Store } = require('./store');
 const { Library } = require('./library');
 const { RemoteServer } = require('./remote');
-const { GameEngine, createGame, defaultGameSettings } = require('../core/engine');
+const { GameEngine, createGame, defaultGameSettings, normaliseChecklist, DEFAULT_CHECKLIST } = require('../core/engine');
 const cardsLib = require('../core/cards');
 const rules = require('../core/rules');
 const locking = require('../core/locking');
@@ -46,6 +46,7 @@ function defaultSettings() {
     performance: { lowResource: false, decided: false },
     customPatterns: [],   // host-designed 5×5 patterns (Settings → Bingo Rules)
     rulePresets: [],      // saved rule sets for the three rounds
+    checklistPresets: [], // saved Rules Checklists [{ name, items }]
     lastGameId: null,
     cleanShutdown: true
   };
@@ -64,6 +65,10 @@ function loadSettings() {
   merged.gameDefaults.rounds = validRounds((s.gameDefaults || {}).rounds, merged.gameDefaults.roundCount);
   merged.customPatterns = Array.isArray(s.customPatterns) ? s.customPatterns : [];
   merged.rulePresets = Array.isArray(s.rulePresets) ? s.rulePresets : [];
+  merged.checklistPresets = Array.isArray(s.checklistPresets) ? s.checklistPresets : [];
+  merged.gameDefaults.mode = merged.gameDefaults.mode === 'checklist' ? 'checklist' : 'rounds';
+  merged.gameDefaults.checklist = normaliseChecklist(merged.gameDefaults.checklist);
+  if (!merged.gameDefaults.checklist.length) merged.gameDefaults.checklist = normaliseChecklist(DEFAULT_CHECKLIST);
   return merged;
 }
 /** Three valid rule sets (falls back to the standard rules for anything invalid). */
@@ -84,7 +89,7 @@ function gameSummary(g) {
     id: g.id, name: g.name, date: g.date, venue: g.venue, status: g.status, createdAt: g.createdAt, updatedAt: g.updatedAt,
     songs: (g.order || []).length, played: (g.played || []).length, cards: (g.cards || []).length,
     printed: (g.cards || []).filter(c => c.printed).length,
-    round: g.round ? g.round.number : 0, roundStatus: g.round ? g.round.status : 'pending', cardsLocked: !!g.cardsLocked,
+    round: g.round ? g.round.number : 0, roundStatus: g.round ? g.round.status : 'pending', cardsLocked: !!g.cardsLocked, mode: (g.settings && g.settings.mode) === 'checklist' ? 'checklist' : 'rounds',
     winners: winners.map(w => ({ cardNo: w.cardNo, round: w.round })), playlistName: g.playlistName
   };
 }
@@ -379,6 +384,8 @@ async function buildPrintJob(game, opts) {
     cards: list.map(c => ({ no: c.no, cells: c.cells, batch: c.batch || 1 })), songs, qrs, logo,
     bw: !!cardOpts.bw, textScale: Number(cardOpts.textScale) || 1, showArtist: cardOpts.showArtist !== false, cutLines: cardOpts.cutLines !== false,
     rounds: Object.keys(validRounds(game.settings.rounds, game.settings.roundCount)).map(Number).map(n => { const i = rules.roundInfo({ round: n, rules: validRounds(game.settings.rounds, game.settings.roundCount)[n] }); return { n, label: i.label, short: i.short, pattern: i.examples[0], diagonals: i.diagonalsCount }; }),
+    mode: game.settings.mode === 'checklist' ? 'checklist' : 'rounds',
+    checklist: (game.settings.checklist || []).map(it => { const i = rules.roundInfo({ round: 0, rules: [it.rule] }); return { label: i.label, short: i.short, pattern: i.examples[0], diagonals: i.diagonalsCount }; }),
     names: opts.names || null,
     locked: !!game.cardsLocked,
     opts: { qr: !!cardOpts.qr, bw: !!cardOpts.bw, useLogo: !!cardOpts.useLogo, textScale: Number(cardOpts.textScale) || 1, showArtist: cardOpts.showArtist !== false, cutLines: cardOpts.cutLines !== false }
@@ -429,6 +436,7 @@ const handlers = {
     ['appearance', 'video', 'cards', 'remote', 'updates', 'library', 'home', 'performance'].forEach(k => { if (patch[k]) Object.assign(settings[k], patch[k]); });
     if (patch.performance) { sendAudience('app-settings', audienceAppSettings()); updateBackgroundWork(); }
     if (Array.isArray(patch.customPatterns)) settings.customPatterns = patch.customPatterns.map(p => { try { const r = rules.normaliseRule({ id: 'custom', name: p.name, cells: p.cells }); return { id: String(p.id || 'cp_' + Date.now().toString(36)).slice(0, 40), name: r.name, cells: r.cells }; } catch (e) { return null; } }).filter(Boolean).slice(0, 50);
+    if (Array.isArray(patch.checklistPresets)) settings.checklistPresets = patch.checklistPresets.map(p => ({ name: String(p.name || 'Checklist').trim().slice(0, 40) || 'Checklist', items: normaliseChecklist(p.items) })).filter(p => p.items.length).slice(0, 30);
     if (Array.isArray(patch.rulePresets)) settings.rulePresets = patch.rulePresets.map(p => { const c = Math.max(1, Math.min(10, Number(p.roundCount) || Object.keys(p.rounds || {}).length || 3)); return { name: String(p.name || 'Preset').trim().slice(0, 40) || 'Preset', roundCount: c, rounds: validRounds(p.rounds, c) }; }).slice(0, 30);
     if (patch.home) { if (remote && remote.broadcastPlayers) remote.broadcastPlayers(); if (engine) onEngineChanged('state'); }
     if (patch.updates && updater) updater.start(settings.updates.auto !== false);
@@ -439,8 +447,10 @@ const handlers = {
       if (gd.audio) settings.gameDefaults.audio = Object.assign({}, settings.gameDefaults.audio || {}, gd.audio);
       if (gd.screens) settings.gameDefaults.screens = Object.assign({}, settings.gameDefaults.screens || {}, gd.screens);
       if (gd.roundCount != null) settings.gameDefaults.roundCount = Math.max(1, Math.min(10, Number(gd.roundCount) || 3));
+      if (gd.checklist) { const l = normaliseChecklist(gd.checklist); if (l.length) settings.gameDefaults.checklist = l; }
+      if (gd.mode) settings.gameDefaults.mode = gd.mode === 'checklist' ? 'checklist' : 'rounds';
       if (gd.rounds || gd.roundCount != null) settings.gameDefaults.rounds = validRounds(Object.assign({}, settings.gameDefaults.rounds, gd.rounds || {}), settings.gameDefaults.roundCount);
-      Object.keys(gd).forEach(k => { if (!['overlay', 'crawler', 'audio', 'screens', 'rounds', 'roundCount'].includes(k)) settings.gameDefaults[k] = gd[k]; });
+      Object.keys(gd).forEach(k => { if (!['overlay', 'crawler', 'audio', 'screens', 'rounds', 'roundCount', 'checklist', 'mode'].includes(k)) settings.gameDefaults[k] = gd[k]; });
     }
     saveSettings();
     sendAudience('app-settings', audienceAppSettings());
@@ -780,6 +790,7 @@ const handlers = {
   /* winning rules (v1.5) */
   'rules:catalogue': () => rules.catalogue(),
   'rules:info': ({ rules: list, round }) => rules.roundInfo({ round: Number(round) || 1, rules: list }),
+  'rules:checklistInfo': ({ items }) => normaliseChecklist(items || settings.gameDefaults.checklist).map(it => Object.assign({ id: it.id, spec: it.rule }, rules.roundInfo({ round: 0, rules: [it.rule] }))),
   'rules:roundsInfo': ({ rounds, count }) => { const c = count || settings.gameDefaults.roundCount || 3; const r = validRounds(rounds || settings.gameDefaults.rounds, c); const out = {}; Object.keys(r).forEach(n => { out[n] = rules.roundInfo({ round: Number(n), rules: r[n] }); }); return out; },
   'remote:info': async () => remoteInfo(),
   'remote:start': async () => { if (!remote) createRemote(); await remote.start(); return remoteInfo(); },

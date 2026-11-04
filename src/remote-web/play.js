@@ -101,7 +101,7 @@
   function drawAway(prev) {
     var s = state, el = $('away'), one = s.away === 1;
     el.classList.toggle('hidden', !one);
-    if (one) el.innerHTML = '<span style="font-size:26px">🔥</span><div><big>ONE SONG AWAY!</big><small>Just one more played song and you have ' + esc((s.round.label || '').toLowerCase()) + ' — listen closely!</small></div>';
+    if (one) el.innerHTML = '<span style="font-size:26px">🔥</span><div><big>ONE SONG AWAY!</big><small>' + (s.mode === 'checklist' ? 'Just one more played song and you complete an open rule' : 'Just one more played song and you have ' + esc((s.round.label || '').toLowerCase())) + ' — listen closely!</small></div>';
     var key = s.gameId + ':' + s.round.number + ':' + (s.played ? s.played.length : 0);
     if (one && (!prev || prev.away !== 1) && load('cmb-away') !== key) { save('cmb-away', key); if (navigator.vibrate) navigator.vibrate([60, 50, 60]); }
   }
@@ -138,7 +138,24 @@
 
   function paintMarks() { var mk = marks(); Array.prototype.forEach.call($('grid').children, function (d, i) { d.classList.toggle('on', mk.indexOf(i) >= 0); }); }
 
+  /* Rules Checklist Mode: the open / won rules, no rounds */
+  function drawChecklist() {
+    var s = state, r = s.round, box = $('round'), ck = s.checklist;
+    var live = r.number && r.status === 'active' && s.gameStatus !== 'finished';
+    var done = ck.filter(function (i) { return i.done; }).length, canWin = ck.some(function (i) { return !i.done && !i.mine; });
+    var mini = function (i) { return '<div class="ckr' + (i.done ? ' done' : '') + (i.mine ? ' mine' : '') + '"><div class="pg">' + i.example.map(function (on) { return '<i class="' + (on ? 'on' : '') + '"></i>'; }).join('') + '</div><span>' + esc(i.label) + '</span><b>' + (i.mine ? '🏆' : i.done ? '✓' : '') + '</b></div>'; };
+    box.className = 'round ck' + (live ? '' : ' idle') + (s.wins.length ? ' won' : '');
+    var head;
+    if (s.gameStatus === 'finished') head = '<b>GAME OVER</b><span>THANKS FOR PLAYING!</span><em>' + (s.wins.length ? 'You won ' + s.wins.map(esc).join(' & ') + ' 🏆' : 'See you next time!') + '</em>';
+    else if (s.intermission) head = '<b>BREAK</b><span>☕ INTERMISSION</span><em>' + esc(s.intermission.message || 'Back soon — keep your card!') + '</em>';
+    else if (!r.number) head = '<b>GET READY</b><span>WAITING FOR THE START</span><em>Win any of these rules, in any order · tap a song when you hear it</em>';
+    else head = '<b>WINNING RULES · ' + done + ' OF ' + ck.length + ' WON</b><span>' + (canWin ? 'ANY OPEN RULE WINS' : 'ALL RULES WON') + '</span><em>' + (s.wins.length ? 'You won ' + s.wins.map(esc).join(' & ') + ' 🏆 — you can still win the others!' : 'Any order · only songs that have actually played count') + '</em>';
+    box.innerHTML = '<div>' + head + '</div><div class="ckrs">' + ck.map(mini).join('') + '</div>';
+    var b = $('bingo'); b.disabled = !live || !canWin;
+    b.textContent = live ? (canWin ? 'BINGO!' : 'ALL RULES WON') : (s.gameStatus === 'finished' ? 'GAME OVER' : 'WAIT FOR THE START');
+  }
   function drawRound() {
+    if (state.mode === 'checklist' && state.checklist) return drawChecklist();
     var s = state, r = s.round, box = $('round'), won = r.number && s.wins.indexOf(r.number) >= 0;
     var live = r.number && (r.status === 'active' || r.status === 'ended') && s.gameStatus !== 'finished';
     var pg = '<div class="pg">' + Array.from({ length: 25 }, function (_, i) { return '<i class="' + (r.number && (r.example ? r.example[i] : PAT[r.number].indexOf(i) >= 0) ? 'on' : '') + '"></i>'; }).join('') + '</div>';
@@ -159,7 +176,7 @@
     $('bingo').disabled = true; setTimeout(function () { if (state) drawRound(); }, 2500);
   };
   function bingoResult(m) {
-    if (m.result === 'not-yet') popup('no', '🎵', 'NOT A BINGO YET', 'Keep listening! This round needs ' + (m.label ? m.label.toLowerCase() : 'the winning pattern') + ' — only songs that have actually played count.');
+    if (m.result === 'not-yet') popup('no', '🎵', 'NOT A BINGO YET', state && state.mode === 'checklist' ? 'Keep listening! None of the open rules is complete on your card yet — only songs that have actually played count.' : 'Keep listening! This round needs ' + (m.label ? m.label.toLowerCase() : 'the winning pattern') + ' — only songs that have actually played count.');
     else if (m.result === 'checking') popup('check', '✋', 'LOOKS LIKE A BINGO!', 'The host is checking card ' + state.me.cardLabel + ' now — the music is paused.');
     else if (m.result === 'already') popup('win', '🏆', 'ALREADY A WINNER', 'You have already won this round. Wait for the next one!');
     else if (m.result === 'no-round') popup('no', '⏳', 'NOT NOW', m.message || 'No round is running right now.');

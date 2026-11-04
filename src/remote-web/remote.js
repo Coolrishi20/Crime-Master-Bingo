@@ -141,7 +141,9 @@
     }
     var g = state, pb = g.playback, cur = g.current;
     $('gName').textContent = g.name;
-    $('roundChip').textContent = g.round.number ? 'ROUND ' + g.round.number + ' · ' + g.round.label + (g.round.status === 'ended' ? ' · ENDED' : '') : 'NOT STARTED';
+    var CK = g.mode === 'checklist' ? g.checklist : null;
+    $('roundChip').textContent = CK ? (g.round.number ? 'RULES ' + CK.completed + ' OF ' + CK.total + ' COMPLETED' : 'NOT STARTED · ' + CK.total + ' RULES') : g.round.number ? 'ROUND ' + g.round.number + ' · ' + g.round.label + (g.round.status === 'ended' ? ' · ENDED' : '') : 'NOT STARTED';
+    var tb = document.querySelector('#tabs [data-tab=rounds]'); if (tb) tb.innerHTML = '<span>' + (CK ? '✓' : '▦') + '</span>' + (CK ? 'Rules' : 'Rounds');
     $('roundChip').className = 'chip' + (g.round.status === 'active' ? '' : ' dim');
     var b = $('banner'); var msg = '';
     if (g.status === 'finished') msg = 'This game has ended.';
@@ -152,8 +154,8 @@
     b.textContent = msg; b.classList.toggle('hidden', !msg);
     var playing = pb.status === 'playing' || pb.status === 'loading';
     $('nowLbl').textContent = cur ? 'Song ' + cur.number + ' · ' + (pb.status === 'between' ? 'next song coming' : pb.status) + (cur.played ? ' · ✓ counted' : '') : 'Now playing';
-    $('nowTitle').textContent = cur ? cur.title : (g.round.number ? 'Ready' : 'Start Round 1');
-    $('nowArtist').textContent = cur ? cur.artist : (g.round.number ? '' : 'Go to Rounds → Start Round 1');
+    $('nowTitle').textContent = cur ? cur.title : (g.round.number ? 'Ready' : (CK ? 'Start the game' : 'Start Round 1'));
+    $('nowArtist').textContent = cur ? cur.artist : (g.round.number ? '' : (CK ? 'Go to Rules → Start game' : 'Go to Rounds → Start Round 1'));
     $('sSong').textContent = cur ? cur.number : '–';
     $('sPlayed').textContent = g.totals.played; $('sLeft').textContent = g.totals.remaining;
     $('playIco').textContent = playing || pb.status === 'between' ? '❚❚' : '▶';
@@ -173,7 +175,55 @@
     $('tPos').textContent = fmt(pos);
     $('tLeft').textContent = state.current && ce ? fmt(Math.max(0, ce - pos)) + ' left in clip' : '';
   }
+  /* Rules Checklist Mode: checklist with statuses and winners instead of rounds */
+  var ckKey = null;
+  function renderChecklist() {
+    var g = state, ck = g.checklist, R = g.round, fin = g.status === 'finished';
+    $('endRound').style.display = 'none';
+    $('pauseGame').textContent = g.gamePaused ? 'Resume game' : 'Pause game';
+    var key = JSON.stringify([ck, R, g.status, g.intermission]); if (key === ckKey) return; ckKey = key;
+    var rs = $('roundStatus'), box = $('roundBtns');
+    var b = '';
+    if (!R.number && !fin) b = '<div class="banner ok"><b>Ready — ' + ck.total + ' rules, any order</b><div class="small">Every rule is open from the start. No rounds.</div><button class="btn primary wide" id="ckStartGame">▶ Start game</button></div>';
+    else if (ck.allDone && !fin) b = '<div class="banner ok"><b>🏆 ALL BINGO RULES COMPLETED</b><div class="small">' + (ck.closed ? 'Claims closed — the music carries on.' : 'Finish, or keep the music going without more claims.') + '</div>' + (ck.closed ? '<button class="btn wide" id="ckReopen">Re-open claims</button>' : '<button class="btn wide" id="ckMusic">▶ Continue music without claims</button>') + '<button class="btn primary wide" id="ckFinish">🏁 Finish game</button></div>';
+    else if (ck.playlistDone && !fin) b = '<div class="banner"><b>Every song has been played</b><div class="small">Not won: ' + ck.items.filter(function (i) { return i.status !== 'completed'; }).map(function (i) { return esc(i.label); }).join(', ') + '</div><button class="btn primary wide" id="ckFinish">🏁 Finish game</button></div>';
+    if (g.intermission) b = '<div class="banner"><b>☕ Break</b><div class="small">The TV shows the break screen. Music is paused.</div><button class="btn wide" id="imEnd">End break</button></div>' + b;
+    rs.innerHTML = b + '<div class="ck-count"><b>' + ck.completed + ' OF ' + ck.total + '</b> RULES COMPLETED<div class="ck-bar"><i style="width:' + (ck.total ? ck.completed / ck.total * 100 : 0) + '%"></i></div></div>';
+    box.innerHTML = '';
+    ck.items.forEach(function (i) {
+      var el = document.createElement('div'); el.className = 'ck-item ' + i.status;
+      var pw = document.createElement('div'); pw.className = 'ck-pat'; var grid = document.createElement('div'); CMBPatterns.render(grid, i.example, i.status === 'completed' ? 'green' : 'pink'); pw.appendChild(grid); el.appendChild(pw);
+      var t = document.createElement('div'); t.style.flex = '1';
+      t.innerHTML = '<b>' + esc(i.label) + '</b> <span class="pill ' + (i.status === 'completed' ? 'ok' : '') + '">' + (i.status === 'completed' ? '✓ COMPLETED' : 'AVAILABLE') + '</span>' + i.winners.map(function (w) { return '<div class="small">🏆 Card <b>' + w.cardLabel + '</b>' + (w.owner ? ' · ' + esc(w.owner) : '') + ' <button class="btn mini" data-fix="' + w.claimId + '">Correct</button></div>'; }).join('');
+      el.appendChild(t); box.appendChild(el);
+    });
+    Array.prototype.forEach.call(box.querySelectorAll('[data-fix]'), function (x) { x.onclick = function () { correctAward(x.getAttribute('data-fix')); }; });
+    var on = function (id, fn) { var e = $(id); if (e) e.onclick = fn; };
+    on('ckStartGame', function () { confirmIt('Start the game?', 'All ' + ck.total + ' rules are open from the start. The TV shows the checklist and the music starts.', 'Start game').then(function (ok) { if (ok) safe(cmd('startRound', { round: 1 })).then(function (r) { if (r) toast('Game started', 'ok'); }); }); });
+    on('ckFinish', function () { confirmIt('Finish the game?', ck.completed + ' of ' + ck.total + ' rules were won. The TV shows the end screen.', 'Finish game').then(function (ok) { if (ok) safe(cmd('endGame')); }); });
+    on('ckMusic', function () { safe(cmd('closeChecklist', { closed: true })).then(function (r) { if (r) toast('Claims closed — music continues', 'ok'); }); });
+    on('ckReopen', function () { safe(cmd('closeChecklist', { closed: false })); });
+    on('imEnd', function () { safe(cmd('endIntermission')); });
+    $('winners').innerHTML = g.winners.length ? g.winners.map(function (w) { return '<div class="winner"><span class="cn">' + w.cardLabel + '</span><div><b>' + esc(w.rule || '') + '</b><div class="muted small">' + (w.owner ? esc(w.owner) + ' · ' : '') + esc(w.headline) + '</div></div></div>'; }).join('') : '<div class="muted small">No winners confirmed yet.</div>';
+  }
+  /* correct a confirmed checklist award (change rule / undo), always confirmed, kept in the audit log */
+  function correctAward(claimId) {
+    var w = state.winners.filter(function (x) { return x.claimId === claimId; })[0]; if (!w) return;
+    safe(cmd('viewClaim', { claimId: claimId })).then(function (v) {
+      if (!v) return;
+      var alts = ((v.checklist && v.checklist.qualifying) || []).filter(function (q) { return q.itemId !== w.itemId; });
+      var opts = alts.map(function (a) { return { label: 'Award ' + a.label + ' instead', value: 'to:' + a.itemId }; });
+      opts.push({ label: 'Undo this award', value: 'undo', kind: 'danger' }); opts.push({ label: 'Cancel', value: null });
+      ask('Correct an award', 'Card <b>' + w.cardLabel + '</b>' + (w.owner ? ' (' + esc(w.owner) + ')' : '') + ' was awarded <b>' + esc(w.rule) + '</b>.', opts).then(function (x) {
+        if (!x) return;
+        var reason = (window.prompt('Reason (kept in the audit log)', '') || '').slice(0, 200);
+        if (x === 'undo') confirmIt('Undo this award?', esc(w.rule) + ' becomes available again.', 'Undo award').then(function (ok) { if (ok) safe(cmd('revokeWinner', { claimId: claimId, reason: reason })).then(function (r) { if (r) toast('Award undone', 'ok'); }); });
+        else { var id = x.slice(3); var to = alts.filter(function (a) { return a.itemId === id; })[0]; confirmIt('Change the awarded rule?', 'Card ' + w.cardLabel + ': <b>' + esc(w.rule) + '</b> → <b>' + esc(to.label) + '</b>', 'Change rule').then(function (ok) { if (ok) safe(cmd('changeAward', { claimId: claimId, itemId: id, reason: reason })).then(function (r) { if (r) toast('Award corrected', 'ok'); }); }); }
+      });
+    });
+  }
   function renderRounds() {
+    if (state.mode === 'checklist') return renderChecklist();
     var g = state; var box = $('roundBtns'); box.innerHTML = '';
     var RC = g.roundCount || 3; var NS = []; for (var q = 1; q <= RC; q++) NS.push(q);
     NS.forEach(function (n) {
@@ -222,7 +272,7 @@
     var s = state.session;
     if (!s) { if (ckOpen) { ckOpen = false; stopScan(); $('checker').classList.add('hidden'); } $('bingoFab').textContent = 'CHECK BINGO'; return; }
     $('bingoFab').textContent = 'CLAIMS FROZEN (' + s.claims.length + ')';
-    $('ckPaused').innerHTML = 'Session ' + esc(s.id) + ' · Round ' + s.round + ' · <b>' + s.snapshotCount + '</b> songs frozen · music paused at ' + fmt(s.position);
+    $('ckPaused').innerHTML = 'Session ' + esc(s.id) + ' · ' + (state.mode === 'checklist' ? 'Rules ' + state.checklist.completed + ' of ' + state.checklist.total + ' completed' : 'Round ' + s.round) + ' · <b>' + s.snapshotCount + '</b> songs frozen · music paused at ' + fmt(s.position);
     $('ckList').innerHTML = s.claims.length ? s.claims.map(function (c) { return '<div class="hist" data-id="' + c.claimId + '"><span class="n" style="width:40px">' + c.cardLabel + '</span><div style="flex:1">' + (c.owner ? '<b style="color:var(--pink)">📱 ' + esc(c.owner) + '</b><br>' : '') + esc(c.headline) + '</div><span class="chip ' + (SL[c.status][1] === 'ok' ? '' : 'dim') + '" style="margin:0">' + SL[c.status][0] + '</span></div>'; }).join('') : '';
     Array.prototype.forEach.call(document.querySelectorAll('#ckList [data-id]'), function (r) { r.onclick = function () { safe(cmd('viewClaim', { claimId: r.getAttribute('data-id') })).then(function (x) { if (x) { $('ckEntry').classList.add('hidden'); $('ckResult').classList.remove('hidden'); showResult(x); } }); }; });
   }
@@ -337,6 +387,16 @@
   /* a round has a winner and the claim session is closed: intermission or next round? */
   var askingNext = false, askRound = null;
   function whatNext(p) {
+    if (p && p.checklistDone) {
+      if (askingNext) return; askingNext = true; vibrate([60, 40, 60]);
+      ask('🏆 ALL BINGO RULES COMPLETED', 'All ' + p.total + ' rules have a confirmed winner.', [{ label: '🏁 Finish game', value: 'finish', kind: 'primary' }, { label: '▶ Continue music without claims', value: 'music' }, { label: '🏆 View winners', value: 'view' }]).then(function (v) {
+        askingNext = false;
+        if (v === 'finish') safe(cmd('endGame'));
+        else if (v === 'music') safe(cmd('closeChecklist', { closed: true }));
+        else if (v === 'view') document.querySelector('#tabs [data-tab=rounds]').click();
+      });
+      return;
+    }
     if (askingNext) return; askingNext = true; askRound = p.round; vibrate([60, 40, 60]);
     var opts = p.final ? [{ label: '🏁 Finish the game', value: 'finish', kind: 'primary' }, { label: 'Not yet', value: null }]
       : [{ label: '▶ Start Round ' + p.nextRound + (p.nextLabel ? ' — ' + p.nextLabel : ''), value: 'next', kind: 'primary' }, { label: '☕ Intermission (' + (p.minutes || 10) + ' min)', value: 'break' }, { label: 'Not yet', value: null }];
@@ -382,9 +442,11 @@
   function showResult(r) {
     ckInput = ''; drawInput();
     var dup = r.alreadyWinner && r.status !== 'confirmed'; var cls = r.status === 'confirmed' ? 'valid' : dup ? 'dup' : (r.valid ? 'valid' : 'invalid');
+    var ck = r.mode === 'checklist' ? r.checklist : null; var pick = ck && ck.qualifying.length === 1 ? ck.qualifying[0].itemId : null;
     vibrate(r.valid && !dup ? [60, 40, 60] : 250);
-    var h = (r.duplicateEntry ? '<div class="banner">Card already entered in this session — same result shown.</div>' : '') + '<div class="verdict ' + cls + '">' + (r.owner ? '<div class="rs" style="margin:0 0 4px;color:#fff;font-weight:800">📱 ' + esc(r.owner) + ' · card ' + r.cardLabel + '</div>' : '') + '<div class="vt">' + (r.status === 'confirmed' ? 'WINNER CONFIRMED' : dup ? 'ALREADY WON' : r.valid ? 'VALID BINGO!' : 'NOT VALID') + '</div><div class="hl">' + esc(r.explanation || ('Card ' + r.cardLabel + ' — ' + r.headline)) + '</div>' + (r.completingSong ? '<div class="rs">🎵 Won on song #' + r.completingSong.n + ': <b style="color:#fff">' + esc(r.completingSong.title) + '</b> — ' + esc(r.completingSong.artist) + '</div>' : '') + (r.best ? '<div class="rs">Closest: <b style="color:#fff">' + esc(r.best.description) + '</b> — ' + r.best.missing + ' more needed (dashed squares)</div>' : '') + (r.otherRoundWins && r.otherRoundWins.length ? '<div class="rs" style="color:var(--green)">🏆 This card also won Round ' + r.otherRoundWins.join(' & ') + ' — a card can win more than one round</div>' : '') + '<div class="rs">Round ' + r.round + ' · ' + esc(r.roundLabel) + (r.qualifiedAtSong ? ' · qualified at song #' + r.qualifiedAtSong : '') + (r.printed ? '' : ' · ⚠ card not marked printed') + '</div></div>';
+    var h = (r.duplicateEntry ? '<div class="banner">Card already entered in this session — same result shown.</div>' : '') + '<div class="verdict ' + cls + '">' + (r.owner ? '<div class="rs" style="margin:0 0 4px;color:#fff;font-weight:800">📱 ' + esc(r.owner) + ' · card ' + r.cardLabel + '</div>' : '') + '<div class="vt">' + (r.status === 'confirmed' ? (ck && ck.awarded ? 'WINNER — ' + esc(ck.awarded.label) : 'WINNER CONFIRMED') : ck && !r.valid ? (ck.onlyCompleted ? 'RULE ALREADY COMPLETED' : 'NOT A VALID BINGO') : dup ? 'ALREADY WON' : r.valid ? 'VALID BINGO!' : 'NOT VALID') + '</div><div class="hl">' + esc(r.explanation || ('Card ' + r.cardLabel + ' — ' + r.headline)) + '</div>' + (r.completingSong ? '<div class="rs">🎵 Won on song #' + r.completingSong.n + ': <b style="color:#fff">' + esc(r.completingSong.title) + '</b> — ' + esc(r.completingSong.artist) + '</div>' : '') + (r.best ? '<div class="rs">Closest: <b style="color:#fff">' + esc(r.best.description) + '</b> — ' + r.best.missing + ' more needed (dashed squares)</div>' : '') + (r.otherRoundWins && r.otherRoundWins.length ? '<div class="rs" style="color:var(--green)">🏆 This card also won Round ' + r.otherRoundWins.join(' & ') + ' — a card can win more than one round</div>' : '') + (r.otherRuleWins && r.otherRuleWins.length ? '<div class="rs" style="color:var(--green)">🏆 This card also won ' + r.otherRuleWins.map(esc).join(' & ') + '</div>' : '') + (ck && !r.valid ? '<div class="rs">Open rules: <b style="color:#fff">' + (ck.available.map(function (a) { return esc(a.label); }).join(', ') || 'none') + '</b>' + (ck.alreadyCompleted.length ? ' · already completed: ' + ck.alreadyCompleted.map(function (a) { return esc(a.label); }).join(', ') : '') + '</div>' : '') + '<div class="rs">' + (ck ? 'Rules checklist' : 'Round ' + r.round + ' · ' + esc(r.roundLabel)) + (r.qualifiedAtSong ? ' · qualified at song #' + r.qualifiedAtSong : '') + (r.printed ? '' : ' · ⚠ card not marked printed') + '</div></div>';
     h += '<div class="mini">' + r.grid.map(function (c) { return '<div class="' + (c.winning ? 'w' : c.played ? 'p' : '') + (c.needed ? ' nd' : '') + (c.inBest && !c.winning ? ' bs' : '') + (c.completing ? ' cm' : '') + '">' + (c.credit ? '<span style="color:var(--amber)">TC</span>' : '') + '<b>' + esc(c.title) + '</b><span>' + esc(c.artist) + '</span></div>'; }).join('') + '</div>';
+    if (r.status === 'pending' && ck) h += '<div class="eyebrow" style="margin-top:10px">Valid for' + (ck.qualifying.length > 1 ? ' — choose ONE rule to award' : '') + '</div><div id="ckPicks">' + ck.qualifying.map(function (q) { return '<label class="ck-opt' + (pick === q.itemId ? ' on' : '') + '"><input type="radio" name="ckPick" value="' + q.itemId + '"' + (pick === q.itemId ? ' checked' : '') + '><b>' + esc(q.label) + '</b></label>'; }).join('') + '</div>';
     if (r.status === 'pending') h += '<button class="btn success big" style="width:100%" id="ckConfirm">✓ CONFIRM WINNER</button><button class="btn danger wide" id="ckDismiss">Reject claim</button>';
     else if (r.status === 'invalid') h += '<button class="btn danger wide" id="ckReject">Reject claim</button>';
     if (r.status === 'confirmed') h += '<button class="btn wide" id="ckTv">📺 Show winner screen on TV</button>';
@@ -392,7 +454,8 @@
     if (r.status !== 'confirmed') h += '<button class="btn wide" id="ckRemove">Remove (entered by mistake)</button>';
     $('ckResult').innerHTML = h;
     var c = $('ckConfirm');
-    if (c) c.onclick = function () { confirmIt('Confirm card ' + r.cardLabel + '?', 'Record card ' + r.cardLabel + ' as a Round ' + r.round + ' winner. The TV will celebrate (without showing the card).', 'Confirm winner').then(function (ok) { if (!ok) return; safe(cmd('confirmClaim', { claimId: r.claimId })).then(function (x) { if (x) { toast('Winner confirmed!', 'ok'); showResult(x); } }); }); };
+    Array.prototype.forEach.call(document.querySelectorAll('#ckPicks input'), function (i) { i.onchange = function () { pick = i.value; Array.prototype.forEach.call(document.querySelectorAll('#ckPicks .ck-opt'), function (l) { l.classList.toggle('on', l.querySelector('input').checked); }); }; });
+    if (c) c.onclick = function () { if (ck && !pick) { toast('Choose which rule to award', 'err'); return; } var lbl = ck ? ck.qualifying.filter(function (q) { return q.itemId === pick; })[0].label : ''; confirmIt('Confirm card ' + r.cardLabel + '?', ck ? 'Award <b>' + esc(lbl) + '</b> to card ' + r.cardLabel + '. The rule is ticked off on the TV.' : 'Record card ' + r.cardLabel + ' as a Round ' + r.round + ' winner. The TV will celebrate (without showing the card).', 'Confirm winner').then(function (ok) { if (!ok) return; safe(cmd('confirmClaim', ck ? { claimId: r.claimId, itemId: pick } : { claimId: r.claimId })).then(function (x) { if (x) { toast('Winner confirmed!', 'ok'); showResult(x); } }); }); };
     var d = $('ckDismiss'); if (d) d.onclick = function () { safe(cmd('dismissClaim', { claimId: r.claimId })).then(function () { toast('Claim dismissed'); d.remove(); if (c) c.remove(); }); };
     var tv = $('ckTv'); if (tv) tv.onclick = function () { safe(cmd('showTvScreen', { claimId: r.claimId, type: 'winner' })); };
     var tvw = $('ckTvW'); if (tvw) tvw.onclick = function () { safe(cmd('showTvScreen', { claimId: r.claimId, type: 'wrong' })); };

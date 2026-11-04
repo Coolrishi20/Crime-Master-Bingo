@@ -338,12 +338,12 @@ function checkCard(cells, playedSet, roundArg) {
     ev.matched.forEach(m => { res.winningCells.push(...m.cells); res.lines.push(m.line || { type: 'pattern', rule: m.rule.id, desc: m.desc }); });
     const names = Array.from(new Set(ev.matched.map(m => m.desc)));
     res.headline = names.length > 2 ? `${names.slice(0, 2).join(' + ')} + ${names.length - 2} more complete` : `${names.join(' + ')} complete`;
-    res.reason = `${info.label} wins Round ${rr.round}.`;
+    res.reason = rr.round ? `${info.label} wins Round ${rr.round}.` : `${info.label} complete.`;
   } else {
     const b = ev.best;
     res.headline = `No ${info.label.toLowerCase()} yet`;
     res.reason = b ? `The closest is ${b.desc}, which still needs ${plural(b.missing, 'song')}.` : 'No winning pattern is complete.';
-    if (a.diagonals.length && !info.diagonalsCount) res.reason += ' Diagonals do not count this round.';
+    if (a.diagonals.length && !info.diagonalsCount) res.reason += rr.round ? ' Diagonals do not count this round.' : ' Diagonals do not count for this rule.';
   }
   res.winningCells = Array.from(new Set(res.winningCells)).sort((x, y) => x - y);
   return res;
@@ -361,7 +361,7 @@ function explainClaim(cardLabel, roundArg, result, best) {
   const rr = resolveRound(roundArg);
   if (isLegacy(rr)) return legacyExplain(cardLabel, rr.round, result, best);
   const info = infoFor(rr); const card = 'Card #' + cardLabel;
-  if (result.valid) return `${card} — ${result.headline}. Valid for Round ${rr.round} (${info.label}).`;
+  if (result.valid) return rr.round ? `${card} — ${result.headline}. Valid for Round ${rr.round} (${info.label}).` : `${card} — ${result.headline}. Valid for ${info.label}.`;
   return `Not a Bingo! ${card} has no ${info.label.toLowerCase()} yet. ${result.reason}`;
 }
 

@@ -18,7 +18,7 @@ const REMOTE_ACTIONS = new Set([
   'play', 'pause', 'togglePlay', 'stop', 'next', 'skip', 'previous', 'replay', 'seek', 'setVolume', 'markPlayed',
   'startRound', 'endRound', 'pauseGame', 'resumeGame', 'endGame', 'setCrawler',
   'openChecker', 'closeChecker', 'checkClaim', 'confirmClaim', 'dismissClaim', 'revokeWinner', 'setClipMode',
-  'freezeClaims', 'addClaim', 'viewClaim', 'removeClaim', 'closeSession', 'grantCredit', 'reverseCredit', 'setAudio', 'showTvScreen', 'setTvScreens', 'completeRound', 'queueSong', 'unqueueSong', 'skipNext', 'resetQueue', 'jumpTo', 'startIntermission', 'endIntermission'
+  'freezeClaims', 'addClaim', 'viewClaim', 'removeClaim', 'closeSession', 'grantCredit', 'reverseCredit', 'setAudio', 'showTvScreen', 'setTvScreens', 'completeRound', 'queueSong', 'unqueueSong', 'skipNext', 'resetQueue', 'jumpTo', 'startIntermission', 'endIntermission', 'changeAward', 'closeChecklist'
 ]);
 
 function sha(s) { return crypto.createHash('sha256').update(String(s)).digest('hex'); }

@@ -1,4 +1,51 @@
-# Crime Master Bingo — Test report (v1.5.0-rc.1)
+# Crime Master Bingo — Test report (v1.6.0-rc.1)
+
+## v1.6.0-rc.1 (Rules Checklist Mode)
+- **Unit tests: 156 / 156 passed.** `test/unit/v16-checklist.test.js` has 12 new tests:
+  - Round-Based Mode stays the default and is unchanged;
+  - set-up: no rounds, a single Start, checklist and mode locked once started;
+  - rules won in any order; a card that qualifies for several rules → the host must choose
+    ONE (never auto-completes two); the same card later wins a different rule; RULE ALREADY
+    COMPLETED;
+  - NOT A VALID BINGO with played squares, the closest open rule and the open rules;
+  - simultaneous winners: two cards win the same rule in one frozen session, and later
+    sessions are refused;
+  - corrections: change the awarded rule (only to a rule the card really completed), undo
+    re-opens the rule, both written to the audit log;
+  - all rules completed → host prompt, claims can be closed, end screen per rule;
+  - the playlist running out first → outstanding rules listed;
+  - TV and player phones: checklist with ticks, no round numbers or card numbers on the TV,
+    "one away" based only on open rules;
+  - crash recovery with a claim session still open; invalid stored checklists fall back;
+  - **the spec §15 acceptance scenario:** Diagonal (from the phone) → Fast 5 → L Shape →
+    One Line → Full House. Each confirmation was checked for no video reload, no reshuffle,
+    no played songs lost and no round transition;
+  - T Shape and Two Parallel Lines as checklist rules; v1.5 saved games open as Round-Based.
+- **E2E (real app), `v16-checklist.js` 34/34:**
+  - Create Game UI: mode cards, then remove / reorder / add rules and save a preset;
+  - PDF legend;
+  - Host Game checklist panel and Start game; TV welcome and checklist ticks;
+  - laptop checker "valid for" with a forced choice;
+  - simultaneous Diagonal winners; a rule chosen and confirmed on the phone remote;
+  - Rules tab on the phone, and an award corrected on the phone;
+  - a player phone BINGO;
+  - restarting the app mid-game (everything restored);
+  - the ALL BINGO RULES COMPLETED prompt, "continue music" refusing new claims, finishing,
+    and the end screen at 5/5;
+  - new games still Round-Based by default.
+- **Regression (all re-run on this build):**
+
+  | Suite | Result |
+  |---|---|
+  | acceptance | 85/85 |
+  | v15 | 28/28 |
+  | v14 | 38/38 |
+  | v13 | 13/13 |
+  | print | 12/12 |
+  | reveal | 7/7 |
+- **Not tested here:** real iPhone and Android phones on venue Wi-Fi. The phone tests use a
+  mobile Chromium browser. The real-laptop hardware matrix from 1.5 is also still to do.
+
 
 ## v1.5.0-rc.1 (Phase 1 fixes and performance)
 - **Unit tests: 144 / 144 passed.** The 18 new tests cover:
