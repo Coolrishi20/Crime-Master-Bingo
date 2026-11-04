@@ -1,4 +1,6 @@
-# Crime Master Bingo
+# Anthem Square
+
+*Music video bingo. Hear it. Mark it. Own it.* (Formerly Crime Master Bingo.)
 
 Offline Windows software for hosting **music-video bingo** nights.
 

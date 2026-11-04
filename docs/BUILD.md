@@ -1,4 +1,4 @@
-# Building, testing and installing Crime Master Bingo
+# Building, testing and installing Anthem Square
 
 ## Requirements
 - Node.js 22+ and npm
@@ -18,8 +18,8 @@ npm run dist:win
 This downloads a static ffmpeg build into `vendor/ffmpeg/win32-x64/`; it's used only
 for loudness analysis and ships as a separate program with its GPL licence. It then
 produces:
-- `dist/CrimeMasterBingo-Setup-<version>.exe`: installer (choose folder, desktop shortcut)
-- `dist/CrimeMasterBingo-Portable-<version>.exe`: single EXE, no install
+- `dist/AnthemSquare-Setup-<version>.exe`: installer (choose folder, desktop shortcut)
+- `dist/AnthemSquare-Portable-<version>.exe`: single EXE, no install
 
 Builds include `latest.yml` and a `.blockmap`. Uploaded to the GitHub release next to
 the installer, they let installed copies update themselves (electron-updater, GitHub
@@ -48,7 +48,7 @@ To run the acceptance test against a packaged build, set `CMB_APP_EXE` to the bu
 executable.
 
 ## Where data lives
-`%APPDATA%\Crime Master Bingo\data\`:
+`%APPDATA%\Crime Master Bingo\data\` (the folder keeps its original name after the rename to Anthem Square, so existing games, library and settings carry over):
 - `games\*.json`: one file per game (atomic writes + `.bak`)
 - `library.json`
 - `playlists.json`

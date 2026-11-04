@@ -1,4 +1,4 @@
-/* Crime Master Bingo — winning-rule picker (Settings → Bingo Rules and Host Game).
+/* Anthem Square — winning-rule picker (Settings → Bingo Rules and Host Game).
  * The authoritative rule engine lives in the main process (src/core/rules.js); this UI
  * only builds rule specs and asks the main process for labels, text and pattern previews. */
 (function () {

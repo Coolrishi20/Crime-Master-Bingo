@@ -1,19 +1,21 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
-<meta name="theme-color" content="#1a1033">
+<meta name="theme-color" content="#102542">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>Crime Master Bingo — My Card</title>
+<title>Anthem Square — My Card</title>
 <link rel="icon" href="/icon.png">
 <link rel="apple-touch-icon" href="/icon.png">
 <link rel="stylesheet" href="play.css">
+<link rel="stylesheet" href="brand.css">
+<link rel="icon" href="/brand/icon.svg" type="image/svg+xml">
 </head>
 <body>
 <section id="join" class="screen hidden">
-  <div class="brand"><span>CRIME MASTER</span><span class="pink">BINGO</span></div>
+  <div class="brand-lockup"><img src="/brand/icon.svg" alt=""><div class="w">ANTHEM<em>SQUARE</em><small>MUSIC VIDEO BINGO</small></div></div>
   <div id="jGame" class="jgame"></div>
   <label class="lbl" for="jName">Your name</label>
   <input id="jName" maxlength="24" autocomplete="given-name" placeholder="e.g. Priya">
@@ -23,7 +25,7 @@
 </section>
 
 <section id="wait" class="screen hidden">
-  <div class="brand"><span>CRIME MASTER</span><span class="pink">BINGO</span></div>
+  <div class="brand-lockup"><img src="/brand/icon.svg" alt=""><div class="w">ANTHEM<em>SQUARE</em><small>MUSIC VIDEO BINGO</small></div></div>
   <div class="waitbox"><div class="spin"></div><div id="wMsg">Connecting to the laptop…</div></div>
 </section>
 

@@ -1,0 +1,62 @@
+/* Anthem Square — TV layer (loaded after audience.css). Always dark, video first: flat opaque panels, no blur, no glow. */
+html[data-theme] { --pink: #FF5B32; --white: #FFF2CF; --lilac: #FFF2CF; --lav: #B3B4AA; --display: 'Montserrat', 'Segoe UI', sans-serif; }
+html[data-theme] body { background: #0B1B31; }
+html[data-theme] #idle { background: #102542 !important; }
+/* lower third: solid blue card, orange bar, sentence-case title */
+html[data-theme] #overlay { background: rgba(16, 37, 66, var(--ov-op, .9)); box-shadow: none; border-radius: 1vh; }
+html[data-theme] .ov-accent { background: #FF5B32; box-shadow: none; width: .7vh; }
+html[data-theme] #ovTitle { font-family: var(--display); font-weight: 800; text-transform: none; letter-spacing: -.01em; color: #FFF2CF; }
+html[data-theme] #ovArtist { color: #D9D3BE; font-weight: 600; }
+/* winning pattern / checklist panel */
+html[data-theme] #pattern { background: rgba(16, 37, 66, .94); border: 1px solid rgba(255, 242, 207, .16); box-shadow: none; backdrop-filter: none; }
+html[data-theme] .pt-head { color: #FF7451; }
+html[data-theme] #ptLabel { font-family: var(--display); font-weight: 800; letter-spacing: -.01em; color: #FFF2CF; }
+html[data-theme] #ptSub { color: #D9D3BE; }
+html[data-theme] .pgrid i { background: rgba(255, 242, 207, .16); box-shadow: none !important; }
+html[data-theme] .pgrid i.on, html[data-theme] .pgrid.pink i.on { background: #FF5B32; }
+html[data-theme] .pgrid.green i.on { background: #FFF2CF; }
+html[data-theme] #ptCelebrate { background: #FF5B32; }
+html[data-theme] #ptCelebrate .display, html[data-theme] .pt-cel-sub { color: #171717; text-shadow: none; }
+html[data-theme] .pt-ck { background: rgba(255, 242, 207, .06); border-color: rgba(255, 242, 207, .14); }
+html[data-theme] .pt-ck .lb { color: #FFF2CF; }
+html[data-theme] .pt-ck.done { background: rgba(255, 242, 207, .12); border-color: rgba(255, 242, 207, .5); }
+html[data-theme] .pt-ck.done .lb { color: #FFF2CF; text-decoration-color: #FF5B32; }
+html[data-theme] .pt-ck.done .tick { background: #FFF2CF; border-color: #FFF2CF; color: #102542; }
+html[data-theme] .pt-ck.just { animation: none; box-shadow: 0 0 0 2px #FF5B32; }
+html[data-theme] #ptClose { background: #FF5B32; color: #171717; }
+/* crawler */
+html[data-theme] #crawler { background: #0B1B31; border-top: 2px solid #FF5B32; }
+html[data-theme] #crawlLabel { background: #FF5B32; color: #171717; }
+html[data-theme] .tk-title { color: #FFF2CF; }
+html[data-theme] .tk-item.latest .tk-title { color: #FF7451; }
+html[data-theme] .tk-artist, html[data-theme] .tk-sep { color: #B3B4AA; }
+html[data-theme] .tk-n, html[data-theme] .tk-dot { color: #FF5B32; }
+/* full-screen pages: flat blue, no drifting glows */
+html[data-theme] #welcome, html[data-theme] #endscreen, html[data-theme] #intermission { background: #102542 !important; }
+html[data-theme] .es-glow { display: none; }
+html[data-theme] .wl-name, html[data-theme] .es-thanks, html[data-theme] .im-title { font-family: var(--display); font-weight: 800; letter-spacing: -.02em; color: #FFF2CF; text-shadow: none; animation: none; -webkit-text-fill-color: #FFF2CF; background: none; filter: none; }
+html[data-theme] .wl-round, html[data-theme] .im-next, html[data-theme] .wl-join, html[data-theme] .wl-lobby, html[data-theme] .es-listwrap, html[data-theme] .es-stat { background: #142D4E; border-color: rgba(255, 242, 207, .16); }
+html[data-theme] .wl-round b, html[data-theme] .im-next b, html[data-theme] .wl-at { color: #FF7451; }
+html[data-theme] .wl-round span, html[data-theme] .wl-join-tx b, html[data-theme] .wl-count, html[data-theme] .es-stat b, html[data-theme] .es-foot { font-family: var(--display); font-weight: 800; color: #FFF2CF; }
+html[data-theme] .wl-meta, html[data-theme] .wl-nodiag { color: #D9D3BE; }
+html[data-theme] .lb-name { background: rgba(255, 242, 207, .1); border-color: rgba(255, 242, 207, .3); }
+html[data-theme] .as-tvbrand { display: flex; align-items: center; justify-content: center; gap: calc(18px * var(--s)); }
+html[data-theme] .as-tvbrand img { width: calc(84px * var(--s)); height: calc(84px * var(--s)); }
+html[data-theme] .as-tvbrand .w { text-align: left; font-family: var(--display); font-weight: 800; font-size: calc(40px * var(--s)); line-height: .95; color: #FFF2CF; }
+html[data-theme] .as-tvbrand .w em { font-style: normal; color: #FF5B32; display: block; }
+html[data-theme] .as-tvbrand .w small { display: block; font-size: calc(13px * var(--s)); letter-spacing: .32em; color: #B3B4AA; margin-top: calc(8px * var(--s)); }
+html[data-theme] .wl-word, html[data-theme] .es-word { display: none; }
+/* winner / not-a-bingo / round takeovers: flat colour fields */
+html[data-theme] #takeover.winner { background: #FF5B32; }
+html[data-theme] #takeover.winner .to-title, html[data-theme] #takeover.winner .to-sub, html[data-theme] #takeover.winner .to-eyebrow { color: #171717; text-shadow: none; }
+html[data-theme] #takeover.winner .to-msg { color: #102542; }
+html[data-theme] #takeover.winner .to-row { background: rgba(16, 37, 66, .9); }
+html[data-theme] #takeover.winner .to-row .to-sub, html[data-theme] #takeover.winner .to-row .to-msg { color: #FFF2CF; }
+html[data-theme] #takeover.winner #toGrid i { background: rgba(255,242,207,.18); }
+html[data-theme] #takeover.winner #toGrid i.on { background: #FF5B32; box-shadow: none; }
+html[data-theme] #takeover.wrong, html[data-theme] #takeover.round { background: #102542; }
+html[data-theme] .to-title { font-family: var(--display); font-weight: 800; letter-spacing: -.03em; }
+html[data-theme] #idleBrand > span { display: none; }
+/* the brand icon is always shown (venue-logo rules hide other images until a logo is set) */
+html[data-theme] .as-tvbrand img { display: block !important; max-width: none; max-height: none; object-fit: contain; }
+html[data-theme] #idleBrand .as-tvbrand { --s: 1.4; }

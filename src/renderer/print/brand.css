@@ -1,0 +1,22 @@
+/* Anthem Square — printed card layer: white paper, Dark Blue ink, minimal orange, low-ink outline icon. */
+:root { --ink: #102542 !important; --accent: #FF5B32 !important; --soft: #4E5B6B !important; --line: #9AA6B4 !important; }
+html, body { color: #102542; }
+.brand { flex-direction: row !important; align-items: center; gap: 2.2mm; min-width: 50mm !important; }
+.brand .as-ic { width: 13mm; height: 13mm; flex: none; }
+.brand .as-w { display: flex; flex-direction: column; font-family: 'Montserrat', sans-serif; font-weight: 800; line-height: .95; }
+.brand .as-w b { font-size: 12.5pt; color: #102542; letter-spacing: -.01em; }
+.brand .as-w b + b { color: #FF5B32; }
+.brand .as-w small { font-family: 'Inter', sans-serif; font-weight: 800; font-size: 4.6pt; letter-spacing: .26em; color: #4E5B6B; margin-top: .8mm; }
+.brand .l1, .brand .l2 { display: none !important; }
+.cardno { border: 0.45mm solid #102542 !important; }
+.cardno .k { color: #4E5B6B !important; }
+.cardno .v { font-family: 'Montserrat', sans-serif !important; font-weight: 800; font-size: 22pt !important; color: #102542 !important; }
+.cell { border-color: #9AA6B4 !important; }
+.cell .t { color: #102542; }
+.lg-title { color: #102542 !important; }
+.pat rect.on { fill: #FF5B32 !important; }
+.legend { border-color: #9AA6B4 !important; }
+.pv-brand img { width: 22px; height: 22px; vertical-align: middle; margin-right: 6px; }
+body.bw .brand .as-w b + b { color: #000; }
+body.bw .pat rect.on { fill: #000 !important; }
+body.bw { --ink: #000 !important; --accent: #000 !important; --soft: #333 !important; --line: #555 !important; }

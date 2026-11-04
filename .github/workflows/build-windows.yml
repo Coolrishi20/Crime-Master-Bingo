@@ -39,7 +39,7 @@ jobs:
       - run: npx electron-builder --win nsis portable --x64 --publish never
       - uses: actions/upload-artifact@v4
         with:
-          name: CrimeMasterBingo-Windows
+          name: AnthemSquare-Windows
           path: |
             dist/*.exe
             dist/latest.yml
@@ -64,7 +64,7 @@ jobs:
         with:
           tag_name: ${{ steps.ver.outputs.tag }}
           target_commitish: ${{ github.sha }}
-          name: Crime Master Bingo ${{ steps.ver.outputs.tag }}
+          name: Anthem Square ${{ steps.ver.outputs.tag }}
           body_path: docs/RELEASE_NOTES.md
           prerelease: ${{ steps.ver.outputs.pre == 'true' }}
           make_latest: ${{ steps.ver.outputs.pre == 'true' && 'false' || 'true' }}

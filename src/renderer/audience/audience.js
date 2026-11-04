@@ -1,4 +1,4 @@
-/* Crime Master Bingo — audience (TV / projector) window.
+/* Anthem Square — audience (TV / projector) window.
  * Shows ONLY: the music video, song title, artist, the round's winning pattern
  * and the played-song crawler. It is also the single media player: the laptop's
  * main process tells it what to play; it reports progress back. */
@@ -303,7 +303,7 @@
   /** One-off confetti burst that settles and stops (doesn't distract once the list is on screen). */
   function burst(cv, ms) {
     var ctx = cv.getContext('2d'); cv.width = cv.clientWidth; cv.height = cv.clientHeight;
-    var colors = ['#ffffff', '#ff4fa2', '#c4b0ff', '#ffc857', '#35d68f']; var parts = []; var t0 = performance.now();
+    var colors = ['#FFF2CF', '#FF5B32', '#FFFFFF', '#FFB59E', '#FF7451']; var parts = []; var t0 = performance.now();
     for (var i = 0, N = lowRes ? 60 : 220; i < N; i++) parts.push({ x: cv.width / 2 + (Math.random() - .5) * cv.width * .3, y: cv.height * .25, vx: (Math.random() - .5) * 18, vy: -Math.random() * 16 - 4, w: 6 + Math.random() * 9, h: 8 + Math.random() * 12, r: Math.random() * 6, vr: (Math.random() - .5) * .4, c: colors[i % colors.length] });
     (function f(now) {
       var el = now - t0; ctx.clearRect(0, 0, cv.width, cv.height);
@@ -469,7 +469,7 @@
   var ROUND_MSG = {
     1: { title: 'ROUND 1 COMPLETE', msg: 'One Line conquered! Time for TWO PARALLEL LINES!' },
     2: { title: 'ROUND 2 COMPLETE', msg: "Two lines down. Now it's FULL HOUSE!" },
-    3: { title: 'FULL HOUSE!', msg: "That's a wrap! Thanks for playing Crime Master Bingo." }
+    3: { title: 'FULL HOUSE!', msg: "That's a wrap! Thanks for playing Anthem Square." }
   };
   function showTakeover(p) {
     var el = $('takeover');
@@ -513,7 +513,7 @@
   function startConfetti() {
     var cv = $('confetti'); var ctx = cv.getContext('2d');
     cv.width = cv.clientWidth; cv.height = cv.clientHeight;
-    var colors = ['#ffffff', '#ff4fa2', '#c4b0ff', '#ffc857', '#35d68f'];
+    var colors = ['#FFF2CF', '#FF5B32', '#FFFFFF', '#FFB59E', '#FF7451'];
     var parts = []; for (var i = 0, N = lowRes ? 50 : 180; i < N; i++) parts.push({ x: Math.random() * cv.width, y: -Math.random() * cv.height, w: 6 + Math.random() * 10, h: 8 + Math.random() * 14, vy: 2 + Math.random() * 4, vx: -1.5 + Math.random() * 3, r: Math.random() * 6, vr: -0.2 + Math.random() * 0.4, c: colors[i % colors.length] });
     stopConfetti();
     (function tick() {

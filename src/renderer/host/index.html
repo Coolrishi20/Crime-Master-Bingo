@@ -1,27 +1,32 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
 <meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self' file: data:; media-src file: data: blob: mediastream:; img-src file: data: blob:; style-src 'self' 'unsafe-inline' file:; script-src 'self' file:">
-<title>Crime Master Bingo</title>
+<title>Anthem Square</title>
 <link rel="stylesheet" href="../shared/theme.css">
 <link rel="stylesheet" href="host.css">
+<link rel="stylesheet" href="brand.css">
 </head>
 <body>
 <div id="app">
   <aside id="sidebar">
-    <div class="logo-block"><img id="sideLogo" alt=""><div class="wordmark"><span class="display">CRIME MASTER</span><span class="display pink">BINGO</span></div></div>
-    <nav id="nav">
-      <a data-view="dashboard"><span class="ico">◧</span>Dashboard</a>
-      <a data-view="library"><span class="ico">♫</span>Music Library</a>
-      <a data-view="playlists"><span class="ico">☰</span>Playlists</a>
-      <a data-view="create"><span class="ico">✚</span>Create Game</a>
-      <a data-view="cards"><span class="ico">▦</span>Bingo Cards &amp; Printing</a>
-      <a data-view="host" class="hostlink"><span class="ico">▶</span>Host Game</a>
-      <a data-view="mobile"><span class="ico">📱</span>Mobile Host Connection</a>
-      <a data-view="history"><span class="ico">⟲</span>Game History</a>
-      <a data-view="backup"><span class="ico">⛁</span>Backup &amp; Restore</a>
-      <a data-view="settings"><span class="ico">⚙</span>Settings</a>
+    <div class="logo-block"><div class="as-logo"><img src="../shared/brand/icon.svg" alt="" width="42" height="42"><div class="wm"><b>ANTHEM</b><b><em>SQUARE</em></b><small>MUSIC VIDEO BINGO</small></div></div><img id="sideLogo" alt="Venue logo"></div>
+    <nav id="nav" aria-label="Main">
+      <div class="nav-sec">OVERVIEW</div>
+      <a data-view="dashboard" tabindex="0"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>Dashboard</a>
+      <div class="nav-sec">PREPARE</div>
+      <a data-view="library" tabindex="0"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></svg>Music Library</a>
+      <a data-view="playlists" tabindex="0"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h12M4 12h12M4 18h8"/><path d="M18 14v6l3-1.5"/><circle cx="16.5" cy="20" r="1.5"/></svg>Playlists</a>
+      <a data-view="create" tabindex="0"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M12 8v8M8 12h8"/></svg>Create Game</a>
+      <a data-view="cards" tabindex="0"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2.5"/><path d="M3 9.5h18M3 14.5h18M9 4v16M15 4v16"/></svg>Bingo Cards &amp; Printing</a>
+      <div class="nav-sec">PLAY</div>
+      <a data-view="host" class="hostlink" tabindex="0"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M10 8.5v7l5.5-3.5z" fill="currentColor"/></svg>Host Game</a>
+      <a data-view="mobile" tabindex="0"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg>Mobile Host Connection</a>
+      <div class="nav-sec">MANAGE</div>
+      <a data-view="history" tabindex="0"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v4h4"/><path d="M12 7.5V12l3 2"/></svg>Game History</a>
+      <a data-view="backup" tabindex="0"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><ellipse cx="12" cy="5.5" rx="8" ry="3"/><path d="M4 5.5v13c0 1.7 3.6 3 8 3s8-1.3 8-3v-13"/><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg>Backup &amp; Restore</a>
+      <a data-view="settings" tabindex="0"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M4.2 6.2l2.1 2.1M17.7 15.7l2.1 2.1M2.5 12h3M18.5 12h3M4.2 17.8l2.1-2.1M17.7 8.3l2.1-2.1"/></svg>Settings</a>
     </nav>
     <div id="sideStatus">
       <div class="ss-row"><span class="dot" id="ssAud"></span><span id="ssAudTxt">Audience window closed</span></div>

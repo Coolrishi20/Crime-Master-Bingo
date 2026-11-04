@@ -1,32 +1,74 @@
-/* Crime Master Bingo — shared design tokens (QuizBiz-inspired purple / magenta / white) */
+/* Anthem Square — shared design tokens (Option D: Light Cream / Dark Blue / Vivid Orange Red / Dark Gray).
+ * Dark Mode is the default; Light Mode applies when <html data-theme="light">. TV is always dark. */
 @import url('fonts.css');
-:root {
-  --bg: #1a1033;
-  --bg-deep: #0f091e;
-  --bg-2: #1f143f;
-  --panel: #261848;
-  --panel-2: #2f1f58;
-  --panel-3: #3a2869;
-  --border: #4e3c86;
-  --border-soft: #352560;
-  --pink: #ff4fa2;
-  --pink-2: #f0457a;
-  --pink-soft: rgba(255, 79, 162, 0.16);
-  --white: #ffffff;
-  --text: #f4efff;
-  --lav: #b9a9e8;
-  --lav-2: #8f7fc4;
-  --lilac: #c4b0ff;
-  --green: #35d68f;
-  --green-soft: rgba(53, 214, 143, 0.16);
-  --red: #ff5470;
-  --red-soft: rgba(255, 84, 112, 0.16);
-  --amber: #ffc857;
-  --radius: 14px;
-  --radius-sm: 9px;
-  --shadow: 0 10px 30px rgba(6, 2, 18, 0.45);
-  --font: 'Inter', 'Segoe UI', 'Nirmala UI', system-ui, sans-serif;
-  --display: 'Anton', 'Impact', 'Arial Narrow', sans-serif;
+:root, html[data-theme="dark"] {
+  --as-cream: #FFF2CF; --as-blue: #102542; --as-orange: #FF5B32; --as-gray: #171717;
+
+  /* 60 — surfaces */
+  --bg: #102542;          /* app background */
+  --bg-deep: #0B1B31;     /* sidebar / TV frame (blue, 30% darker) */
+  --bg-2: #0D2039;        /* inset wells: inputs, list rows */
+  --panel: #142D4E;       /* cards & panels */
+  --panel-2: #1A375C;     /* secondary buttons, raised */
+  --panel-3: #22436B;     /* hover / selected row */
+  --border: #34506F;
+  --border-soft: #213B5C;
+
+  /* 30 — cream: text and feature surfaces */
+  --text: #FFF2CF;        /* 13.8:1 on blue */
+  --white: #FFF2CF;
+  --lav: #B3B4AA;         /* secondary text (cream 68%) — 7.4:1 on blue */
+  --lav-2: #7E8A97;
+  --lilac: #FFF2CF;
+  --feature: #FFF2CF;     /* cream "feature" panel (e.g. CHECK BINGO) */
+  --on-feature: #102542;
+
+  /* 10 — orange accent */
+  --pink: #FF5B32;        /* orange (variable name kept from v1 so every existing rule picks up the new accent) */
+  --pink-2: #E64A23;
+  --pink-soft: rgba(255, 91, 50, .14);
+  --on-accent: #171717;   /* text on orange: 5.8:1  (white would be 3.1:1 — fails AA) */
+  --accent-ink: #FF7451;  /* orange as small TEXT: #FF7451 keeps ≥4.5:1 on every dark panel (pure orange is 4.48 on panels) */
+
+  /* states — no new hues: success = cream + ✓, error = orange outline + ✕, warning = orange tint */
+  --green: #FFF2CF;  --green-soft: rgba(255, 242, 207, .12); --on-green: #102542;
+  --red: #FF8A6B;    --red-soft: rgba(255, 91, 50, .12);
+  --amber: #FFB59E;
+
+  --radius: 14px; --radius-sm: 9px;
+  --shadow: 0 8px 24px rgba(5, 12, 24, .45);
+  --font: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  --display: 'Montserrat', 'Segoe UI', system-ui, sans-serif;  /* replaces condensed Anton */
+}
+
+html[data-theme="light"] {
+  --bg: #FFF2CF;          /* 60 cream */
+  --bg-deep: #102542;     /* 30 blue: navigation rail */
+  --bg-2: #F8E7BC;        /* inset wells (cream, 5% darker) */
+  --panel: #FFF8E6;       /* cards (cream, lifted) */
+  --panel-2: #FFFDF6;
+  --panel-3: #F3DFAF;
+  --border: #D9C79B;
+  --border-soft: #EBDAB0;
+
+  --text: #102542;        /* 13.8:1 on cream */
+  --white: #102542;
+  --lav: #4E5B6B;         /* secondary text — 6.1:1 on cream */
+  --lav-2: #7A8592;
+  --lilac: #102542;
+  --feature: #102542;     /* blue feature panel in light mode */
+  --on-feature: #FFF2CF;
+
+  --pink: #FF5B32;
+  --pink-2: #E64A23;
+  --pink-soft: rgba(255, 91, 50, .13);
+  --on-accent: #171717;
+  --accent-ink: #B33A17;  /* orange as TEXT on cream needs this darker shade: 5.0:1 (pure orange is 2.8:1) */
+
+  --green: #102542;  --green-soft: rgba(16, 37, 66, .08); --on-green: #FFF2CF;
+  --red: #B33A17;    --red-soft: rgba(255, 91, 50, .10);
+  --amber: #B33A17;
+  --shadow: 0 8px 24px rgba(16, 37, 66, .12);
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-family: var(--font); }
@@ -36,9 +78,9 @@ button, input, select, textarea { font-family: inherit; }
 
 /* mini pattern grids */
 .pgrid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 3px; }
-.pgrid i { display: block; aspect-ratio: 1; border-radius: 3px; background: rgba(78, 60, 134, 0.55); }
-.pgrid i.on { background: var(--lilac); box-shadow: 0 0 8px rgba(196, 176, 255, .45); }
-.pgrid.pink i.on { background: var(--pink); box-shadow: 0 0 8px rgba(255, 79, 162, .5); }
+.pgrid i { display: block; aspect-ratio: 1; border-radius: 3px; background: rgba(255, 242, 207, 0.14); }
+.pgrid i.on { background: var(--lilac); }
+.pgrid.pink i.on { background: var(--pink); }
 .pgrid i.bad { background: var(--red); }
 
 /* ---------- Low Resource Mode (Settings → Performance): same information, cheaper drawing.
@@ -47,4 +89,4 @@ html.low-res *, html.low-res *::before, html.low-res *::after { animation: none 
 html.low-res .es-glow { display: none !important; }
 html.low-res #crawlViewport, html.low-res .es-viewport { -webkit-mask-image: none !important; mask-image: none !important; }
 html.low-res .es-thanks { filter: none !important; -webkit-text-fill-color: #fff !important; background: none !important; }
-.pgrid.green i.on { background: var(--green); box-shadow: 0 0 8px rgba(53, 214, 143, .45); }
+.pgrid.green i.on { background: var(--green); }

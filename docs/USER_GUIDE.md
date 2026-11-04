@@ -1,6 +1,6 @@
-# Crime Master Bingo — Host Guide
+# Anthem Square — Host Guide
 
-Crime Master Bingo runs music-video bingo nights from a Windows laptop. The laptop
+Anthem Square (formerly Crime Master Bingo) runs music-video bingo nights from a Windows laptop. The laptop
 plays every video and all the sound; the TV or projector shows the audience screen;
 your phone is a remote control. No internet connection or account is needed.
 
@@ -9,12 +9,23 @@ your phone is a remote control. No internet connection or account is needed.
 ## 1. Before the night (about 15 minutes)
 
 ### Install
-Run **CrimeMasterBingo-Setup-1.0.0.exe** (or use the portable EXE, which needs no
+Run **AnthemSquare-Setup-<version>.exe** (or use the portable EXE, which needs no
 install). Windows may show *"Windows protected your PC"* because the app is not
 code-signed yet. Click **More info → Run anyway**.
 
 The first time the phone remote starts, Windows Firewall asks about network access:
 tick **Private networks** and click **Allow**.
+
+### Updating from Crime Master Bingo
+Install Anthem Square over your existing copy. Your music library, playlists, saved games,
+printed-card numbers, backups and phone pairings are kept: the app still reads the same data
+folder. Cards printed before the rename still scan and check normally.
+
+### Dark and Light Mode — *Settings → Appearance → Theme*
+**Dark** is the default and is best during a live event. **Light** suits daytime preparation
+(playlists, the library, printing). The change applies straight away and is remembered. The
+phone remote and player phones follow the laptop's choice. The TV always stays dark so the
+video stands out.
 
 ### Import your music videos — *Music Library*
 - Click **Import videos**, **Import folder**, or drag files/folders onto the page.
@@ -479,7 +490,7 @@ security warning, and they can't control the game: only you, the host, can.
 
 ## 9b. Low-end laptops — Low Resource Mode
 
-Crime Master Bingo is designed to run a full night on a **4 GB Windows laptop with
+Anthem Square is designed to run a full night on a **4 GB Windows laptop with
 integrated graphics**. With 4 GB or less, the Dashboard suggests turning on **Low Resource
 Mode** (Settings → ⚡ Performance). It keeps **every game feature**: TV video, title overlay,
 winning patterns, crawler, phone remote, BINGO checks and saving. It reduces:

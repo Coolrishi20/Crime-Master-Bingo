@@ -1,4 +1,4 @@
-/* Crime Master Bingo — printable cards (two per A4) + interactive print preview.
+/* Anthem Square — printable cards (two per A4) + interactive print preview.
  * Builds sheets from the SAVED card mappings (never regenerates anything) and fits
  * every song's text into its square: wrap → shrink → minimum readable size → warn. */
 (function () {
@@ -39,6 +39,9 @@
     return { t: TITLE_MIN * scale, a: ARTIST_MIN * scale, clamp: true, warn: 'too-long' };
   }
 
+  /* low-ink outline version of the Anthem Square icon (inline so it is always in the PDF) */
+  var PRINT_ICON = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect x="46" y="46" width="420" height="420" rx="56" fill="none" stroke="#102542" stroke-width="20"/><rect x="89" y="89" width="98" height="98" rx="15" fill="none" stroke="#102542" stroke-width="10"/><g fill="#102542"><ellipse cx="117.5" cy="161.8" rx="14.0" ry="10.8" transform="rotate(-22 117.5 161.8)"/><ellipse cx="158.5" cy="153.1" rx="14.0" ry="10.8" transform="rotate(-22 158.5 153.1)"/><rect x="126.1" y="114.2" width="7.6" height="48.6" rx="2.2"/><rect x="167.2" y="105.6" width="7.6" height="48.6" rx="2.2"/><path d="M126.1 112.1 L174.7 101.3 L174.7 117.5 L126.1 128.3 Z"/></g><rect x="209" y="89" width="98" height="98" rx="15" fill="none" stroke="#102542" stroke-width="10"/><rect x="324" y="84" width="108" height="108" rx="18" fill="#FF5B32"/><rect x="89" y="209" width="98" height="98" rx="15" fill="none" stroke="#102542" stroke-width="10"/><rect x="204" y="204" width="108" height="108" rx="18" fill="#FF5B32"/><path d="M245.0 235.3 L245.0 280.7 L281.8 258.0 Z" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="8.6" stroke-linejoin="round"/><rect x="329" y="209" width="98" height="98" rx="15" fill="none" stroke="#102542" stroke-width="10"/><rect x="84" y="324" width="108" height="108" rx="18" fill="#FF5B32"/><rect x="209" y="329" width="98" height="98" rx="15" fill="none" stroke="#102542" stroke-width="10"/><rect x="329" y="329" width="98" height="98" rx="15" fill="none" stroke="#102542" stroke-width="10"/></svg>';
+
   function patternSvg(cells) {
     var s = '<svg viewBox="0 0 29 29" class="pat">';
     for (var i = 0; i < 25; i++) { var x = (i % 5) * 6, y = Math.floor(i / 5) * 6; s += '<rect x="' + x + '" y="' + y + '" width="5" height="5" rx="1" class="' + (cells[i] ? 'on' : 'off') + '"/>'; }
@@ -50,8 +53,8 @@
     var head = el('div', 'head');
     var brand = el('div', 'brand' + (job.logo ? ' haslogo' : ''));
     if (job.logo) { var img = el('img'); img.src = job.logo; brand.appendChild(img); }
-    brand.appendChild(el('div', 'l1', 'CRIME MASTER'));
-    brand.appendChild(el('div', 'l2', 'BINGO'));
+    var ic = el('div', 'as-ic'); ic.innerHTML = PRINT_ICON; brand.appendChild(ic);
+    var wm = el('div', 'as-w'); wm.innerHTML = '<b>ANTHEM</b><b>SQUARE</b><small>MUSIC VIDEO BINGO</small>'; brand.appendChild(wm);
     head.appendChild(brand);
     var meta = el('div', 'meta');
     meta.appendChild(el('b', null, job.game.name));
@@ -155,7 +158,7 @@
     document.body.classList.add('preview');
     var bar = el('div', 'pv-bar');
     bar.innerHTML =
-      '<div class="pv-brand"><span>CRIME MASTER</span> <b>BINGO</b> · Print preview</div>' +
+      '<div class="pv-brand"><img src="../shared/brand/icon.svg" alt=""><span>ANTHEM</span> <b>SQUARE</b> · Print preview</div>' +
       '<div class="pv-grp"><button id="pvPrev" title="Previous page">◀</button><span id="pvPage">Page 1 / ' + info.sheets + '</span><button id="pvNext" title="Next page">▶</button></div>' +
       '<div class="pv-grp"><button id="pvOut" title="Zoom out">−</button><span id="pvZoom">100%</span><button id="pvIn" title="Zoom in">+</button><button id="pvFit">Fit</button></div>' +
       '<div class="pv-grp"><input id="pvFind" inputmode="numeric" placeholder="Card #" maxlength="3"><button id="pvGo">Find</button></div>' +

@@ -20,6 +20,9 @@ const { UpdateManager, RELEASES_URL, REPO } = require('./updater');
 
 const ROOT = path.join(__dirname, '..', '..');
 const RENDERER = path.join(__dirname, '..', 'renderer');
+// The product is now called Anthem Square, but saved games, library, settings and backups stay in the
+// original data folder so existing installs keep everything (Windows: %APPDATA%\\Crime Master Bingo).
+if (!process.env.CMB_DATA_DIR) app.setPath('userData', path.join(app.getPath('appData'), 'Crime Master Bingo'));
 const DATA_DIR = process.env.CMB_DATA_DIR || path.join(app.getPath('userData'), 'data');
 const IS_TEST = !!process.env.CMB_TEST;
 
@@ -35,7 +38,7 @@ let recoveryInfo = null;
 /* ======================================================================= settings */
 function defaultSettings() {
   return {
-    appearance: { logo: null, scale: 1, theme: 'crime-master' },
+    appearance: { logo: null, scale: 1, theme: 'dark' },   // 'dark' (default) | 'light'
     video: { displayId: null, fullscreen: true, aspect: 'contain', audioDeviceId: 'default' },
     gameDefaults: defaultGameSettings(),
     cards: { textScale: 1, qr: true, bw: false, useLogo: true, showArtist: true, cutLines: true },
@@ -63,6 +66,7 @@ function loadSettings() {
   merged.gameDefaults.screens = Object.assign(defaultGameSettings().screens, (s.gameDefaults || {}).screens || {});
   merged.gameDefaults.roundCount = Math.max(1, Math.min(10, Number((s.gameDefaults || {}).roundCount) || 3));
   merged.gameDefaults.rounds = validRounds((s.gameDefaults || {}).rounds, merged.gameDefaults.roundCount);
+  if (!['dark', 'light'].includes(merged.appearance.theme)) merged.appearance.theme = 'dark'; // v1 'crime-master' → Dark
   merged.customPatterns = Array.isArray(s.customPatterns) ? s.customPatterns : [];
   merged.rulePresets = Array.isArray(s.rulePresets) ? s.rulePresets : [];
   merged.checklistPresets = Array.isArray(s.checklistPresets) ? s.checklistPresets : [];
@@ -257,12 +261,14 @@ function fullHostState() {
 }
 
 function remoteState() {
-  if (!engine) return { game: null };
+  if (!engine) return { game: null, theme: uiTheme() };
   const st = enrichUpNext(engine.hostState(), true);
   st.audienceConnected = engine.audienceConnected;
   st.eligible = engine.eligibleSongs();
-  return { game: st };
+  return { game: st, theme: uiTheme() };
 }
+function withTheme(v) { return v ? Object.assign(v, { theme: uiTheme() }) : v; } // removed player → null (phone shows “removed”)
+function uiTheme() { return settings && settings.appearance && settings.appearance.theme === 'light' ? 'light' : 'dark'; }
 
 /* State fan-out: everything that changes during one command is coalesced into ONE update
    (setImmediate), and each consumer only receives a new state when its own view actually
@@ -307,7 +313,7 @@ function dispatch(action, args, source) {
 function createHostWindow() {
   hostWin = new BrowserWindow({
     width: 1440, height: 900, minWidth: 1100, minHeight: 700,
-    backgroundColor: '#1a1033', title: 'Crime Master Bingo', show: false,
+    backgroundColor: '#102542', title: 'Anthem Square', show: false,
     icon: path.join(ROOT, 'assets', 'icon.png'),
     webPreferences: { spellcheck: false, preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: false }
   });
@@ -316,7 +322,7 @@ function createHostWindow() {
   hostWin.on('close', (e) => {
     if (IS_TEST || app.isQuiting) return;
     if (engine && engine.game.status === 'live') {
-      const r = dialog.showMessageBoxSync(hostWin, { type: 'question', buttons: ['Cancel', 'Save & Quit'], defaultId: 0, cancelId: 0, title: 'Quit Crime Master Bingo?', message: 'A game is in progress.', detail: 'Everything is saved — you can resume this game next time you open Crime Master Bingo.' });
+      const r = dialog.showMessageBoxSync(hostWin, { type: 'question', buttons: ['Cancel', 'Save & Quit'], defaultId: 0, cancelId: 0, title: 'Quit Anthem Square?', message: 'A game is in progress.', detail: 'Everything is saved — you can resume this game next time you open Anthem Square.' });
       if (r === 0) { e.preventDefault(); return; }
     }
   });
@@ -339,7 +345,7 @@ function openAudienceWindow(opts = {}) {
   audienceWin = new BrowserWindow({
     x: b.x + (external ? 0 : Math.round(b.width * 0.1)), y: b.y + (external ? 0 : Math.round(b.height * 0.1)),
     width: external ? b.width : Math.round(b.width * 0.6), height: external ? b.height : Math.round(b.width * 0.6 * 9 / 16),
-    backgroundColor: '#0f091e', title: 'Crime Master Bingo — Audience', autoHideMenuBar: true, show: false,
+    backgroundColor: '#0B1B31', title: 'Anthem Square — Audience', autoHideMenuBar: true, show: false,
     icon: path.join(ROOT, 'assets', 'icon.png'),
     webPreferences: { spellcheck: false, preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: false, backgroundThrottling: false, autoplayPolicy: 'no-user-gesture-required' }
   });
@@ -438,6 +444,7 @@ const handlers = {
     if (Array.isArray(patch.customPatterns)) settings.customPatterns = patch.customPatterns.map(p => { try { const r = rules.normaliseRule({ id: 'custom', name: p.name, cells: p.cells }); return { id: String(p.id || 'cp_' + Date.now().toString(36)).slice(0, 40), name: r.name, cells: r.cells }; } catch (e) { return null; } }).filter(Boolean).slice(0, 50);
     if (Array.isArray(patch.checklistPresets)) settings.checklistPresets = patch.checklistPresets.map(p => ({ name: String(p.name || 'Checklist').trim().slice(0, 40) || 'Checklist', items: normaliseChecklist(p.items) })).filter(p => p.items.length).slice(0, 30);
     if (Array.isArray(patch.rulePresets)) settings.rulePresets = patch.rulePresets.map(p => { const c = Math.max(1, Math.min(10, Number(p.roundCount) || Object.keys(p.rounds || {}).length || 3)); return { name: String(p.name || 'Preset').trim().slice(0, 40) || 'Preset', roundCount: c, rounds: validRounds(p.rounds, c) }; }).slice(0, 30);
+    if (patch.appearance && remote) { remote.broadcastState(); if (remote.broadcastPlayers) remote.broadcastPlayers(); }
     if (patch.home) { if (remote && remote.broadcastPlayers) remote.broadcastPlayers(); if (engine) onEngineChanged('state'); }
     if (patch.updates && updater) updater.start(settings.updates.auto !== false);
     if (patch.gameDefaults) {
@@ -548,7 +555,7 @@ const handlers = {
     const g = getGameObj(id);
     const r = await dialog.showSaveDialog(hostWin, { title: 'Save game report', defaultPath: `${g.name.replace(/[^\w -]/g, '')}-${g.date}-report.txt` });
     if (r.canceled) return null;
-    const lines = [`CRIME MASTER BINGO — GAME REPORT`, `${g.name}  ·  ${g.date}  ·  ${g.venue || ''}`, `Game ID ${g.id}  ·  Playlist ${g.playlistName}  ·  Cards ${g.cards.length}`, '', 'WINNERS'];
+    const lines = [`ANTHEM SQUARE — GAME REPORT`, `${g.name}  ·  ${g.date}  ·  ${g.venue || ''}`, `Game ID ${g.id}  ·  Playlist ${g.playlistName}  ·  Cards ${g.cards.length}`, '', 'WINNERS'];
     g.claims.filter(c => c.status === 'confirmed').forEach(c => lines.push(`  Round ${c.round}: Card ${cardsLib.formatCardNo(c.cardNo)} — ${c.headline}`));
     lines.push('', 'PLAYED SONGS');
     g.played.forEach((p, i) => lines.push(`  ${String(i + 1).padStart(2, '0')}. ${g.songs[p.songId].title} — ${g.songs[p.songId].artist}  (round ${p.round})`));
@@ -583,7 +590,7 @@ const handlers = {
     const { job } = await buildPrintJob(g, Object.assign({}, opts, { range: opts.range || null }));
     job.preview = true; job.gameKey = g.id;
     if (previewWin && !previewWin.isDestroyed()) previewWin.destroy();
-    previewWin = new BrowserWindow({ width: 1100, height: 980, title: 'Print Preview — Crime Master Bingo', backgroundColor: '#1a1033', parent: IS_TEST ? undefined : hostWin, show: false,
+    previewWin = new BrowserWindow({ width: 1100, height: 980, title: 'Print Preview — Anthem Square', backgroundColor: '#102542', parent: IS_TEST ? undefined : hostWin, show: false,
       webPreferences: { spellcheck: false, preload: path.join(__dirname, 'preload.js'), contextIsolation: true, sandbox: false } });
     previewWin.setMenuBarVisibility(false);
     await previewWin.loadFile(path.join(RENDERER, 'print', 'print.html'), { query: { preview: '1' } });
@@ -756,14 +763,14 @@ const handlers = {
     const g = getGameObj(id);
     if (engine && engine.game.id === id) store.flush();
     if (!file) {
-      const r = await dialog.showSaveDialog(hostWin, { title: 'Save game backup', defaultPath: `${g.name.replace(/[^\w -]/g, '')}-${g.date}${includeMedia ? '-full' : ''}.cmbbackup`, filters: [{ name: 'Crime Master Bingo backup', extensions: ['cmbbackup'] }] });
+      const r = await dialog.showSaveDialog(hostWin, { title: 'Save game backup', defaultPath: `${g.name.replace(/[^\w -]/g, '')}-${g.date}${includeMedia ? '-full' : ''}.cmbbackup`, filters: [{ name: 'Anthem Square backup', extensions: ['cmbbackup'] }] });
       if (r.canceled) return null; file = r.filePath; overwrite = true; // the system dialog already asked about overwriting
     }
     if (fs.existsSync(file) && !overwrite) throw new Error('A file with that name already exists.');
     return backup.createBackup(JSON.parse(JSON.stringify(g)), { file, includeMedia: !!includeMedia, password: password || null, appVersion: app.getVersion(), onProgress: (p) => sendHost('backup-progress', p) });
   },
   'backup:pickFile': async () => {
-    const r = await dialog.showOpenDialog(hostWin, { title: 'Choose a Crime Master Bingo backup', properties: ['openFile'], filters: [{ name: 'Crime Master Bingo backup', extensions: ['cmbbackup'] }] });
+    const r = await dialog.showOpenDialog(hostWin, { title: 'Choose an Anthem Square backup', properties: ['openFile'], filters: [{ name: 'Anthem Square backup', extensions: ['cmbbackup'] }] });
     return r.canceled ? null : r.filePaths[0];
   },
   'backup:inspect': async ({ file, password }) => {
@@ -877,7 +884,7 @@ function remoteTls() {
   try {
     const selfsigned = require('selfsigned');
     const allIps = Array.from(new Set(ips.concat((c && c.ips) || [])));
-    const pems = selfsigned.generate([{ name: 'commonName', value: 'Crime Master Bingo (this laptop)' }, { name: 'organizationName', value: 'Crime Master Bingo' }], {
+    const pems = selfsigned.generate([{ name: 'commonName', value: 'Anthem Square (this laptop)' }, { name: 'organizationName', value: 'Anthem Square' }], {
       keySize: 2048, days: 3650, algorithm: 'sha256',
       extensions: [{ name: 'basicConstraints', cA: false }, { name: 'keyUsage', digitalSignature: true, keyEncipherment: true }, { name: 'extKeyUsage', serverAuth: true },
         { name: 'subjectAltName', altNames: allIps.map(ip => ({ type: 7, ip })).concat([{ type: 2, value: 'localhost' }, { type: 2, value: require('os').hostname() }]) }]
@@ -930,7 +937,7 @@ const playerHooks = {
     const p = engine.game.players.find(x => x.tokenHash === h && !x.removed);
     return p ? { ok: true, playerId: p.id } : { ok: false, reason: 'not-in-game' };
   },
-  view: (id) => !phoneCardsOn() ? { wait: 'Phone cards are switched off on the laptop.' } : !engine ? { wait: 'The host has no game open right now — it will come back automatically.' } : engine.playerView(id),
+  view: (id) => !phoneCardsOn() ? { wait: 'Phone cards are switched off on the laptop.' } : !engine ? { wait: 'The host has no game open right now — it will come back automatically.' } : withTheme(engine.playerView(id)),
   bingo: async (id) => {
     const p = engine && engine.playerById(id);
     if (!p) throw new Error('You are no longer in this game.');
@@ -948,7 +955,8 @@ function createRemote() {
     extraFiles: {
       '/jsqr.js': require.resolve('jsqr/dist/jsQR.js'),
       '/shared/patterns.js': path.join(RENDERER, 'shared', 'patterns.js'),
-      '/icon.png': path.join(ROOT, 'assets', 'icon.png')
+      '/icon.png': path.join(ROOT, 'assets', 'icon.png'),
+      '/brand/icon.svg': path.join(RENDERER, 'shared', 'brand', 'icon.svg')
     },
     mounts: { '/fonts/': path.join(RENDERER, 'shared', 'fonts') },
     players: playerHooks,

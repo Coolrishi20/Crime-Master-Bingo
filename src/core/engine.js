@@ -1,6 +1,6 @@
 'use strict';
 /**
- * Crime Master Bingo — authoritative game engine.
+ * Anthem Square — authoritative game engine.
  *
  * Runs in the Electron main process (the laptop). The desktop host UI and the
  * phone remote both call `dispatch(action, args)`; the audience window is the
@@ -967,7 +967,7 @@ class GameEngine {
   parseCardInput(args) {
     if (args.qr) {
       const q = parseQrPayload(args.qr);
-      if (!q) return { error: 'That QR code is not a Crime Master Bingo card.' };
+      if (!q) return { error: 'That QR code is not an Anthem Square card.' };
       if (!this.cardMatchesGame(q.gameId)) return { error: 'That card belongs to a different game. Only cards printed for this game can win.' };
       return { cardNo: q.cardNo };
     }

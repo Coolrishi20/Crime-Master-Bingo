@@ -1,3 +1,37 @@
+## Anthem Square 1.7.0 (release candidate 1) — the new name and look
+
+**Crime Master Bingo is now Anthem Square.** *Music video bingo. Hear it. Mark it. Own it.*
+This is a release candidate, published as a GitHub pre-release. Game rules, cards, printing,
+the phone remote, the TV and saved games all work as before.
+
+### Your data comes with you
+Install it over your existing copy. The library, playlists, saved games, settings, backups,
+phone pairings and printed cards (including their QR codes) all carry over, because the app
+keeps reading the same data folder. The installer upgrades the old install in place.
+
+### New look (approved design)
+- **New logo and icon:** the approved 3×3 Bingo-square icon on the window, taskbar,
+  installer, desktop shortcut, phone browser tab, TV screens and printed cards. Tiny sizes
+  use a simplified version without the music note.
+- **Dark Mode by default, plus a full Light Mode** (*Settings → Appearance → Theme*). The
+  phone remote and player phones follow the laptop. The TV always stays dark.
+- **Option D colours:** Dark Blue, Light Cream, Vivid Orange Red and Dark Gray, balanced
+  60–30–10. Orange now means "act here": one main button per area.
+- **Easier to read:** Montserrat ExtraBold headings and song titles in normal capitalisation.
+  Every button and label meets WCAG AA contrast, orange buttons use dark text, and
+  valid / not valid / completed always show a word and ✓ / ✕, never colour alone.
+- **Host console:** Check Bingo is the one cream "feature" panel, so it's the first thing you
+  see. The navigation is grouped into Overview / Prepare / Play / Manage, with matching line
+  icons.
+- **TV:** flat, opaque panels with no blur or glow over the video (lighter on low-end
+  laptops), a cleaner title overlay and checklist, and the new logo on the welcome, idle and
+  end screens.
+- **Printed cards:** a low-ink outline logo and the Anthem Square wordmark. The grid, text
+  sizes, card numbers, cut line and QR codes are unchanged.
+- **Settings → About** shows the logo, the version and the tagline.
+- Brand files (SVG, PNG 16–1024, Windows .ico) and guidelines are in `assets/brand/` and
+  `docs/BRAND.md`.
+
 ## Crime Master Bingo 1.6.0 (release candidate 1) — Rules Checklist Mode
 
 **This is a release candidate**, published as a GitHub pre-release. It includes everything

@@ -59,7 +59,7 @@ App.register('mobile', {
           <li>Connect your phone to the <b style="color:#fff">same Wi-Fi</b> as this laptop (no internet needed — a mobile hotspot from the laptop or a travel router works too).</li>
           <li>Scan the QR code. It opens the remote and pairs automatically (or type the address, then the PIN).</li>
           <li>The phone stays paired — it reconnects by itself after locking or a Wi-Fi drop.</li>
-          <li>Windows may ask to allow Crime Master Bingo through the firewall the first time — choose <b style="color:#fff">Private networks → Allow</b>.</li></ol>
+          <li>Windows may ask to allow Anthem Square through the firewall the first time — choose <b style="color:#fff">Private networks → Allow</b>.</li></ol>
         <h2>Paired devices</h2>
         ${r.devices && r.devices.length ? r.devices.map(d => `<div class="check-row"><span class="dot ${d.online ? 'on' : ''}" style="margin-top:6px"></span><div class="grow"><b>${esc(d.name)}</b><div class="muted small">${d.online ? 'Connected now' : (d.lastSeen ? 'Last seen ' + new Date(d.lastSeen).toLocaleString() : 'Paired ' + new Date(d.pairedAt).toLocaleString())}</div></div><button class="btn sm danger" data-rev="${d.id}">Remove</button></div>`).join('') : '<div class="muted small">No phones paired yet.</div>'}
         <div class="row" style="margin-top:16px">${toggleHtml('mSecure', 'Secure link (live QR scanning on phones)', !!(App.settings.remote && App.settings.remote.secure !== false))}</div>

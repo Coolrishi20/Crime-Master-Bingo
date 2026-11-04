@@ -1,0 +1,194 @@
+/* Anthem Square — laptop component layer (loaded after host.css). Approved design, Nov 2026.
+ * One orange primary per area; states always carry a word and ✓/✕; no glow or blur. */
+html[data-theme] body { background: var(--bg); color: var(--text); }
+html[data-theme] .display, html[data-theme] .page-head h1, html[data-theme] .console-top h1, html[data-theme] .modal-head h2 { font-family: var(--display); font-weight: 800; letter-spacing: -.01em; }
+html[data-theme] .page-head h1 { font-size: 30px; }
+html[data-theme] .console-top h1 { font-size: 26px; }
+html[data-theme] .modal-head h2 { font-size: 22px; }
+html[data-theme] .eyebrow { color: var(--accent-ink); letter-spacing: .16em; }
+html[data-theme] .pink { color: var(--accent-ink); }
+
+/* ---- navigation rail: logo, grouped sections, calm active state ---- */
+html[data-theme] #sidebar { background: var(--bg-deep); border-right: 0; }
+html[data-theme] .logo-block { padding: 22px 18px 14px; }
+html[data-theme] .as-logo { display: flex; align-items: center; gap: 10px; }
+html[data-theme] .as-logo img { width: 42px; height: 42px; flex: none; }
+html[data-theme] .as-logo .wm { display: flex; flex-direction: column; line-height: 1; font-family: var(--display); }
+html[data-theme] .as-logo .wm b { font-weight: 800; font-size: 17px; color: #FFF2CF; letter-spacing: .01em; }
+html[data-theme] .as-logo .wm b em { font-style: normal; color: #FF5B32; }
+html[data-theme] .as-logo .wm small { font-size: 8px; font-weight: 700; letter-spacing: .26em; color: #B3B4AA; margin-top: 4px; font-family: var(--font); }
+html[data-theme] .wordmark { display: none; }
+html[data-theme] .nav-sec { font-size: 10px; font-weight: 800; letter-spacing: .18em; color: #7E8A97; padding: 14px 12px 4px; }
+html[data-theme] #nav a { color: #C9C6B8; font-weight: 600; border-radius: 10px; position: relative; }
+html[data-theme] #nav a:hover { background: rgba(255, 242, 207, .06); color: #FFF2CF; }
+html[data-theme] #nav a.active { background: rgba(255, 242, 207, .10); color: #FFF2CF; box-shadow: none; }
+html[data-theme] #nav a.active::before { content: ''; position: absolute; left: -10px; top: 8px; bottom: 8px; width: 4px; border-radius: 0 4px 4px 0; background: #FF5B32; }
+html[data-theme] #nav a .ico { color: inherit; opacity: .8; }
+html[data-theme] #nav a.active .ico { color: #FF5B32; opacity: 1; }
+html[data-theme] #nav a.hostlink.live:not(.active) { background: rgba(255, 91, 50, .14); color: #FFF2CF; }
+html[data-theme] #sideStatus { border-top: 1px solid rgba(255, 242, 207, .08); color: #B3B4AA; }
+html[data-theme] .ss-game { color: #FFF2CF; }
+html[data-theme] .dot.on { background: #FFF2CF; box-shadow: none; outline: 2px solid rgba(255,242,207,.25); outline-offset: 2px; }
+html[data-theme] .dot.warn { background: #FF5B32; }
+
+/* ---- panels & headings ---- */
+html[data-theme] .panel { background: var(--panel); border: 1px solid var(--border-soft); }
+html[data-theme] .panel h2 { color: var(--lav); }
+html[data-theme] .panel h3, html[data-theme] .page-head h1, html[data-theme] .console-top h1, html[data-theme] .big-num, html[data-theme] .songcount,
+html[data-theme] .song-cell b, html[data-theme] .hist-item .t b, html[data-theme] .winner-row .cn, html[data-theme] .mode-card b, html[data-theme] .ck-row b,
+html[data-theme] .ck-count b, html[data-theme] .ck-item b, html[data-theme] .ck-opt b, html[data-theme] .ck-wrow b, html[data-theme] .now-title, html[data-theme] .pin,
+html[data-theme] .toggle, html[data-theme] .tabs button.on, html[data-theme] .round-btn, html[data-theme] .modal-head h2 { color: var(--text); }
+html[data-theme] [style*="color:#fff"], html[data-theme] [style*="color: #fff"] { color: var(--text) !important; }
+html[data-theme] .big-num, html[data-theme] .songcount, html[data-theme] .winner-row .cn, html[data-theme] .pin { font-family: var(--display); font-weight: 800; }
+html[data-theme] .songcount { font-size: 24px; }
+
+/* ---- buttons: one orange primary per area; secondary = quiet; destructive = outline + confirm ---- */
+html[data-theme] .btn { background: var(--panel-2); border: 1px solid var(--border); color: var(--text); box-shadow: none; }
+html[data-theme] .btn:hover { background: var(--panel-3); border-color: var(--lav-2); }
+html[data-theme] .btn.primary { background: #FF5B32; border-color: #FF5B32; color: #171717; box-shadow: none; }
+html[data-theme] .btn.primary:hover { background: #FF7451; }
+html[data-theme] .btn.danger { background: transparent; border-color: var(--red); color: var(--red); }
+html[data-theme] .btn.success { background: var(--green); border-color: var(--green); color: var(--on-green); }
+html[data-theme] .btn.ghost { background: transparent; border-color: transparent; }
+html[data-theme] .btn:focus-visible, html[data-theme] .ctl:focus-visible, html[data-theme] #nav a:focus-visible { outline: 3px solid #FF5B32; outline-offset: 2px; }
+html[data-theme] .seg { background: var(--bg-2); border-color: var(--border-soft); }
+html[data-theme] .seg button { color: var(--lav); }
+html[data-theme] .seg button.on { background: var(--text); color: var(--bg); }
+html[data-theme] .toggle input:checked + .sw { background: #FF5B32; }
+html[data-theme] .toggle .sw { background: var(--border); }
+html[data-theme] input[type=text], html[data-theme] input[type=number], html[data-theme] input[type=date], html[data-theme] input[type=search], html[data-theme] input[type=time], html[data-theme] select, html[data-theme] textarea { background: var(--bg-2); border-color: var(--border); color: var(--text); }
+html[data-theme] input:focus, html[data-theme] select:focus { border-color: #FF5B32; box-shadow: 0 0 0 3px var(--pink-soft); }
+html[data-theme] input[type=range] { accent-color: #FF5B32; }
+
+/* ---- badges & chips (state = icon + word, never colour alone) ---- */
+html[data-theme] .badge { background: var(--panel-3); color: var(--text); }
+html[data-theme] .badge.ok { background: var(--green); color: var(--on-green); }
+html[data-theme] .badge.ok::before { content: '✓'; }
+html[data-theme] .badge.bad { background: transparent; color: var(--red); box-shadow: inset 0 0 0 1.5px var(--red); }
+html[data-theme] .badge.bad::before { content: '✕'; }
+html[data-theme] .badge.warn { background: var(--pink-soft); color: var(--accent-ink); }
+html[data-theme] .badge.pink { background: #FF5B32; color: #171717; }
+html[data-theme] .chip { background: #FF5B32; color: #171717; }
+html[data-theme] .chip.dim { background: var(--panel-3); color: var(--text); }
+
+/* ---- lists & tables ---- */
+html[data-theme] table.list th { background: var(--panel); color: var(--lav); }
+html[data-theme] table.list td { background: var(--bg-2); }
+html[data-theme] table.list tr.sel td { background: var(--panel-3); }
+html[data-theme] .thumb { background: var(--panel-3); border-radius: 6px; }
+html[data-theme] .empty { border-color: var(--border); color: var(--lav); }
+
+/* ---- host console ---- */
+html[data-theme] .now-art { background: linear-gradient(135deg, #1A375C, #0B1B31); }
+html[data-theme] .now-art .eq i { background: #FF5B32; }
+html[data-theme] .now-title { font-family: var(--display); font-weight: 800; font-size: 32px; letter-spacing: -.01em; text-transform: none; }
+html[data-theme] .now-artist { color: var(--lav); }
+html[data-theme] .progress { background: var(--bg-2); }
+html[data-theme] .progress .clip { background: rgba(255, 242, 207, .14); }
+html[data-theme] .progress .fill { background: #FF5B32; }
+html[data-theme] .ctl { background: var(--panel-2); border-color: var(--border); color: var(--text); border-radius: 50%; width: 52px; height: 52px; }
+html[data-theme] .ctl.play { width: 68px; height: 68px; background: #FF5B32; border-color: #FF5B32; color: #171717; }
+html[data-theme] .statusline { color: var(--lav); }
+html[data-theme] .tabs button.on { border-color: #FF5B32; }
+html[data-theme] .banner { background: var(--panel-2); border: 1px solid var(--border); border-left: 4px solid #FF5B32; }
+html[data-theme] .banner h3 { color: var(--text); }
+/* CHECK BINGO = the 30% cream feature surface (dark) / blue feature surface (light) */
+html[data-theme] .as-feature { background: var(--feature) !important; border-color: var(--feature) !important; color: var(--on-feature); }
+html[data-theme] .as-feature h2 { color: var(--on-feature) !important; }
+html[data-theme] .as-feature .muted, html[data-theme] .as-feature .tiny { color: var(--on-feature) !important; opacity: .78; }
+html[data-theme] .as-feature input[type=text] { background: #FFFDF6; color: #102542; border-color: rgba(16,37,66,.3); font-family: var(--display); font-weight: 800; }
+html[data-theme="light"] .as-feature input[type=text] { background: #FFF2CF; }
+html[data-theme] .as-feature .btn:not(.primary) { background: transparent; color: var(--on-feature); border-color: currentColor; }
+html[data-theme] .as-feature .kbd { color: var(--on-feature); border-color: currentColor; }
+
+/* ---- rounds / checklist ---- */
+html[data-theme] .round-btn { background: var(--bg-2); border-color: var(--border); }
+html[data-theme] .round-btn.active { background: var(--pink-soft); border-color: #FF5B32; box-shadow: inset 0 0 0 1px #FF5B32; }
+html[data-theme] .round-btn.ready { background: var(--green-soft); border-color: var(--green); box-shadow: none; }
+html[data-theme] .pgrid i { background: rgba(255, 242, 207, .14); box-shadow: none !important; border-radius: 2px; }
+html[data-theme] .pgrid i.on, html[data-theme] .pgrid.pink i.on { background: #FF5B32; }
+html[data-theme] .pgrid.green i.on { background: var(--text); }
+html[data-theme] .ck-item { background: var(--bg-2); border-color: var(--border-soft); }
+html[data-theme] .ck-item.completed { background: var(--green-soft); border-color: var(--green); }
+html[data-theme] .ck-item.completed > .grow > b { text-decoration: line-through; text-decoration-color: #FF5B32; text-decoration-thickness: 2px; }
+html[data-theme] .ck-bar { background: var(--bg-2); }
+html[data-theme] .ck-bar i { background: #FF5B32; }
+html[data-theme] .ck-opt.on { border-color: #FF5B32; background: var(--pink-soft); }
+html[data-theme] .mode-card.on { border-color: #FF5B32; background: var(--pink-soft); }
+html[data-theme] .rule-card.on { border-color: #FF5B32; background: var(--pink-soft); }
+
+/* ---- claim checker (verdicts use icon + headline + colour) ---- */
+html[data-theme] .verdict.valid { background: var(--pink-soft); border: 1px solid #FF5B32; }
+html[data-theme] .verdict.valid .vt { color: var(--accent-ink); }
+html[data-theme] .verdict.valid .vt::before { content: '✓ '; }
+html[data-theme] .verdict.invalid { background: var(--bg-2); border: 1px dashed var(--lav-2); }
+html[data-theme] .verdict.invalid .vt { color: var(--text); }
+html[data-theme] .verdict.invalid .vt::before { content: '✕ '; color: #FF5B32; }
+html[data-theme] .verdict.dup { background: var(--panel-2); border: 1px solid var(--border); }
+html[data-theme] .verdict .vt { font-family: var(--display); font-weight: 800; letter-spacing: -.01em; }
+html[data-theme] .bcell { background: var(--bg-2); border-color: var(--border-soft); }
+html[data-theme] .bcell b { color: var(--text); }
+html[data-theme] .bcell span { color: var(--lav); }
+html[data-theme] .bcell.played { background: var(--panel-3); border-color: var(--lav-2); }
+html[data-theme] .bcell.played b { color: var(--text); }
+html[data-theme] .bcell.win { background: #FF5B32; border-color: #FF5B32; box-shadow: none; }
+html[data-theme] .bcell.win b, html[data-theme] .bcell.win span, html[data-theme] .bcell.win .pn { color: #171717; }
+html[data-theme] .bcell.best { border: 2px dashed #FF5B32; }
+html[data-theme] .bcell.completing { box-shadow: 0 0 0 3px var(--text); }
+html[data-theme] .lgd.win { background: #FF5B32; border-color: #FF5B32; }
+html[data-theme] .lgd.played { background: var(--panel-3); border-color: var(--lav-2); }
+html[data-theme] .verdict.dup .vt { color: var(--text); }
+
+/* ---- modal, toasts, steps ---- */
+html[data-theme] .modal-back { background: rgba(5, 12, 24, .7); }
+html[data-theme] .modal { background: var(--bg); border-color: var(--border); }
+html[data-theme] .toast { background: var(--panel-2); color: var(--text); border-left-color: #FF5B32; }
+html[data-theme] .steps .st { color: var(--lav); }
+html[data-theme] .steps .st.on { background: var(--text); color: var(--bg); border-color: var(--text); }
+html[data-theme] .steps .st.done { color: var(--text); }
+
+/* ---- dashboard hero (tagline lives here, not on working screens) ---- */
+html[data-theme] .as-hero { display: flex; align-items: center; gap: 22px; padding: 22px 26px; border-radius: 18px; margin-bottom: 18px; background: var(--feature); color: var(--on-feature); }
+html[data-theme] .as-hero img { width: 74px; height: 74px; flex: none; }
+html[data-theme] .as-hero h2 { margin: 0; font-family: var(--display); font-weight: 800; font-size: 26px; letter-spacing: -.01em; color: var(--on-feature); }
+html[data-theme] .as-hero p { margin: 4px 0 0; font-weight: 800; letter-spacing: .2em; font-size: 12px; color: var(--on-feature); opacity: .8; }
+html[data-theme="light"] .as-hero .tl b { color: #FF7451; }
+html[data-theme="dark"] .as-hero .tl b { color: #B33A17; }
+
+/* ---- LIGHT mode specifics: nav rail stays blue (the 30%) ---- */
+html[data-theme="light"] #sidebar { background: #102542; }
+html[data-theme="light"] .panel { box-shadow: 0 1px 0 rgba(16, 37, 66, .04); }
+html[data-theme="light"] .btn { background: #FFFDF6; }
+html[data-theme="light"] .btn:hover { background: #F3DFAF; }
+html[data-theme="light"] .pgrid i { background: rgba(16, 37, 66, .12); }
+html[data-theme="light"] .modal-back { background: rgba(16, 37, 66, .45); }
+html[data-theme="light"] .now-art { background: linear-gradient(135deg, #1A375C, #102542); }
+html[data-theme="light"] .ctl { background: #FFFDF6; }
+html[data-theme="light"] .verdict.invalid { background: #FFFDF6; }
+html[data-theme="light"] .bcell.played { background: #E9DDBC; }
+html[data-theme="light"] .qrbox { box-shadow: 0 0 0 1px #D9C79B; }
+
+/* keep orange for the ONE primary action per area */
+html[data-theme] .as-feature .kbd { background: transparent; box-shadow: none; }
+html[data-theme] .as-feature #bFreeze { background: transparent; color: var(--on-feature); border: 1.5px solid currentColor; }
+html[data-theme] .chip { background: var(--pink-soft); color: var(--accent-ink); box-shadow: inset 0 0 0 1.5px #FF5B32; }
+html[data-theme] .round-btn:not(.active) .pgrid i.on { background: var(--lav); }
+html[data-theme] .ck-item:not(.completed) .pgrid i.on { background: var(--lav); }
+html[data-theme="dark"] .bcell.played { background: rgba(255, 242, 207, .16); border-color: rgba(255, 242, 207, .55); }
+html[data-theme="light"] .bcell.played { background: #102542; border-color: #102542; }
+html[data-theme="light"] .bcell.played b { color: #FFF2CF; }
+html[data-theme="light"] .bcell.played span, html[data-theme="light"] .bcell.played .pn { color: #D9D3BE; }
+html[data-theme="light"] .lgd.played { background: #102542; border-color: #102542; }
+
+/* production markup: logo image, line icons, venue logo under the brand */
+html[data-theme] .logo-block .as-logo img { display: block; width: 42px; height: 42px; max-width: none; max-height: none; }
+html[data-theme] .logo-block #sideLogo.has { margin-top: 10px; background: #FFF2CF; border-radius: 8px; padding: 4px 6px; }
+html[data-theme] #nav svg.ico { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+html[data-theme] .nav-sec:first-child { padding-top: 4px; }
+/* Settings → About */
+html[data-theme] .as-about { display: flex; align-items: center; gap: 22px; flex-wrap: wrap; }
+html[data-theme] .as-about img { width: 96px; height: 96px; }
+html[data-theme] .as-about .wm { font-family: var(--display); font-weight: 800; font-size: 30px; line-height: .95; color: var(--text); }
+html[data-theme] .as-about .wm em { font-style: normal; color: #FF5B32; display: block; }
+html[data-theme] .as-about .tl { font-weight: 800; letter-spacing: .2em; font-size: 12px; color: var(--lav); margin-top: 10px; }
+html[data-theme] .as-about .tl b { color: var(--accent-ink); }

@@ -58,7 +58,7 @@ App.register('host', {
           </div>
         </div>
         <div>
-          <div class="panel" style="margin-bottom:16px;border-color:var(--pink)">
+          <div class="panel as-feature" style="margin-bottom:16px">
             <h2>CHECK BINGO / FREEZE CLAIMS <span class="kbd">B</span></h2>
             <div class="check-box"><input type="text" inputmode="numeric" id="bNo" placeholder="Card no." maxlength="3"><button class="btn primary lg" id="bGo">CHECK</button></div>
             <div class="row" style="margin-top:10px"><button class="btn primary" id="bFreeze">❄ Freeze claims</button><button class="btn sm" id="bScan">📷 Scan QR</button></div>

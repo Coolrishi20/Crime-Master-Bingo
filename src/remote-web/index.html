@@ -1,22 +1,24 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
-<meta name="theme-color" content="#1a1033">
+<meta name="theme-color" content="#102542">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>Crime Master Bingo — Host Remote</title>
+<title>Anthem Square — Host Remote</title>
 <link rel="icon" href="/icon.png">
 <link rel="apple-touch-icon" href="/icon.png">
 <link rel="manifest" href="/manifest.webmanifest">
 <meta name="apple-mobile-web-app-title" content="CMB Remote">
 <link rel="stylesheet" href="remote.css">
+<link rel="stylesheet" href="brand.css">
+<link rel="icon" href="/brand/icon.svg" type="image/svg+xml">
 </head>
 <body>
 <!-- Pairing -->
 <section id="pair" class="screen">
-  <div class="brand"><span>CRIME MASTER</span><span class="pink">BINGO</span></div>
+  <div class="brand-lockup"><img src="/brand/icon.svg" alt=""><div class="w">ANTHEM<em>SQUARE</em><small>MUSIC VIDEO BINGO</small></div></div><div class="tagline">HEAR IT. MARK IT. <b>OWN IT.</b></div>
   <p class="muted">Host remote — controls the laptop.<br>Music and video play on the laptop/TV only.</p>
   <label class="lbl">Pairing PIN (shown on the laptop)</label>
   <input id="pin" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="one-time-code" placeholder="••••••">
@@ -29,7 +31,7 @@
 <!-- Main -->
 <section id="main" class="screen hidden">
   <header id="top">
-    <div class="top-l"><div id="gName">—</div><div id="roundChip" class="chip">NOT STARTED</div></div>
+    <div class="as-mlogo"><img src="/brand/icon.svg" alt="Anthem Square" width="30" height="30"></div><div class="top-l"><div id="gName">—</div><div id="roundChip" class="chip">NOT STARTED</div></div>
     <div id="conn" class="conn"><span class="dot"></span><span id="connTxt">Connecting…</span></div>
   </header>
   <div id="banner" class="banner hidden"></div>

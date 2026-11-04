@@ -6,7 +6,7 @@ App.register('settings', {
     const on = p.lowResource;
     box.innerHTML = `<h2>⚡ Performance</h2>
       <div class="row">${toggleHtml('pfLow', 'Low Resource Mode', on)}<span class="grow"></span>${p.lowRam ? '<span class="badge warn">Recommended for this laptop</span>' : ''}</div>
-      <p class="muted small" style="margin:8px 0">This laptop: <b style="color:#fff">${p.totalRamGB} GB</b> memory · Crime Master Bingo is using about <b style="color:#fff">${p.appMemoryMB} MB</b> right now.</p>
+      <p class="muted small" style="margin:8px 0">This laptop: <b style="color:#fff">${p.totalRamGB} GB</b> memory · Anthem Square is using about <b style="color:#fff">${p.appMemoryMB} MB</b> right now.</p>
       <div class="small" style="line-height:1.55">Low Resource Mode keeps <b>every game feature</b> — TV video, title overlay, winning patterns, crawler, phone remote, BINGO checks, saving. It reduces:<ul style="margin:6px 0 0 18px;padding:0" class="muted">
         <li>animations, glows, blur and shadow effects (laptop and TV), lighter confetti</li>
         <li>background work while a game is live: loudness analysis, video conversion and new-video checks wait until the game ends</li>
@@ -59,7 +59,7 @@ App.register('settings', {
       <div class="cols c2">
         <div class="panel"><h2>Appearance</h2>
           <div class="row">${s.appearance.logo ? `<img src="${fileUrl(s.appearance.logo)}?v=${Date.now()}" style="max-height:56px;background:#fff;border-radius:8px;padding:6px">` : '<span class="muted">No logo</span>'}<button class="btn sm" id="sLogo">Upload logo…</button>${s.appearance.logo ? '<button class="btn sm ghost" id="sLogoX">Remove</button>' : ''}</div>
-          <div class="form-grid" style="margin-top:14px"><label class="field">Theme<select id="sTheme"><option value="crime-master">Crime Master (purple / magenta)</option></select></label>
+          <div class="form-grid" style="margin-top:14px"><label class="field">Theme<select id="sTheme"><option value="dark" ${s.appearance.theme !== 'light' ? 'selected' : ''}>Dark (default) — best for live events</option><option value="light" ${s.appearance.theme === 'light' ? 'selected' : ''}>Light — for daytime preparation</option></select></label>
           <label class="field">Interface scaling<select id="sScale">${[0.85, 0.9, 1, 1.1, 1.25, 1.4].map(v => `<option value="${v}" ${Number(s.appearance.scale) === v ? 'selected' : ''}>${Math.round(v * 100)}%</option>`).join('')}</select></label></div></div>
         <div class="panel"><h2>Video &amp; TV</h2><div class="form-grid">
           <label class="field">Audience display<select id="sDisp"><option value="">Automatic (external screen)</option>${displays.map(d => `<option value="${d.id}" ${String(s.video.displayId) === String(d.id) ? 'selected' : ''}>${esc(d.label)} ${d.width}×${d.height}${d.primary ? ' (laptop)' : ''}</option>`).join('')}</select></label>
@@ -98,11 +98,12 @@ App.register('settings', {
             <label class="field">Fade in (seconds, 0 = off)<input type="number" id="aFi" min="0" max="5" step="0.1" value="${gd.audio.fadeIn}"></label>
             <label class="field">Fade out (seconds, 0 = off)<input type="number" id="aFo" min="0" max="8" step="0.1" value="${gd.audio.fadeOut}"></label></div>
           <p class="muted small">Every video's loudness is measured once in the background (EBU R128). Playback is then turned up or down so every song sounds equally loud — without touching the original files and never above ${gd.audio.ceilingDbtp} dBTP, so nothing clips. Very quiet videos are boosted by at most the maximum amplification.</p></div>
+        <div class="panel"><h2>About</h2><div class="as-about"><img src="../shared/brand/icon.svg" alt="Anthem Square"><div><div class="wm">ANTHEM<em>SQUARE</em></div><div class="muted small" style="margin-top:8px">Music video bingo · version ${esc((App.info && App.info.version) || '')}</div><div class="tl">HEAR IT. MARK IT. <b>OWN IT.</b></div></div></div></div>
         <div class="panel"><h2>App updates</h2>
           <div class="row"><span class="muted">Version <b style="color:#fff">${esc(App.info.version)}</b></span><span class="grow"></span><span id="upState" class="small"></span></div>
           <div class="row" style="margin-top:12px">${toggleHtml('upAuto', 'Check for updates automatically', s.updates ? s.updates.auto !== false : true)}</div>
           <div class="row" style="margin-top:12px"><button class="btn sm" id="upCheck">Check now</button><button class="btn sm primary" id="upAct" style="display:none"></button></div>
-          <p class="muted small">Updates come from the Crime Master Bingo releases on GitHub. They download in the background (never during a live game) and install only when you choose “Restart to update” or close the app. No internet? Nothing happens — the app works fully offline.</p></div>
+          <p class="muted small">Updates come from the Anthem Square releases on GitHub. They download in the background (never during a live game) and install only when you choose “Restart to update” or close the app. No internet? Nothing happens — the app works fully offline.</p></div>
         <div class="panel" id="perfPanel"></div>
         <div class="panel" id="rulesPanel" style="grid-column:1 / -1"></div>
         <div class="panel"><h2>🏠 Home play</h2>
@@ -130,6 +131,7 @@ App.register('settings', {
     if ($('#sLogoX', el)) $('#sLogoX', el).onclick = async () => { await api('settings:clearLogo'); App.settings = await api('settings:get'); App.applyAppearance(); this.render(el); };
     $('#rGo', el).onclick = (e) => { e.preventDefault(); App.show('mobile'); };
     $('#hGo', el).onclick = (e) => { e.preventDefault(); App.show('mobile'); };
+    $('#sTheme', el).onchange = async (e) => { App.settings = await api('settings:update', { appearance: { theme: e.target.value } }); App.applyAppearance(); toast(e.target.value === 'light' ? 'Light Mode on — the phone remote follows' : 'Dark Mode on — the phone remote follows', 'ok'); };
     $('#sSave', el).onclick = async () => {
       const patch = {
         appearance: { scale: Number(v('#sScale')), theme: v('#sTheme') },

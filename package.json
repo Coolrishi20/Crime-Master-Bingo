@@ -1,10 +1,10 @@
 {
   "name": "crime-master-bingo",
-  "productName": "Crime Master Bingo",
-  "version": "1.6.0-rc.1",
-  "description": "Crime Master Bingo - offline music video bingo for live events",
+  "productName": "Anthem Square",
+  "version": "1.7.0-rc.1",
+  "description": "Anthem Square - offline music video bingo for live events",
   "main": "src/main/main.js",
-  "author": "Crime Master Bingo",
+  "author": "Anthem Square",
   "license": "UNLICENSED",
   "private": true,
   "scripts": {
@@ -17,7 +17,7 @@
   },
   "build": {
     "appId": "com.crimemaster.bingo",
-    "productName": "Crime Master Bingo",
+    "productName": "Anthem Square",
     "directories": {
       "output": "dist",
       "buildResources": "build"
@@ -53,13 +53,13 @@
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
-      "shortcutName": "Crime Master Bingo",
-      "artifactName": "CrimeMasterBingo-Setup-${version}.${ext}",
+      "shortcutName": "Anthem Square",
+      "artifactName": "AnthemSquare-Setup-${version}.${ext}",
       "installerIcon": "build/icon.ico",
       "uninstallerIcon": "build/icon.ico"
     },
     "portable": {
-      "artifactName": "CrimeMasterBingo-Portable-${version}.${ext}"
+      "artifactName": "AnthemSquare-Portable-${version}.${ext}"
     },
     "extraResources": [
       {

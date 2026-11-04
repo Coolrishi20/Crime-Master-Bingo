@@ -1,4 +1,4 @@
-/* Crime Master Bingo — desktop host shell: navigation, helpers, live state. */
+/* Anthem Square — desktop host shell: navigation, helpers, live state. */
 (function () {
   'use strict';
   const views = {};
@@ -124,6 +124,7 @@
       const a = this.settings.appearance;
       document.documentElement.classList.toggle('low-res', !!(this.settings.performance && this.settings.performance.lowResource));
       document.documentElement.style.setProperty('--ui-scale', a.scale || 1);
+      document.documentElement.setAttribute('data-theme', a.theme === 'light' ? 'light' : 'dark');
       const img = document.getElementById('sideLogo');
       if (a.logo) { img.src = fileUrl(a.logo) + '?v=' + Date.now(); img.classList.add('has'); } else { img.removeAttribute('src'); img.classList.remove('has'); }
     },
@@ -201,7 +202,7 @@
       if (u.state === 'portable-available') return api('update:openPage');
       if (u.state === 'available') { this.update = await api('update:download'); return this.drawUpdatePill(); }
       if (u.state !== 'downloaded') return;
-      if (!await confirmBox(`Restart to update to ${u.version}?`, 'Crime Master Bingo will close, install the update and reopen. Your game is saved and resumes exactly where it was (paused). Phones reconnect automatically.', 'Restart & update')) return;
+      if (!await confirmBox(`Restart to update to ${u.version}?`, 'Anthem Square will close, install the update and reopen. Your game is saved and resumes exactly where it was (paused). Phones reconnect automatically.', 'Restart & update')) return;
       try { await window.cmb.invoke('update:install', {}); }
       catch (e) {
         if (/playing/i.test(cleanErr(e)) && await confirmBox('A song is playing', esc(cleanErr(e)), 'Restart anyway', true)) await window.cmb.invoke('update:install', { force: true });

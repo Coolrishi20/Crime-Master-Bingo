@@ -7,10 +7,11 @@ App.register('dashboard', {
     const rec = info.recovery;
     const active = App.game;
     el.innerHTML = `${info.recommendLowResource ? `<div class="banner" id="lrmRec" style="border-color:var(--amber);background:rgba(255,200,87,.12)"><div class="grow"><h3>💡 This laptop has ${info.totalRamGB} GB of memory</h3><div class="muted">Turn on <b style="color:#fff">Low Resource Mode</b> for smoother video on 4 GB laptops. Every game feature stays on — only decorative effects and background work are reduced.</div></div><button class="btn primary" id="lrmOn">Turn on</button><button class="btn ghost" id="lrmNo">Not now</button></div>` : ''}
-      <div class="page-head"><div><div class="eyebrow">Crime Master Bingo</div><h1>Dashboard</h1><p>Music video bingo for live nights — run it from the laptop or your phone.</p></div>
+      <div class="page-head"><div><div class="eyebrow">Anthem Square</div><h1>Dashboard</h1><p>Music video bingo for live nights — run it from the laptop or your phone.</p></div>
         <div class="row"><button class="btn" id="dImport">Import videos</button><button class="btn primary" id="dNew">✚ New game</button></div></div>
+      <div class="as-hero"><img src="../shared/brand/icon.svg" alt="" width="74" height="74"><div><h2>Anthem Square</h2><p class="tl">HEAR IT. MARK IT. <b>OWN IT.</b></p></div></div>
       ${rec && !active ? `<div class="banner"><div class="grow"><h3>${rec.crashed ? 'RESUME LAST GAME' : 'Continue your last game'}</h3>
-        <div class="muted">${rec.crashed ? 'Crime Master Bingo did not close normally. ' : ''}<b style="color:#fff">${esc(rec.name)}</b> — Round ${rec.round || '–'}, ${rec.played} songs played. Cards, history, claims and winners are all saved.</div></div>
+        <div class="muted">${rec.crashed ? 'Anthem Square did not close normally. ' : ''}<b style="color:#fff">${esc(rec.name)}</b> — Round ${rec.round || '–'}, ${rec.played} songs played. Cards, history, claims and winners are all saved.</div></div>
         <button class="btn primary lg" id="dResume">▶ Resume last game</button></div>` : ''}
       ${active ? `<div class="banner"><div class="grow"><h3>${esc(active.name)}</h3><div class="muted">${active.mode === 'checklist' ? `Rules Checklist · ${active.checklist.completed} of ${active.checklist.total} rules won` : active.round.number ? `Round ${active.round.number} · ${esc(active.round.label)} (${active.round.status})` : 'Not started'} · ${active.totals.played}/${active.totals.songs} songs played · ${active.totals.cards} cards</div></div>
         <button class="btn primary lg" id="dHost">▶ Go to Host Game</button></div>` : ''}

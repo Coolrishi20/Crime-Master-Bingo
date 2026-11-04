@@ -1,0 +1,68 @@
+@font-face{font-family:'Montserrat';font-weight:800;src:url(/fonts/montserrat-latin-800-normal.woff2) format('woff2');font-display:swap}
+@font-face{font-family:'Montserrat';font-weight:700;src:url(/fonts/montserrat-latin-700-normal.woff2) format('woff2');font-display:swap}
+/* Anthem Square — phone layer (host remote + player card), follows the laptop Dark/Light setting. */
+html[data-theme="dark"] { --bg: #102542; --deep: #0B1B31; --panel: #142D4E; --panel2: #1A375C; --border: #34506F; --pink: #FF5B32; --lav: #B3B4AA; --lilac: #FFF2CF; --green: #FFF2CF; --red: #FF8A6B; --amber: #FFB59E; --ink: #FFF2CF; --onacc: #171717; --accink: #FF7451; --display: 'Montserrat', sans-serif; }
+html[data-theme="light"] { --bg: #FFF2CF; --deep: #F8E7BC; --panel: #FFF8E6; --panel2: #FFFDF6; --border: #D9C79B; --pink: #FF5B32; --lav: #4E5B6B; --lilac: #102542; --green: #102542; --red: #B33A17; --amber: #B33A17; --ink: #102542; --onacc: #171717; --accink: #B33A17; --display: 'Montserrat', sans-serif; }
+html[data-theme] body { background: var(--bg); color: var(--ink); }
+html[data-theme] [style*="color:#fff"], html[data-theme] [style*="color: #fff"] { color: var(--ink) !important; }
+html[data-theme] .eyebrow, html[data-theme] .pink { color: var(--accink); }
+html[data-theme] #top { background: var(--bg); border-bottom: 1px solid var(--border); }
+html[data-theme] #gName, html[data-theme] .brand, html[data-theme] #nowTitle, html[data-theme] .un-title, html[data-theme] .vt, html[data-theme] #bingoFab, html[data-theme] .display { font-family: var(--display); font-weight: 800; letter-spacing: -.01em; }
+html[data-theme] #gName { font-size: 19px; }
+html[data-theme] .card, html[data-theme] .round-btn, html[data-theme] .hist, html[data-theme] .winner, html[data-theme] .ck-item, html[data-theme] .ck-opt { background: var(--panel); border-color: var(--border); color: var(--ink); }
+html[data-theme] .btn, html[data-theme] .ctl { background: var(--panel2); border-color: var(--border); color: var(--ink); }
+html[data-theme] .btn.primary, html[data-theme] .ctl.play, html[data-theme] .ctl.big, html[data-theme] .chip { background: #FF5B32; border-color: #FF5B32; color: var(--onacc); }
+html[data-theme] .chip.dim { background: var(--panel2); color: var(--ink); }
+html[data-theme] .btn.success { background: var(--ink); border-color: var(--ink); color: var(--bg); }
+html[data-theme] .btn.danger { background: transparent; color: var(--red); border-color: var(--red); }
+html[data-theme] #bingoFab { background: #FF5B32; color: #171717; box-shadow: 0 6px 18px rgba(255, 91, 50, .35); }
+html[data-theme] #tabs { background: var(--deep); border-top: 1px solid var(--border); }
+html[data-theme] #tabs button { color: var(--lav); }
+html[data-theme] #tabs button.on { color: var(--ink); }
+html[data-theme] #tabs button.on span { color: #FF5B32; }
+html[data-theme] input[type=range] { accent-color: #FF5B32; }
+html[data-theme] .pgrid i { background: rgba(128, 128, 128, .22); }
+html[data-theme] .pgrid i.on, html[data-theme] .pgrid.pink i.on { background: #FF5B32; }
+html[data-theme] .pgrid.green i.on { background: var(--ink); }
+html[data-theme] .ck-item.completed { border-color: var(--ink); }
+html[data-theme] .ck-bar i { background: #FF5B32; }
+html[data-theme] .pill.ok { background: var(--ink); color: var(--bg); }
+html[data-theme] .pill { background: var(--panel2); color: var(--ink); }
+html[data-theme] .banner { background: var(--panel); border: 1px solid var(--border); border-left: 4px solid #FF5B32; color: var(--ink); }
+html[data-theme] .verdict.valid { background: rgba(255, 91, 50, .14); border-color: #FF5B32; }
+html[data-theme] .verdict.valid .vt { color: var(--accink); }
+html[data-theme] .verdict.invalid { background: var(--panel); border: 1px dashed var(--lav); }
+html[data-theme] .verdict .vt::before { content: '✓ '; }
+html[data-theme] .verdict.invalid .vt::before { content: '✕ '; color: #FF5B32; }
+html[data-theme] .mini div { background: var(--deep); border-color: var(--border); }
+html[data-theme] .mini .p { background: var(--panel2); border-color: var(--lav); }
+html[data-theme] .mini .w { background: #FF5B32; border-color: #FF5B32; }
+html[data-theme] .mini .w b, html[data-theme] .mini .w span { color: #171717; }
+html[data-theme] .mini div span { color: var(--lav); }
+html[data-theme] #checker { background: var(--bg); }
+html[data-theme] #modal .box, html[data-theme] .modal { background: var(--bg); color: var(--ink); }
+html[data-theme] .as-mlogo { display: flex; align-items: center; gap: 8px; }
+html[data-theme] .as-mlogo img { width: 30px; height: 30px; flex: none; }
+/* player card page */
+html[data-theme] .cell { background: var(--panel); border-color: var(--border); color: var(--ink); }
+html[data-theme] .cell.on { background: #FF5B32; border-color: #FF5B32; color: #171717; }
+html[data-theme] .cell.on .a, html[data-theme] .cell.on span { color: #171717; }
+html[data-theme] .round { background: var(--panel); border-color: var(--border); }
+html[data-theme] .round span { font-family: var(--display); font-weight: 800; }
+html[data-theme] .round b { color: var(--accink); }
+html[data-theme] #bingo { background: #FF5B32; color: #171717; font-family: var(--display); font-weight: 800; }
+html[data-theme] #away { background: var(--panel); border: 1px solid #FF5B32; color: var(--ink); }
+html[data-theme] .brand-lockup { display: flex; align-items: center; gap: 14px; margin-bottom: 8px; }
+html[data-theme] .brand-lockup img { width: 64px; height: 64px; flex: none; }
+html[data-theme] .brand-lockup .w { font-family: var(--display); font-weight: 800; font-size: 30px; line-height: .95; color: var(--ink); }
+html[data-theme] .brand-lockup .w em { font-style: normal; color: #FF5B32; display: block; }
+html[data-theme] .brand-lockup .w small { display: block; font-family: 'Inter', sans-serif; font-size: 10px; letter-spacing: .3em; color: var(--lav); margin-top: 6px; }
+html[data-theme] .tagline { font-weight: 800; letter-spacing: .18em; font-size: 12px; color: var(--lav); }
+html[data-theme] .tagline b { color: var(--accink); }
+/* text that was hard-coded white follows the theme ink */
+html[data-theme] #pair input, html[data-theme] #jName, html[data-theme] .x, html[data-theme] .ck-display, html[data-theme] .keypad button, html[data-theme] .banner.ok,
+html[data-theme] .search, html[data-theme] .ck-count b, html[data-theme] .ck-opt, html[data-theme] .me b, html[data-theme] .pbtn, html[data-theme] .round-btn, html[data-theme] .ctl { color: var(--ink); }
+html[data-theme] #pair input, html[data-theme] #jName, html[data-theme] .search, html[data-theme] .ck-display { background: var(--deep); border-color: var(--border); }
+html[data-theme] .keypad button, html[data-theme] .pbtn { background: var(--panel2); border-color: var(--border); }
+html[data-theme] .ctl.play small, html[data-theme] .bingo { color: #171717; }
+html[data-theme] .ck-count { color: var(--lav); }

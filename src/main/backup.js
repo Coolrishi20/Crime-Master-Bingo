@@ -211,8 +211,8 @@ async function loadBackup(file, { password, tmpDir }) {
     const checks = [];
     const check = (label, ok, detail) => { checks.push({ label, ok: !!ok, detail }); if (!ok) throw Object.assign(new Error(`${label}: ${detail}`), { checks }); };
     check('Archive structure', true, `${entries.length} files, all names safe`);
-    check('Backup format', manifest.format === FORMAT, manifest.format === FORMAT ? 'Crime Master Bingo backup' : 'Not a Crime Master Bingo backup');
-    check('Format version', Number(manifest.formatVersion) <= FORMAT_VERSION, Number(manifest.formatVersion) <= FORMAT_VERSION ? `v${manifest.formatVersion}` : `made by a newer version of Crime Master Bingo (format v${manifest.formatVersion}) — update the app to restore it`);
+    check('Backup format', manifest.format === FORMAT, manifest.format === FORMAT ? 'Anthem Square backup' : 'Not an Anthem Square backup');
+    check('Format version', Number(manifest.formatVersion) <= FORMAT_VERSION, Number(manifest.formatVersion) <= FORMAT_VERSION ? `v${manifest.formatVersion}` : `made by a newer version of Anthem Square (format v${manifest.formatVersion}) — update the app to restore it`);
     check('Schema version', Number(manifest.schemaVersion || 1) <= locking.SCHEMA_VERSION, `schema ${manifest.schemaVersion}`);
     const gEntry = byName.get('game.json');
     const gBuf = await readEntryBuffer(zip, gEntry, LIMITS.game);

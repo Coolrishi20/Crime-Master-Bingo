@@ -1,4 +1,32 @@
-# Crime Master Bingo — Test report (v1.6.0-rc.1)
+# Anthem Square — Test report (v1.7.0-rc.1)
+
+## v1.7.0-rc.1 (rebrand to Anthem Square, approved redesign)
+- **Unit tests: 156 / 156 passed.** The game logic is unchanged; one message test was updated for the new name.
+- **New e2e `v17-brand.js`: 22 / 22 passed.** It checks:
+  - **Existing installs keep their data:** with no test data folder set, the app still uses `…/Crime Master Bingo/data`.
+  - Old settings with theme `crime-master` open in Dark Mode.
+  - The window title is Anthem Square; the sidebar icon loads; the navigation has 4 groups and 10 line icons.
+  - Primary buttons are Dark Gray `#171717` text on `#FF5B32` (5.8:1), checked with computed styles.
+  - None of the 10 laptop screens shows "Crime Master" text. The dashboard tagline and Settings → About (logo, version, tagline) are present.
+  - The phone icon/favicon is served, and the phone pairing and player join pages are branded.
+  - Settings → Theme → Light switches the laptop immediately (background `#FFF2CF`), and the phone remote follows. The choice is remembered after a restart.
+  - The TV is branded, stays dark in Light Mode and shows the icon on the welcome screen.
+  - The PDF says ANTHEM SQUARE, never the old name, and still fits 2 cards per A4.
+- **Visual check against the approved mockups:** all 16 screens were captured from the built app in Dark and Light and compared side by side with the approved mockups. They match. Two issues were found and fixed during this check: the TV welcome icon was hidden by an old rule, and the phone wasn't receiving the theme.
+- **Regression (all re-run on this build):**
+
+  | Suite | Result |
+  |---|---|
+  | v16-checklist | 34/34 |
+  | acceptance | 85/85 |
+  | v15 | 28/28 |
+  | v14 | 35/35 |
+  | v13 | 13/13 |
+  | print | 12/12 |
+  | reveal | 7/7 |
+
+  v14 first found a real regression: a removed player's phone crashed because of the new theme field. It was fixed and then passed on two consecutive runs.
+
 
 ## v1.6.0-rc.1 (Rules Checklist Mode)
 - **Unit tests: 156 / 156 passed.** `test/unit/v16-checklist.test.js` has 12 new tests:

@@ -1,12 +1,12 @@
 {
-  "name": "Crime Master Bingo Remote",
+  "name": "Anthem Square Remote",
   "short_name": "CMB Remote",
-  "description": "Host remote for Crime Master Bingo — controls the laptop over local Wi-Fi.",
+  "description": "Host remote for Anthem Square — controls the laptop over local Wi-Fi.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#1a1033",
-  "theme_color": "#1a1033",
-  "icons": [{ "src": "/icon.png", "sizes": "1024x1024", "type": "image/png", "purpose": "any maskable" }]
+  "background_color": "#102542",
+  "theme_color": "#102542",
+  "icons": [{ "src": "/icon.png", "sizes": "256x256", "type": "image/png", "purpose": "any maskable" }]
 }

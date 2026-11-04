@@ -1,4 +1,4 @@
-/* Crime Master Bingo — a player's own card on their phone (home play).
+/* Anthem Square — a player's own card on their phone (home play).
  * The phone only shows the player's card and sends BINGO; the laptop decides everything. */
 (function () {
   'use strict';
@@ -46,7 +46,7 @@
     if (m.type === 'p-wait') { show('wait'); $('wMsg').textContent = m.reason; return; }
     if (m.type === 'p-removed') { auth = null; save(KEY, null); state = null; $('jMsg').textContent = 'The host removed you from this game. You can join again.'; send({ type: 'pinfo' }); return; }
     if (m.type === 'p-error') { $('jGo').disabled = false; $('jMsg').textContent = m.message; return; }
-    if (m.type === 'p-state') { render(m.state); return; }
+    if (m.type === 'p-state') { if (m.state.theme) document.documentElement.setAttribute('data-theme', m.state.theme); render(m.state); return; }
     if (m.type === 'p-bingo') { bingoResult(m); return; }
   }
 

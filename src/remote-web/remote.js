@@ -1,4 +1,4 @@
-/* Crime Master Bingo — phone host remote.
+/* Anthem Square — phone host remote.
  * Strictly a controller: it never plays audio or video. Every button sends a
  * command to the laptop, which executes it and broadcasts the new state. */
 (function () {
@@ -84,7 +84,7 @@
       if (!$('pair').classList.contains('hidden')) { $('pairMsg').textContent = m.reason; $('pairBtn').disabled = false; }
       else { store(TOKEN_KEY, null); showPair(m.reason); }
     } else if (m.type === 'revoked') { store(TOKEN_KEY, null); showPair('This phone was removed by the laptop. Pair again with the PIN.'); }
-    else if (m.type === 'state') { state = m.state.game; if (state) tick.position = state.playback.position; render(); if (askingNext && askRound && (!state || state.round.number !== askRound || state.round.status === 'ready' || state.intermission || state.status === 'finished') && !$('modal').classList.contains('hidden')) { $('modal').classList.add('hidden'); askingNext = false; askRound = null; } }
+    else if (m.type === 'state') { if (m.state.theme) document.documentElement.setAttribute('data-theme', m.state.theme); state = m.state.game; if (state) tick.position = state.playback.position; render(); if (askingNext && askRound && (!state || state.round.number !== askRound || state.round.status === 'ready' || state.intermission || state.status === 'finished') && !$('modal').classList.contains('hidden')) { $('modal').classList.add('hidden'); askingNext = false; askRound = null; } }
     else if (m.type === 'tick') { tick = m; if (state) { state.playback.position = m.position; state.playback.status = m.status; } renderProgress(); }
     else if (m.type === 'ack') {
       var p = pending[m.id]; if (!p) return;

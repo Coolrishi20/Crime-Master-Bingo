@@ -181,7 +181,7 @@ test('unknown card and wrong-game QR rejected', () => {
   const { eng } = setup();
   assert.match(eng.dispatch('addClaim', { cardNo: 998 }).error, /does not exist/);
   assert.match(eng.dispatch('addClaim', { qr: 'CMB1|GOTHER1|5' }).error, /different game/);
-  assert.match(eng.dispatch('addClaim', { qr: 'hello' }).error, /not a Crime Master/);
+  assert.match(eng.dispatch('addClaim', { qr: 'hello' }).error, /not an Anthem Square/);
 });
 
 test('QR from this game is accepted', () => {

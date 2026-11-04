@@ -1,6 +1,6 @@
 'use strict';
 /**
- * Crime Master Bingo — authoritative winning-rule engine.
+ * Anthem Square — authoritative winning-rule engine.
  * Pure functions: no Electron, no I/O. Shared by the desktop host, the
  * mobile remote (via the laptop) and the automated tests.
  *

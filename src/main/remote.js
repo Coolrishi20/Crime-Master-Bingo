@@ -123,7 +123,7 @@ class RemoteServer {
     if (p === '/play' || p === '/play/') p = '/play.html';
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Cache-Control', 'no-store');
-    if (p === '/health') { res.writeHead(200, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ ok: true, app: 'Crime Master Bingo' })); }
+    if (p === '/health') { res.writeHead(200, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ ok: true, app: 'Anthem Square' })); }
     if (p === '/connect.json') { res.writeHead(200, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ httpPort: this.port, httpsPort: this.httpsRunning ? this.httpsPort : null })); }
     let file = null;
     if (this.opts.extraFiles && this.opts.extraFiles[p]) file = this.opts.extraFiles[p];
@@ -153,7 +153,7 @@ class RemoteServer {
     });
     ws.on('close', () => { this.clients.delete(c); if (c.authed || c.playerId) this.changed(); });
     ws.on('error', () => { /* handled by close */ });
-    this.send(c, { type: 'hello', app: 'Crime Master Bingo', needAuth: true });
+    this.send(c, { type: 'hello', app: 'Anthem Square', needAuth: true });
   }
 
   send(c, obj) { if (c.ws.readyState === 1) { try { c.ws.send(JSON.stringify(obj)); } catch (e) { /* */ } } }
