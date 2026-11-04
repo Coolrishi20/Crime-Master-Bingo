@@ -18,7 +18,7 @@ const REMOTE_ACTIONS = new Set([
   'play', 'pause', 'togglePlay', 'stop', 'next', 'skip', 'previous', 'replay', 'seek', 'setVolume', 'markPlayed',
   'startRound', 'endRound', 'pauseGame', 'resumeGame', 'endGame', 'setCrawler',
   'openChecker', 'closeChecker', 'checkClaim', 'confirmClaim', 'dismissClaim', 'revokeWinner', 'setClipMode',
-  'freezeClaims', 'addClaim', 'viewClaim', 'removeClaim', 'closeSession', 'grantCredit', 'reverseCredit', 'setAudio', 'showTvScreen', 'setTvScreens', 'completeRound', 'queueSong', 'unqueueSong', 'skipNext', 'resetQueue', 'jumpTo'
+  'freezeClaims', 'addClaim', 'viewClaim', 'removeClaim', 'closeSession', 'grantCredit', 'reverseCredit', 'setAudio', 'showTvScreen', 'setTvScreens', 'completeRound', 'queueSong', 'unqueueSong', 'skipNext', 'resetQueue', 'jumpTo', 'startIntermission', 'endIntermission'
 ]);
 
 function sha(s) { return crypto.createHash('sha256').update(String(s)).digest('hex'); }
@@ -215,6 +215,7 @@ class RemoteServer {
       try {
         if (!REMOTE_ACTIONS.has(msg.action)) throw new Error('Action not allowed from the phone: ' + msg.action);
         const result = await this.opts.dispatch(msg.action, msg.args || {}, `phone:${c.deviceName || 'phone'}`);
+        if (this.opts.flush) this.opts.flush(); // phones receive the new state before the acknowledgement
         ack = { type: 'ack', id, ok: true, result }; // decisions/needsConfirm/validation messages travel in result
       } catch (e) { ack = { type: 'ack', id, ok: false, error: e.message, code: e.code }; }
       entry.done = true; entry.ack = ack;
@@ -267,15 +268,24 @@ class RemoteServer {
     if (!c.playerId) return;
     const v = this.opts.players.view(c.playerId);
     if (!v) { this.send(c, { type: 'p-removed' }); c.playerId = null; return; }
-    if (v.wait) return this.send(c, { type: 'p-wait', reason: v.wait });
-    this.send(c, { type: 'p-state', state: v });
+    if (v.wait) { c.lastP = null; return this.send(c, { type: 'p-wait', reason: v.wait }); }
+    const s = JSON.stringify({ type: 'p-state', state: v });
+    if (s === c.lastP) return; // nothing new for this phone
+    c.lastP = s; if (c.ws.readyState === 1) { try { c.ws.send(s); } catch (e) { /* */ } }
   }
 
   broadcastPlayers() { this.clients.forEach(c => { if (c.playerId && c.ws.readyState === 1) this.sendPlayer(c); }); }
   onlinePlayers() { return Array.from(new Set(Array.from(this.clients).filter(c => c.playerId).map(c => c.playerId))); }
 
   broadcast(obj) { const s = JSON.stringify(obj); this.clients.forEach(c => { if (c.authed && c.ws.readyState === 1) { try { c.ws.send(s); } catch (e) { /* */ } } }); }
-  broadcastState() { if (this.clients.size) { this.broadcast({ type: 'state', state: this.opts.getState() }); this.broadcastPlayers(); } }
+  broadcastState() {
+    if (!this.clients.size) return;
+    if (Array.from(this.clients).some(c => c.authed)) {
+      const s = JSON.stringify({ type: 'state', state: this.opts.getState() });
+      if (s !== this.lastStateJson) { this.lastStateJson = s; this.clients.forEach(c => { if (c.authed && c.ws.readyState === 1) { try { c.ws.send(s); } catch (e) { /* */ } } }); }
+    }
+    this.broadcastPlayers();
+  }
 
   revoke(deviceId) {
     const list = this.opts.devices.list().filter(d => d.id !== deviceId);

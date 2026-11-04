@@ -1,3 +1,62 @@
+## Crime Master Bingo 1.5.0 (release candidate 1) — Faster on low-end laptops, custom rounds & patterns
+
+**This is a release candidate.** It's published as a GitHub *pre-release*, so installed copies
+won't update to it automatically. Download it manually to test, ideally on a 4 GB laptop.
+See *docs/PERFORMANCE.md* for the measurements and for what still has to be checked on real
+Windows hardware.
+
+### Smoother video and less memory (from tester feedback)
+Every fix below is based on measurements of v1.4.2 under an integrated test: TV video,
+overlay, crawler, the phone remote and the host screen all running together on two CPU cores.
+- **Much less memory.** New videos used to be checked in the host window, which kept about
+  7 MB per video (146 → 880 MB after 100 videos). They're now checked in a small separate
+  window that closes afterwards and gives the memory back.
+- **Phone commands no longer disturb the TV.** Each phone tap used to re-send full state
+  to every window. Updates are now combined, and each screen only receives what changed. A
+  volume or crawler tap no longer reaches the TV at all.
+- **Replay seeks instead of reloading the video.**
+- **Far fewer disk writes while playing.** The whole game file was rewritten (with a forced
+  disk flush) every couple of seconds just to save the playback position. The position now
+  goes to a tiny side file. Real changes are still saved immediately and safely.
+- **Background work gives way to the TV:** loudness analysis only works on the songs coming
+  up next, and video conversion waits while a song plays.
+- **No more freezes when importing from slow or USB drives** (up to 13 s measured before).
+- The host screen no longer rebuilds its 100-song lists on every update. The library shows
+  large collections in pages. Spell-check dictionaries are no longer loaded.
+
+### ⚡ Low Resource Mode (Settings → Performance)
+Recommended automatically on laptops with 4 GB of memory or less. Every game feature stays
+on. Decorative animation, glow, blur and masks are switched off, and confetti is lighter.
+Loudness analysis, conversion and new-video checks wait until the game ends. The host screen
+refreshes less often. Optional: **make 720p copies** of big videos (originals are never
+changed, and you can switch back per song).
+
+### 🎯 Number of rounds and winning patterns: your choice
+- Choose **how many rounds** (1–10). The last round ends the game.
+- Choose **one or more winning patterns per round** (any of them wins): One Line, Two
+  Parallel Lines, Full House, **L Shape** (4 corners), **T Shape** (4 directions),
+  **Diagonal** (both), **Fast 5** (any 5 songs, or a set pattern of 5), and your own
+  **custom patterns**.
+- Set defaults in Settings → Bingo Rules (with presets), or per game in Host Game → 🎯 Rules
+  until each round starts.
+- The TV, phone remote, players' phones, printed card legend and every BINGO check use the
+  same rules. Diagonals still never count unless you choose them.
+
+### 🏆 After a winner: intermission or next round
+- When a round's claims are done and it has a winner, the laptop and phone ask:
+  **☕ Intermission** (with a TV countdown and your message), **▶ Next round**, or **Not yet**.
+  In the last round it offers **Finish the game**.
+- Or set Settings → Gameplay to go to intermission automatically.
+- The same card can win several rounds (once per round); the check shows earlier wins.
+
+### 📂 Show in Folder fixed
+- After exporting a PDF, *Show in folder* didn't respond because of a clash with another
+  button. Fixed.
+- Videos now have **📂 Show in folder** in the Music Library and the Edit window. It handles
+  moved files, unplugged USB/network drives, spaces and Unicode names, and offers Relink.
+
+---
+
 ## Crime Master Bingo 1.4.2 — More buzz in the room
 
 ### New in 1.4.2

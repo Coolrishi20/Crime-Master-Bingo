@@ -15,6 +15,21 @@ function uid(p) { return p + crypto.randomBytes(5).toString('hex'); }
 function norm(s) { return String(s || '').toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '').replace(/\(.*?\)|\[.*?\]/g, '').replace(/[^a-z0-9ऀ-ॿ]+/g, ' ').replace(/^the /, '').trim(); }
 function songKey(s) { return norm(s.title) + '|' + norm(s.artist); }
 
+/** Same fingerprint, read without blocking the main process (imports from slow USB/network drives). */
+async function fingerprintAsync(file) {
+  const fh = await fs.promises.open(file, 'r');
+  try {
+    const st = await fh.stat();
+    const h = crypto.createHash('sha1');
+    const n = Math.min(65536, st.size);
+    const a = Buffer.alloc(n); await fh.read(a, 0, n, 0); h.update(a);
+    if (st.size > n) { const b = Buffer.alloc(n); await fh.read(b, 0, n, Math.max(0, st.size - n)); h.update(b); }
+    h.update(String(st.size));
+    return { size: st.size, fp: h.digest('hex') };
+  } finally { await fh.close(); }
+}
+const yieldLoop = () => new Promise(r => setImmediate(r));
+
 function fingerprint(file) {
   const st = fs.statSync(file);
   const fd = fs.openSync(file, 'r');
@@ -52,7 +67,7 @@ class Library {
   get(id) { return this.data.songs.find(s => s.id === id); }
 
   /** Import files and/or folders. Returns a report. */
-  importPaths(paths) {
+  async importPaths(paths) {
     const files = [];
     (paths || []).forEach(p => walk(p, files));
     const report = { added: [], alreadyInLibrary: [], duplicates: [], unsupported: [], ignored: 0 };
@@ -62,7 +77,8 @@ class Library {
       if (!KNOWN_VIDEO_EXT.includes(ext)) { report.ignored++; continue; }
       if (byPath.has(path.resolve(f).toLowerCase())) { report.alreadyInLibrary.push(f); continue; }
       const needsConversion = !PLAYABLE_EXT.includes(ext); // AVI, WMV, FLV, MPG… → converted to an MP4 copy
-      let fp; try { fp = fingerprint(f); } catch (e) { report.unsupported.push({ path: f, reason: 'File could not be read: ' + e.message }); continue; }
+      await yieldLoop(); // keep the app (TV, phone, host) responsive during big imports
+      let fp; try { fp = await fingerprintAsync(f); } catch (e) { report.unsupported.push({ path: f, reason: 'File could not be read: ' + e.message }); continue; }
       const tags = ['.mp4', '.m4v', '.mov'].includes(ext) ? readMp4Tags(f) : {};
       const guess = parseFilename(f);
       const song = {
@@ -176,7 +192,7 @@ class Library {
    * playlist with the folder's name (videos loose in the top folder go into a playlist
    * named after the top folder). Re-running adds only new songs; duplicates are refused.
    */
-  importFolderAsPlaylists(root) {
+  async importFolderAsPlaylists(root) {
     const st = fs.statSync(root);
     if (!st.isDirectory()) throw new Error('Choose a folder.');
     const groups = [];
@@ -194,7 +210,7 @@ class Library {
       const files = g.files || (() => { const f = []; walk(g.dir, f); return f; })();
       const vids = files.filter(f => KNOWN_VIDEO_EXT.includes(path.extname(f).toLowerCase()));
       if (!vids.length) continue;
-      const rep = this.importPaths(g.files ? g.files : [g.dir]);
+      const rep = await this.importPaths(g.files ? g.files : [g.dir]);
       total.added += rep.added.length; total.alreadyInLibrary += rep.alreadyInLibrary.length; total.duplicates += rep.duplicates.length; total.converting += rep.converting || 0; total.unsupported.push(...rep.unsupported);
       const byPath = new Map(this.data.songs.map(s => [path.resolve(s.originalPath || s.path).toLowerCase(), s]));
       this.data.songs.forEach(s => byPath.set(path.resolve(s.path).toLowerCase(), s));

@@ -164,6 +164,10 @@ const pdfText = (f, first, last) => execFileSync('pdftotext', ['-f', String(firs
   ok(!audText.includes(String(cardA.no).padStart(3, '0')) && !/CARD\s*(No\.?\s*)?\d/i.test(audText) && !audText.includes(full.cards[4].cells.map(()=>'').join('x')), 'TV never shows card numbers or claim details');
   await phone.click('#ckResume');
   ok(!!(await waitFor(async () => { const s = (await inv('game:state')).game; return !s.session && s.playback.status === 'playing' && s.playback.index === posBefore.index; }, 5000)), 'Session closed; music resumes the same song');
+  // v1.5: the device that closed the session is asked what's next (intermission / next round)
+  const askEl = await phone.waitForSelector('#modal:not(.hidden)', { timeout: 5000 }).catch(() => null);
+  ok(!!askEl && /Round 1 won/.test(await phone.textContent('#mTitle')), 'v1.5: after the winners, the phone asks: intermission or next round');
+  if (askEl) await phone.click('#mBtns button:has-text("Not yet")');
 
   /* 31-34: Round 2 from the phone */
   /* v1.1 Up Next from the phone */
@@ -217,6 +221,9 @@ const pdfText = (f, first, last) => execFileSync('pdftotext', ['-f', String(firs
   await waitFor(async () => (await inv('game:state')).game.winners.length === 3, 5000);
   await phone.click('#ckCloseKeep');
   ok(!!(await waitFor(async () => !(await inv('game:state')).game.session, 5000)), 'Full House winner confirmed and session closed from the phone');
+  const fin = await phone.waitForSelector('#modal:not(.hidden)', { timeout: 5000 }).catch(() => null);
+  ok(!!fin && /Round 3 won/.test(await phone.textContent('#mTitle')) && /Finish the game/.test(await phone.textContent('#mBtns')), 'v1.5: last round won → phone offers “Finish the game”');
+  if (fin) await phone.click('#mBtns button:has-text("Not yet")');
 
   /* Phone reconnection after a network drop / screen lock */
   await ctx.setOffline(true); await sleep(1500);

@@ -65,6 +65,13 @@ class AudioAnalyser {
   }
 
   setPaused(p) { this.paused = !!p; if (p) this.cancelAll(); this.onChange(); }
+  /**
+   * During a live game the TV video gets priority:
+   *  - Low Resource Mode: analysis waits until the game is not live (hold);
+   *  - normal mode: only the songs coming up next are analysed (focus), one at a time.
+   * Running jobs are left to finish (no wasted work).
+   */
+  setScope(scope) { const k = JSON.stringify(scope || null); if (k === this._scopeKey) return; this._scopeKey = k; this.scope = scope || null; this.pump(); }
   cancelAll() { this.running.forEach((w, id) => { try { w.postMessage('cancel'); w.terminate(); } catch (e) { /* */ } const s = this.library.get(id); if (s && s.audio) s.audio.status = 'pending'; }); this.running.clear(); }
   reanalyse(ids) { ids.forEach(id => { const s = this.library.get(id); if (s) { if (s.audio && s.audio.fp) this.memo.delete(s.audio.fp); s.audio = { status: 'pending', fp: s.fingerprint }; } }); this.library.save(); this.onChange(); }
 
@@ -73,8 +80,11 @@ class AudioAnalyser {
       if (!this.ffmpeg) { let changed = false; this.library.songs().forEach(s => { if (!s.audio || s.audio.status === 'pending') { s.audio = { status: 'unavailable', fp: s.fingerprint, error: 'Audio analysis tool (ffmpeg) not found — levelling disabled for this song.' }; changed = true; } }); if (changed) { this.library.save(); this.onChange(); } }
       return;
     }
-    while (this.running.size < this.concurrency) {
-      const s = this.library.songs().find(x => this.needs(x) && !this.running.has(x.id));
+    if (this.scope && this.scope.hold) return;
+    const limit = this.scope && this.scope.focus ? 1 : this.concurrency;
+    while (this.running.size < limit) {
+      const focus = this.scope && this.scope.focus ? new Set(this.scope.focus) : null;
+      const s = this.library.songs().find(x => this.needs(x) && !this.running.has(x.id) && (!focus || focus.has(x.id)));
       if (!s) return;
       // cache hit: same fingerprint already analysed (e.g. re-imported or relinked file)
       const cached = this.profileFor(s.fingerprint);

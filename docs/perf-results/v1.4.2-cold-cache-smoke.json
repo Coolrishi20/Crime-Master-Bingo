@@ -1,0 +1,6494 @@
+{
+ "label": "smoke",
+ "mode": "normal",
+ "cpus": "0,1",
+ "startedAt": "2026-11-04T06:22:23.294Z",
+ "host": {
+  "cpus": 4,
+  "cpuModel": "Intel(R) Xeon(R) Processor @ 2.30GHz",
+  "totalMemMB": 16091,
+  "platform": "linux 6.18.44-fc-v233"
+ },
+ "samples": [
+  {
+   "t": 21,
+   "phase": "startup",
+   "tag": null,
+   "totalMB": 487,
+   "privMB": 0,
+   "cpu": 2,
+   "byType": {
+    "Browser": {
+     "mb": 199,
+     "cpu": 0.5,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 151,
+     "cpu": 1.2,
+     "n": 1
+    },
+    "GPU": {
+     "mb": 72,
+     "cpu": 0.2,
+     "n": 1
+    }
+   },
+   "treeMB": 583,
+   "children": {}
+  },
+  {
+   "t": 23,
+   "phase": "startup",
+   "tag": null,
+   "totalMB": 485,
+   "privMB": 0,
+   "cpu": 0.2,
+   "byType": {
+    "Browser": {
+     "mb": 196,
+     "cpu": 0.2,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 151,
+     "cpu": 0,
+     "n": 1
+    },
+    "GPU": {
+     "mb": 72,
+     "cpu": 0,
+     "n": 1
+    }
+   },
+   "treeMB": 581,
+   "children": {}
+  },
+  {
+   "t": 25,
+   "phase": "startup",
+   "tag": "startup",
+   "totalMB": 480,
+   "privMB": 0,
+   "cpu": 0.5,
+   "byType": {
+    "Browser": {
+     "mb": 196,
+     "cpu": 0.5,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 146,
+     "cpu": 0,
+     "n": 1
+    },
+    "GPU": {
+     "mb": 72,
+     "cpu": 0,
+     "n": 1
+    }
+   },
+   "treeMB": 575,
+   "children": {}
+  },
+  {
+   "t": 25,
+   "phase": "startup",
+   "tag": null,
+   "totalMB": 480,
+   "privMB": 0,
+   "cpu": 0,
+   "byType": {
+    "Browser": {
+     "mb": 196,
+     "cpu": 0,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 146,
+     "cpu": 0,
+     "n": 1
+    },
+    "GPU": {
+     "mb": 72,
+     "cpu": 0,
+     "n": 1
+    }
+   },
+   "treeMB": 575,
+   "children": {}
+  },
+  {
+   "t": 27,
+   "phase": "startup",
+   "tag": null,
+   "totalMB": 480,
+   "privMB": 0,
+   "cpu": 0.2,
+   "byType": {
+    "Browser": {
+     "mb": 196,
+     "cpu": 0.2,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 146,
+     "cpu": 0,
+     "n": 1
+    },
+    "GPU": {
+     "mb": 72,
+     "cpu": 0,
+     "n": 1
+    }
+   },
+   "treeMB": 575,
+   "children": {}
+  },
+  {
+   "t": 29,
+   "phase": "startup",
+   "tag": null,
+   "totalMB": 480,
+   "privMB": 0,
+   "cpu": 0.2,
+   "byType": {
+    "Browser": {
+     "mb": 196,
+     "cpu": 0,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 146,
+     "cpu": 0.2,
+     "n": 1
+    },
+    "GPU": {
+     "mb": 72,
+     "cpu": 0,
+     "n": 1
+    }
+   },
+   "treeMB": 575,
+   "children": {}
+  },
+  {
+   "t": 31,
+   "phase": "startup",
+   "tag": null,
+   "totalMB": 480,
+   "privMB": 0,
+   "cpu": 0.5,
+   "byType": {
+    "Browser": {
+     "mb": 196,
+     "cpu": 0.5,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 146,
+     "cpu": 0,
+     "n": 1
+    },
+    "GPU": {
+     "mb": 72,
+     "cpu": 0,
+     "n": 1
+    }
+   },
+   "treeMB": 575,
+   "children": {}
+  },
+  {
+   "t": 33,
+   "phase": "startup",
+   "tag": null,
+   "totalMB": 480,
+   "privMB": 0,
+   "cpu": 0.3,
+   "byType": {
+    "Browser": {
+     "mb": 196,
+     "cpu": 0.3,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 146,
+     "cpu": 0,
+     "n": 1
+    },
+    "GPU": {
+     "mb": 72,
+     "cpu": 0,
+     "n": 1
+    }
+   },
+   "treeMB": 575,
+   "children": {}
+  },
+  {
+   "t": 35,
+   "phase": "startup",
+   "tag": null,
+   "totalMB": 480,
+   "privMB": 0,
+   "cpu": 0.5,
+   "byType": {
+    "Browser": {
+     "mb": 196,
+     "cpu": 0.2,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 146,
+     "cpu": 0.2,
+     "n": 1
+    },
+    "GPU": {
+     "mb": 72,
+     "cpu": 0,
+     "n": 1
+    }
+   },
+   "treeMB": 575,
+   "children": {}
+  },
+  {
+   "t": 37,
+   "phase": "startup",
+   "tag": null,
+   "totalMB": 480,
+   "privMB": 0,
+   "cpu": 0.2,
+   "byType": {
+    "Browser": {
+     "mb": 196,
+     "cpu": 0.2,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 146,
+     "cpu": 0,
+     "n": 1
+    },
+    "GPU": {
+     "mb": 72,
+     "cpu": 0,
+     "n": 1
+    }
+   },
+   "treeMB": 575,
+   "children": {}
+  },
+  {
+   "t": 39,
+   "phase": "startup",
+   "tag": null,
+   "totalMB": 480,
+   "privMB": 0,
+   "cpu": 0.2,
+   "byType": {
+    "Browser": {
+     "mb": 196,
+     "cpu": 0.2,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 146,
+     "cpu": 0,
+     "n": 1
+    },
+    "GPU": {
+     "mb": 72,
+     "cpu": 0,
+     "n": 1
+    }
+   },
+   "treeMB": 575,
+   "children": {}
+  },
+  {
+   "t": 40,
+   "phase": "startup",
+   "tag": "idle",
+   "totalMB": 475,
+   "privMB": 0,
+   "cpu": 2.5,
+   "byType": {
+    "Browser": {
+     "mb": 192,
+     "cpu": 2,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 146,
+     "cpu": 0.5,
+     "n": 1
+    },
+    "GPU": {
+     "mb": 72,
+     "cpu": 0,
+     "n": 1
+    }
+   },
+   "treeMB": 571,
+   "children": {}
+  },
+  {
+   "t": 53,
+   "phase": "import40",
+   "tag": null,
+   "totalMB": 476,
+   "privMB": 0,
+   "cpu": 0.5,
+   "byType": {
+    "Browser": {
+     "mb": 194,
+     "cpu": 0.5,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 144,
+     "cpu": 0,
+     "n": 1
+    },
+    "GPU": {
+     "mb": 72,
+     "cpu": 0,
+     "n": 1
+    }
+   },
+   "treeMB": 572,
+   "children": {}
+  },
+  {
+   "t": 55,
+   "phase": "import40",
+   "tag": null,
+   "totalMB": 609,
+   "privMB": 0,
+   "cpu": 26.6,
+   "byType": {
+    "Browser": {
+     "mb": 207,
+     "cpu": 12.3,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 206,
+     "cpu": 14,
+     "n": 1
+    },
+    "GPU": {
+     "mb": 73,
+     "cpu": 0.3,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 58,
+     "cpu": 0,
+     "n": 1
+    }
+   },
+   "treeMB": 756,
+   "children": {
+    "ffmpeg": 51
+   }
+  },
+  {
+   "t": 57,
+   "phase": "import40",
+   "tag": null,
+   "totalMB": 595,
+   "privMB": 0,
+   "cpu": 29,
+   "byType": {
+    "Browser": {
+     "mb": 197,
+     "cpu": 10.8,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 201,
+     "cpu": 18.3,
+     "n": 1
+    },
+    "GPU": {
+     "mb": 73,
+     "cpu": 0,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 58,
+     "cpu": 0,
+     "n": 1
+    }
+   },
+   "treeMB": 691,
+   "children": {}
+  },
+  {
+   "t": 59,
+   "phase": "import40",
+   "tag": null,
+   "totalMB": 631,
+   "privMB": 0,
+   "cpu": 26.5,
+   "byType": {
+    "Browser": {
+     "mb": 211,
+     "cpu": 7.7,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 223,
+     "cpu": 18.5,
+     "n": 1
+    },
+    "GPU": {
+     "mb": 73,
+     "cpu": 0.2,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 58,
+     "cpu": 0,
+     "n": 1
+    }
+   },
+   "treeMB": 778,
+   "children": {
+    "ffmpeg": 51
+   }
+  },
+  {
+   "t": 61,
+   "phase": "import40",
+   "tag": null,
+   "totalMB": 642,
+   "privMB": 0,
+   "cpu": 25,
+   "byType": {
+    "Browser": {
+     "mb": 197,
+     "cpu": 8.3,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 248,
+     "cpu": 16.8,
+     "n": 1
+    },
+    "GPU": {
+     "mb": 73,
+     "cpu": 0,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 58,
+     "cpu": 0,
+     "n": 1
+    }
+   },
+   "treeMB": 738,
+   "children": {}
+  },
+  {
+   "t": 63,
+   "phase": "import40",
+   "tag": null,
+   "totalMB": 667,
+   "privMB": 0,
+   "cpu": 25,
+   "byType": {
+    "Browser": {
+     "mb": 202,
+     "cpu": 9.8,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 268,
+     "cpu": 15.3,
+     "n": 1
+    },
+    "GPU": {
+     "mb": 73,
+     "cpu": 0,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 58,
+     "cpu": 0,
+     "n": 1
+    }
+   },
+   "treeMB": 763,
+   "children": {}
+  },
+  {
+   "t": 65,
+   "phase": "import40",
+   "tag": null,
+   "totalMB": 683,
+   "privMB": 0,
+   "cpu": 24,
+   "byType": {
+    "Browser": {
+     "mb": 197,
+     "cpu": 6.2,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 289,
+     "cpu": 17.5,
+     "n": 1
+    },
+    "GPU": {
+     "mb": 73,
+     "cpu": 0.2,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 58,
+     "cpu": 0,
+     "n": 1
+    }
+   },
+   "treeMB": 780,
+   "children": {}
+  },
+  {
+   "t": 67,
+   "phase": "import40",
+   "tag": null,
+   "totalMB": 750,
+   "privMB": 0,
+   "cpu": 29.5,
+   "byType": {
+    "Browser": {
+     "mb": 213,
+     "cpu": 8.2,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 339,
+     "cpu": 21,
+     "n": 1
+    },
+    "GPU": {
+     "mb": 73,
+     "cpu": 0.2,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 58,
+     "cpu": 0,
+     "n": 1
+    }
+   },
+   "treeMB": 898,
+   "children": {
+    "ffmpeg": 51
+   }
+  },
+  {
+   "t": 69,
+   "phase": "import40",
+   "tag": null,
+   "totalMB": 741,
+   "privMB": 0,
+   "cpu": 26.8,
+   "byType": {
+    "Browser": {
+     "mb": 201,
+     "cpu": 2.3,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 343,
+     "cpu": 24.5,
+     "n": 1
+    },
+    "GPU": {
+     "mb": 73,
+     "cpu": 0,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 58,
+     "cpu": 0,
+     "n": 1
+    }
+   },
+   "treeMB": 837,
+   "children": {}
+  },
+  {
+   "t": 71,
+   "phase": "import40",
+   "tag": null,
+   "totalMB": 757,
+   "privMB": 0,
+   "cpu": 26.3,
+   "byType": {
+    "Browser": {
+     "mb": 197,
+     "cpu": 7.8,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 363,
+     "cpu": 18.3,
+     "n": 1
+    },
+    "GPU": {
+     "mb": 73,
+     "cpu": 0,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 58,
+     "cpu": 0.3,
+     "n": 1
+    }
+   },
+   "treeMB": 853,
+   "children": {}
+  },
+  {
+   "t": 73,
+   "phase": "import40",
+   "tag": null,
+   "totalMB": 779,
+   "privMB": 0,
+   "cpu": 28.7,
+   "byType": {
+    "Browser": {
+     "mb": 197,
+     "cpu": 9,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 385,
+     "cpu": 19.5,
+     "n": 1
+    },
+    "GPU": {
+     "mb": 73,
+     "cpu": 0.2,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 58,
+     "cpu": 0,
+     "n": 1
+    }
+   },
+   "treeMB": 875,
+   "children": {}
+  },
+  {
+   "t": 75,
+   "phase": "import40",
+   "tag": null,
+   "totalMB": 812,
+   "privMB": 0,
+   "cpu": 24.5,
+   "byType": {
+    "Browser": {
+     "mb": 211,
+     "cpu": 8.2,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 405,
+     "cpu": 16.2,
+     "n": 1
+    },
+    "GPU": {
+     "mb": 73,
+     "cpu": 0,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 58,
+     "cpu": 0,
+     "n": 1
+    }
+   },
+   "treeMB": 959,
+   "children": {
+    "ffmpeg": 51
+   }
+  },
+  {
+   "t": 77,
+   "phase": "import40",
+   "tag": null,
+   "totalMB": 841,
+   "privMB": 0,
+   "cpu": 31.7,
+   "byType": {
+    "Browser": {
+     "mb": 210,
+     "cpu": 7.7,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 435,
+     "cpu": 24,
+     "n": 1
+    },
+    "GPU": {
+     "mb": 73,
+     "cpu": 0,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 58,
+     "cpu": 0,
+     "n": 1
+    }
+   },
+   "treeMB": 988,
+   "children": {
+    "ffmpeg": 51
+   }
+  },
+  {
+   "t": 79,
+   "phase": "import40",
+   "tag": null,
+   "totalMB": 861,
+   "privMB": 0,
+   "cpu": 25.8,
+   "byType": {
+    "Browser": {
+     "mb": 210,
+     "cpu": 7.8,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 454,
+     "cpu": 17.8,
+     "n": 1
+    },
+    "GPU": {
+     "mb": 73,
+     "cpu": 0.3,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 58,
+     "cpu": 0,
+     "n": 1
+    }
+   },
+   "treeMB": 1008,
+   "children": {
+    "ffmpeg": 51
+   }
+  },
+  {
+   "t": 81,
+   "phase": "import40",
+   "tag": null,
+   "totalMB": 884,
+   "privMB": 0,
+   "cpu": 17.2,
+   "byType": {
+    "Browser": {
+     "mb": 211,
+     "cpu": 1.5,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 476,
+     "cpu": 15.5,
+     "n": 1
+    },
+    "GPU": {
+     "mb": 73,
+     "cpu": 0.2,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 58,
+     "cpu": 0,
+     "n": 1
+    }
+   },
+   "treeMB": 1031,
+   "children": {
+    "ffmpeg": 51
+   }
+  },
+  {
+   "t": 83,
+   "phase": "import40",
+   "tag": null,
+   "totalMB": 895,
+   "privMB": 0,
+   "cpu": 17.7,
+   "byType": {
+    "Browser": {
+     "mb": 212,
+     "cpu": 7.2,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 486,
+     "cpu": 10.5,
+     "n": 1
+    },
+    "GPU": {
+     "mb": 73,
+     "cpu": 0,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 58,
+     "cpu": 0,
+     "n": 1
+    }
+   },
+   "treeMB": 1042,
+   "children": {
+    "ffmpeg": 51
+   }
+  },
+  {
+   "t": 85,
+   "phase": "import40",
+   "tag": null,
+   "totalMB": 954,
+   "privMB": 0,
+   "cpu": 33,
+   "byType": {
+    "Browser": {
+     "mb": 213,
+     "cpu": 9.2,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 544,
+     "cpu": 23.7,
+     "n": 1
+    },
+    "GPU": {
+     "mb": 73,
+     "cpu": 0,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 58,
+     "cpu": 0,
+     "n": 1
+    }
+   },
+   "treeMB": 1101,
+   "children": {
+    "ffmpeg": 51
+   }
+  },
+  {
+   "t": 87,
+   "phase": "import40",
+   "tag": null,
+   "totalMB": 934,
+   "privMB": 0,
+   "cpu": 30,
+   "byType": {
+    "Browser": {
+     "mb": 198,
+     "cpu": 9.8,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 539,
+     "cpu": 20,
+     "n": 1
+    },
+    "GPU": {
+     "mb": 73,
+     "cpu": 0,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 58,
+     "cpu": 0.3,
+     "n": 1
+    }
+   },
+   "treeMB": 1029,
+   "children": {}
+  },
+  {
+   "t": 89,
+   "phase": "import40",
+   "tag": null,
+   "totalMB": 955,
+   "privMB": 0,
+   "cpu": 22.2,
+   "byType": {
+    "Browser": {
+     "mb": 199,
+     "cpu": 7.4,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 560,
+     "cpu": 14.6,
+     "n": 1
+    },
+    "GPU": {
+     "mb": 73,
+     "cpu": 0.2,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 58,
+     "cpu": 0,
+     "n": 1
+    }
+   },
+   "treeMB": 1058,
+   "children": {}
+  },
+  {
+   "t": 90,
+   "phase": "import40",
+   "tag": "after import 40",
+   "totalMB": 989,
+   "privMB": 0,
+   "cpu": 32.3,
+   "byType": {
+    "Browser": {
+     "mb": 212,
+     "cpu": 10.1,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 580,
+     "cpu": 22.1,
+     "n": 1
+    },
+    "GPU": {
+     "mb": 73,
+     "cpu": 0,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 58,
+     "cpu": 0,
+     "n": 1
+    }
+   },
+   "treeMB": 1136,
+   "children": {
+    "ffmpeg": 51
+   }
+  },
+  {
+   "t": 104,
+   "phase": "import100",
+   "tag": null,
+   "totalMB": 987,
+   "privMB": 0,
+   "cpu": 0.5,
+   "byType": {
+    "Browser": {
+     "mb": 213,
+     "cpu": 0.5,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 578,
+     "cpu": 0,
+     "n": 1
+    },
+    "GPU": {
+     "mb": 73,
+     "cpu": 0,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 58,
+     "cpu": 0,
+     "n": 1
+    }
+   },
+   "treeMB": 1079,
+   "children": {}
+  },
+  {
+   "t": 105,
+   "phase": "import100",
+   "tag": null,
+   "totalMB": 997,
+   "privMB": 0,
+   "cpu": 16.2,
+   "byType": {
+    "Browser": {
+     "mb": 212,
+     "cpu": 6.8,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0.3,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 589,
+     "cpu": 9.1,
+     "n": 1
+    },
+    "GPU": {
+     "mb": 73,
+     "cpu": 0,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 58,
+     "cpu": 0,
+     "n": 1
+    }
+   },
+   "treeMB": 1144,
+   "children": {
+    "ffmpeg": 51
+   }
+  },
+  {
+   "t": 107,
+   "phase": "import100",
+   "tag": null,
+   "totalMB": 998,
+   "privMB": 0,
+   "cpu": 10.6,
+   "byType": {
+    "Browser": {
+     "mb": 200,
+     "cpu": 1.8,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 602,
+     "cpu": 8.8,
+     "n": 1
+    },
+    "GPU": {
+     "mb": 73,
+     "cpu": 0,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 58,
+     "cpu": 0,
+     "n": 1
+    }
+   },
+   "treeMB": 1095,
+   "children": {}
+  },
+  {
+   "t": 109,
+   "phase": "import100",
+   "tag": null,
+   "totalMB": 1016,
+   "privMB": 0,
+   "cpu": 27.5,
+   "byType": {
+    "Browser": {
+     "mb": 198,
+     "cpu": 8.5,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 622,
+     "cpu": 18.8,
+     "n": 1
+    },
+    "GPU": {
+     "mb": 73,
+     "cpu": 0.3,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 58,
+     "cpu": 0,
+     "n": 1
+    }
+   },
+   "treeMB": 1112,
+   "children": {}
+  },
+  {
+   "t": 111,
+   "phase": "import100",
+   "tag": null,
+   "totalMB": 1080,
+   "privMB": 0,
+   "cpu": 24.7,
+   "byType": {
+    "Browser": {
+     "mb": 212,
+     "cpu": 7.5,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 671,
+     "cpu": 17.2,
+     "n": 1
+    },
+    "GPU": {
+     "mb": 73,
+     "cpu": 0,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 58,
+     "cpu": 0,
+     "n": 1
+    }
+   },
+   "treeMB": 1227,
+   "children": {
+    "ffmpeg": 51
+   }
+  },
+  {
+   "t": 113,
+   "phase": "import100",
+   "tag": null,
+   "totalMB": 1071,
+   "privMB": 0,
+   "cpu": 15.2,
+   "byType": {
+    "Browser": {
+     "mb": 211,
+     "cpu": 1.5,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 663,
+     "cpu": 13.4,
+     "n": 1
+    },
+    "GPU": {
+     "mb": 73,
+     "cpu": 0.2,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 58,
+     "cpu": 0,
+     "n": 1
+    }
+   },
+   "treeMB": 1218,
+   "children": {
+    "ffmpeg": 51
+   }
+  },
+  {
+   "t": 115,
+   "phase": "import100",
+   "tag": null,
+   "totalMB": 1083,
+   "privMB": 0,
+   "cpu": 16.6,
+   "byType": {
+    "Browser": {
+     "mb": 203,
+     "cpu": 2.8,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 683,
+     "cpu": 13.6,
+     "n": 1
+    },
+    "GPU": {
+     "mb": 73,
+     "cpu": 0.3,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 58,
+     "cpu": 0,
+     "n": 1
+    }
+   },
+   "treeMB": 1178,
+   "children": {}
+  },
+  {
+   "t": 117,
+   "phase": "import100",
+   "tag": null,
+   "totalMB": 1112,
+   "privMB": 0,
+   "cpu": 28.2,
+   "byType": {
+    "Browser": {
+     "mb": 210,
+     "cpu": 12.2,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 705,
+     "cpu": 16,
+     "n": 1
+    },
+    "GPU": {
+     "mb": 73,
+     "cpu": 0,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 58,
+     "cpu": 0,
+     "n": 1
+    }
+   },
+   "treeMB": 1259,
+   "children": {
+    "ffmpeg": 51
+   }
+  },
+  {
+   "t": 119,
+   "phase": "import100",
+   "tag": null,
+   "totalMB": 1120,
+   "privMB": 0,
+   "cpu": 12.2,
+   "byType": {
+    "Browser": {
+     "mb": 198,
+     "cpu": 2.2,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 726,
+     "cpu": 9.7,
+     "n": 1
+    },
+    "GPU": {
+     "mb": 73,
+     "cpu": 0.2,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 58,
+     "cpu": 0,
+     "n": 1
+    }
+   },
+   "treeMB": 1216,
+   "children": {}
+  },
+  {
+   "t": 121,
+   "phase": "import100",
+   "tag": null,
+   "totalMB": 1152,
+   "privMB": 0,
+   "cpu": 34.5,
+   "byType": {
+    "Browser": {
+     "mb": 198,
+     "cpu": 10.2,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 758,
+     "cpu": 24,
+     "n": 1
+    },
+    "GPU": {
+     "mb": 73,
+     "cpu": 0.2,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 58,
+     "cpu": 0,
+     "n": 1
+    }
+   },
+   "treeMB": 1248,
+   "children": {}
+  },
+  {
+   "t": 123,
+   "phase": "import100",
+   "tag": null,
+   "totalMB": 1183,
+   "privMB": 0,
+   "cpu": 32.7,
+   "byType": {
+    "Browser": {
+     "mb": 208,
+     "cpu": 14.2,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 778,
+     "cpu": 18.5,
+     "n": 1
+    },
+    "GPU": {
+     "mb": 73,
+     "cpu": 0,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 58,
+     "cpu": 0,
+     "n": 1
+    }
+   },
+   "treeMB": 1330,
+   "children": {
+    "ffmpeg": 51
+   }
+  },
+  {
+   "t": 125,
+   "phase": "import100",
+   "tag": null,
+   "totalMB": 1186,
+   "privMB": 0,
+   "cpu": 30.5,
+   "byType": {
+    "Browser": {
+     "mb": 198,
+     "cpu": 11,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 791,
+     "cpu": 19.5,
+     "n": 1
+    },
+    "GPU": {
+     "mb": 73,
+     "cpu": 0,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 58,
+     "cpu": 0,
+     "n": 1
+    }
+   },
+   "treeMB": 1282,
+   "children": {}
+  },
+  {
+   "t": 127,
+   "phase": "import100",
+   "tag": null,
+   "totalMB": 1191,
+   "privMB": 0,
+   "cpu": 27.5,
+   "byType": {
+    "Browser": {
+     "mb": 198,
+     "cpu": 7.3,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 797,
+     "cpu": 20,
+     "n": 1
+    },
+    "GPU": {
+     "mb": 73,
+     "cpu": 0,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 58,
+     "cpu": 0.3,
+     "n": 1
+    }
+   },
+   "treeMB": 1287,
+   "children": {}
+  },
+  {
+   "t": 130,
+   "phase": "import100",
+   "tag": null,
+   "totalMB": 1210,
+   "privMB": 0,
+   "cpu": 11,
+   "byType": {
+    "Browser": {
+     "mb": 212,
+     "cpu": 4.8,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 801,
+     "cpu": 6.1,
+     "n": 1
+    },
+    "GPU": {
+     "mb": 73,
+     "cpu": 0,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 58,
+     "cpu": 0,
+     "n": 1
+    }
+   },
+   "treeMB": 1357,
+   "children": {
+    "ffmpeg": 52
+   }
+  },
+  {
+   "t": 131,
+   "phase": "import100",
+   "tag": null,
+   "totalMB": 1199,
+   "privMB": 0,
+   "cpu": 28.5,
+   "byType": {
+    "Browser": {
+     "mb": 198,
+     "cpu": 3,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 804,
+     "cpu": 25.1,
+     "n": 1
+    },
+    "GPU": {
+     "mb": 73,
+     "cpu": 0.4,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 58,
+     "cpu": 0,
+     "n": 1
+    }
+   },
+   "treeMB": 1294,
+   "children": {}
+  },
+  {
+   "t": 133,
+   "phase": "import100",
+   "tag": null,
+   "totalMB": 1206,
+   "privMB": 0,
+   "cpu": 29.5,
+   "byType": {
+    "Browser": {
+     "mb": 208,
+     "cpu": 12.7,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 801,
+     "cpu": 16.8,
+     "n": 1
+    },
+    "GPU": {
+     "mb": 73,
+     "cpu": 0,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 58,
+     "cpu": 0,
+     "n": 1
+    }
+   },
+   "treeMB": 1354,
+   "children": {
+    "ffmpeg": 52
+   }
+  },
+  {
+   "t": 135,
+   "phase": "import100",
+   "tag": null,
+   "totalMB": 1207,
+   "privMB": 0,
+   "cpu": 27.5,
+   "byType": {
+    "Browser": {
+     "mb": 199,
+     "cpu": 9.5,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 810,
+     "cpu": 17.8,
+     "n": 1
+    },
+    "GPU": {
+     "mb": 73,
+     "cpu": 0.3,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 58,
+     "cpu": 0,
+     "n": 1
+    }
+   },
+   "treeMB": 1302,
+   "children": {}
+  },
+  {
+   "t": 137,
+   "phase": "import100",
+   "tag": null,
+   "totalMB": 1235,
+   "privMB": 0,
+   "cpu": 19.2,
+   "byType": {
+    "Browser": {
+     "mb": 201,
+     "cpu": 8,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 837,
+     "cpu": 11.2,
+     "n": 1
+    },
+    "GPU": {
+     "mb": 73,
+     "cpu": 0,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 58,
+     "cpu": 0,
+     "n": 1
+    }
+   },
+   "treeMB": 1330,
+   "children": {}
+  },
+  {
+   "t": 139,
+   "phase": "import100",
+   "tag": null,
+   "totalMB": 1256,
+   "privMB": 0,
+   "cpu": 24.8,
+   "byType": {
+    "Browser": {
+     "mb": 201,
+     "cpu": 7.8,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 858,
+     "cpu": 16.8,
+     "n": 1
+    },
+    "GPU": {
+     "mb": 73,
+     "cpu": 0.3,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 58,
+     "cpu": 0,
+     "n": 1
+    }
+   },
+   "treeMB": 1352,
+   "children": {}
+  },
+  {
+   "t": 141,
+   "phase": "import100",
+   "tag": null,
+   "totalMB": 1228,
+   "privMB": 0,
+   "cpu": 22.5,
+   "byType": {
+    "Browser": {
+     "mb": 211,
+     "cpu": 6.5,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 820,
+     "cpu": 16,
+     "n": 1
+    },
+    "GPU": {
+     "mb": 73,
+     "cpu": 0,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 58,
+     "cpu": 0,
+     "n": 1
+    }
+   },
+   "treeMB": 1376,
+   "children": {
+    "ffmpeg": 52
+   }
+  },
+  {
+   "t": 143,
+   "phase": "import100",
+   "tag": null,
+   "totalMB": 1238,
+   "privMB": 0,
+   "cpu": 19.5,
+   "byType": {
+    "Browser": {
+     "mb": 212,
+     "cpu": 7.2,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 829,
+     "cpu": 12,
+     "n": 1
+    },
+    "GPU": {
+     "mb": 73,
+     "cpu": 0.2,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 58,
+     "cpu": 0,
+     "n": 1
+    }
+   },
+   "treeMB": 1385,
+   "children": {
+    "ffmpeg": 51
+   }
+  },
+  {
+   "t": 145,
+   "phase": "import100",
+   "tag": null,
+   "totalMB": 1233,
+   "privMB": 0,
+   "cpu": 24.7,
+   "byType": {
+    "Browser": {
+     "mb": 199,
+     "cpu": 8.7,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 837,
+     "cpu": 16,
+     "n": 1
+    },
+    "GPU": {
+     "mb": 73,
+     "cpu": 0,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 58,
+     "cpu": 0,
+     "n": 1
+    }
+   },
+   "treeMB": 1329,
+   "children": {}
+  },
+  {
+   "t": 147,
+   "phase": "import100",
+   "tag": null,
+   "totalMB": 1230,
+   "privMB": 0,
+   "cpu": 19.7,
+   "byType": {
+    "Browser": {
+     "mb": 199,
+     "cpu": 7,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 834,
+     "cpu": 12.5,
+     "n": 1
+    },
+    "GPU": {
+     "mb": 73,
+     "cpu": 0.2,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 58,
+     "cpu": 0,
+     "n": 1
+    }
+   },
+   "treeMB": 1326,
+   "children": {}
+  },
+  {
+   "t": 149,
+   "phase": "import100",
+   "tag": null,
+   "totalMB": 1250,
+   "privMB": 0,
+   "cpu": 19,
+   "byType": {
+    "Browser": {
+     "mb": 209,
+     "cpu": 6.2,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 843,
+     "cpu": 12.5,
+     "n": 1
+    },
+    "GPU": {
+     "mb": 73,
+     "cpu": 0.2,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 58,
+     "cpu": 0,
+     "n": 1
+    }
+   },
+   "treeMB": 1397,
+   "children": {
+    "ffmpeg": 51
+   }
+  },
+  {
+   "t": 151,
+   "phase": "import100",
+   "tag": null,
+   "totalMB": 1284,
+   "privMB": 0,
+   "cpu": 24.7,
+   "byType": {
+    "Browser": {
+     "mb": 201,
+     "cpu": 3,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 886,
+     "cpu": 21.7,
+     "n": 1
+    },
+    "GPU": {
+     "mb": 73,
+     "cpu": 0,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 58,
+     "cpu": 0,
+     "n": 1
+    }
+   },
+   "treeMB": 1379,
+   "children": {}
+  },
+  {
+   "t": 153,
+   "phase": "import100",
+   "tag": null,
+   "totalMB": 1250,
+   "privMB": 0,
+   "cpu": 30.5,
+   "byType": {
+    "Browser": {
+     "mb": 204,
+     "cpu": 10.8,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 849,
+     "cpu": 19.5,
+     "n": 1
+    },
+    "GPU": {
+     "mb": 73,
+     "cpu": 0.3,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 58,
+     "cpu": 0,
+     "n": 1
+    }
+   },
+   "treeMB": 1401,
+   "children": {
+    "ffmpeg": 56
+   }
+  },
+  {
+   "t": 155,
+   "phase": "import100",
+   "tag": null,
+   "totalMB": 1261,
+   "privMB": 0,
+   "cpu": 24.5,
+   "byType": {
+    "Browser": {
+     "mb": 211,
+     "cpu": 12,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0.2,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 853,
+     "cpu": 12.2,
+     "n": 1
+    },
+    "GPU": {
+     "mb": 73,
+     "cpu": 0,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 58,
+     "cpu": 0,
+     "n": 1
+    }
+   },
+   "treeMB": 1408,
+   "children": {
+    "ffmpeg": 51
+   }
+  },
+  {
+   "t": 157,
+   "phase": "import100",
+   "tag": null,
+   "totalMB": 1259,
+   "privMB": 0,
+   "cpu": 24.5,
+   "byType": {
+    "Browser": {
+     "mb": 199,
+     "cpu": 3,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 863,
+     "cpu": 21.3,
+     "n": 1
+    },
+    "GPU": {
+     "mb": 73,
+     "cpu": 0.3,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 58,
+     "cpu": 0,
+     "n": 1
+    }
+   },
+   "treeMB": 1354,
+   "children": {}
+  },
+  {
+   "t": 159,
+   "phase": "import100",
+   "tag": null,
+   "totalMB": 1265,
+   "privMB": 0,
+   "cpu": 24.7,
+   "byType": {
+    "Browser": {
+     "mb": 204,
+     "cpu": 8.5,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 864,
+     "cpu": 16.2,
+     "n": 1
+    },
+    "GPU": {
+     "mb": 73,
+     "cpu": 0,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 58,
+     "cpu": 0,
+     "n": 1
+    }
+   },
+   "treeMB": 1416,
+   "children": {
+    "ffmpeg": 56
+   }
+  },
+  {
+   "t": 161,
+   "phase": "import100",
+   "tag": null,
+   "totalMB": 1265,
+   "privMB": 0,
+   "cpu": 25.2,
+   "byType": {
+    "Browser": {
+     "mb": 211,
+     "cpu": 12,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 857,
+     "cpu": 13.2,
+     "n": 1
+    },
+    "GPU": {
+     "mb": 73,
+     "cpu": 0,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 58,
+     "cpu": 0,
+     "n": 1
+    }
+   },
+   "treeMB": 1412,
+   "children": {
+    "ffmpeg": 52
+   }
+  },
+  {
+   "t": 163,
+   "phase": "import100",
+   "tag": null,
+   "totalMB": 1274,
+   "privMB": 0,
+   "cpu": 18.2,
+   "byType": {
+    "Browser": {
+     "mb": 200,
+     "cpu": 11.2,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 878,
+     "cpu": 6.5,
+     "n": 1
+    },
+    "GPU": {
+     "mb": 72,
+     "cpu": 0.5,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 58,
+     "cpu": 0,
+     "n": 1
+    }
+   },
+   "treeMB": 1370,
+   "children": {}
+  },
+  {
+   "t": 164,
+   "phase": "import100",
+   "tag": "after import 100 (library open)",
+   "totalMB": 1277,
+   "privMB": 0,
+   "cpu": 15.3,
+   "byType": {
+    "Browser": {
+     "mb": 200,
+     "cpu": 11.8,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 881,
+     "cpu": 3.1,
+     "n": 1
+    },
+    "GPU": {
+     "mb": 73,
+     "cpu": 0.4,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 58,
+     "cpu": 0,
+     "n": 1
+    }
+   },
+   "treeMB": 1373,
+   "children": {}
+  },
+  {
+   "t": 165,
+   "phase": "pdf100",
+   "tag": null,
+   "totalMB": 1475,
+   "privMB": 0,
+   "cpu": 19.6,
+   "byType": {
+    "Browser": {
+     "mb": 208,
+     "cpu": 15.2,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 1067,
+     "cpu": 4.3,
+     "n": 2
+    },
+    "GPU": {
+     "mb": 77,
+     "cpu": 0,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 58,
+     "cpu": 0,
+     "n": 1
+    }
+   },
+   "treeMB": 1571,
+   "children": {}
+  },
+  {
+   "t": 166,
+   "phase": "pdf100",
+   "tag": "after PDF of 100 cards",
+   "totalMB": 1292,
+   "privMB": 0,
+   "cpu": 13.3,
+   "byType": {
+    "Browser": {
+     "mb": 213,
+     "cpu": 11.3,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 882,
+     "cpu": 1.3,
+     "n": 1
+    },
+    "GPU": {
+     "mb": 74,
+     "cpu": 0.7,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 58,
+     "cpu": 0,
+     "n": 1
+    }
+   },
+   "treeMB": 1405,
+   "children": {
+    "ffmpeg": 17
+   }
+  },
+  {
+   "t": 167,
+   "phase": "pdf100",
+   "tag": null,
+   "totalMB": 1462,
+   "privMB": 0,
+   "cpu": 32.4,
+   "byType": {
+    "Browser": {
+     "mb": 225,
+     "cpu": 27.3,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 1030,
+     "cpu": 3,
+     "n": 2
+    },
+    "GPU": {
+     "mb": 83,
+     "cpu": 2,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 58,
+     "cpu": 0,
+     "n": 1
+    }
+   },
+   "treeMB": 1610,
+   "children": {
+    "ffmpeg": 52
+   }
+  },
+  {
+   "t": 169,
+   "phase": "pdf100",
+   "tag": null,
+   "totalMB": 1635,
+   "privMB": 0,
+   "cpu": 56,
+   "byType": {
+    "Browser": {
+     "mb": 210,
+     "cpu": 10.2,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 1155,
+     "cpu": 24.2,
+     "n": 2
+    },
+    "GPU": {
+     "mb": 146,
+     "cpu": 21.2,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 60,
+     "cpu": 0.2,
+     "n": 1
+    }
+   },
+   "treeMB": 1730,
+   "children": {}
+  },
+  {
+   "t": 171,
+   "phase": "pdf100",
+   "tag": null,
+   "totalMB": 1645,
+   "privMB": 0,
+   "cpu": 48.8,
+   "byType": {
+    "Browser": {
+     "mb": 215,
+     "cpu": 9.7,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 1158,
+     "cpu": 20.5,
+     "n": 2
+    },
+    "GPU": {
+     "mb": 146,
+     "cpu": 18.4,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 60,
+     "cpu": 0.2,
+     "n": 1
+    }
+   },
+   "treeMB": 1753,
+   "children": {
+    "ffmpeg": 13
+   }
+  },
+  {
+   "t": 173,
+   "phase": "T1a_playback_no_phone",
+   "tag": null,
+   "totalMB": 1609,
+   "privMB": 0,
+   "cpu": 49.6,
+   "byType": {
+    "Browser": {
+     "mb": 222,
+     "cpu": 11,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 1134,
+     "cpu": 20.1,
+     "n": 2
+    },
+    "GPU": {
+     "mb": 128,
+     "cpu": 18.3,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 60,
+     "cpu": 0.3,
+     "n": 1
+    }
+   },
+   "treeMB": 1756,
+   "children": {
+    "ffmpeg": 51
+   }
+  },
+  {
+   "t": 175,
+   "phase": "T1a_playback_no_phone",
+   "tag": null,
+   "totalMB": 1596,
+   "privMB": 0,
+   "cpu": 48.4,
+   "byType": {
+    "Browser": {
+     "mb": 210,
+     "cpu": 8.5,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 1135,
+     "cpu": 21.2,
+     "n": 2
+    },
+    "GPU": {
+     "mb": 126,
+     "cpu": 18.5,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 60,
+     "cpu": 0.2,
+     "n": 1
+    }
+   },
+   "treeMB": 1692,
+   "children": {}
+  },
+  {
+   "t": 177,
+   "phase": "T1a_playback_no_phone",
+   "tag": null,
+   "totalMB": 1601,
+   "privMB": 0,
+   "cpu": 47.2,
+   "byType": {
+    "Browser": {
+     "mb": 215,
+     "cpu": 8.7,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 1134,
+     "cpu": 19.7,
+     "n": 2
+    },
+    "GPU": {
+     "mb": 126,
+     "cpu": 18.2,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 60,
+     "cpu": 0.5,
+     "n": 1
+    }
+   },
+   "treeMB": 1752,
+   "children": {
+    "ffmpeg": 56
+   }
+  },
+  {
+   "t": 179,
+   "phase": "T1a_playback_no_phone",
+   "tag": null,
+   "totalMB": 1587,
+   "privMB": 0,
+   "cpu": 51.7,
+   "byType": {
+    "Browser": {
+     "mb": 210,
+     "cpu": 12.7,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 1133,
+     "cpu": 20.4,
+     "n": 2
+    },
+    "GPU": {
+     "mb": 119,
+     "cpu": 18.5,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 60,
+     "cpu": 0,
+     "n": 1
+    }
+   },
+   "treeMB": 1682,
+   "children": {}
+  },
+  {
+   "t": 181,
+   "phase": "T1a_playback_no_phone",
+   "tag": null,
+   "totalMB": 1636,
+   "privMB": 0,
+   "cpu": 49.2,
+   "byType": {
+    "Browser": {
+     "mb": 210,
+     "cpu": 8.2,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 1162,
+     "cpu": 17.7,
+     "n": 2
+    },
+    "GPU": {
+     "mb": 139,
+     "cpu": 23,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 60,
+     "cpu": 0.2,
+     "n": 1
+    }
+   },
+   "treeMB": 1731,
+   "children": {}
+  },
+  {
+   "t": 183,
+   "phase": "T1a_playback_no_phone",
+   "tag": null,
+   "totalMB": 1638,
+   "privMB": 0,
+   "cpu": 56.2,
+   "byType": {
+    "Browser": {
+     "mb": 215,
+     "cpu": 8.5,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 1168,
+     "cpu": 21.9,
+     "n": 2
+    },
+    "GPU": {
+     "mb": 131,
+     "cpu": 25.5,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 60,
+     "cpu": 0.2,
+     "n": 1
+    }
+   },
+   "treeMB": 1790,
+   "children": {
+    "ffmpeg": 56
+   }
+  },
+  {
+   "t": 185,
+   "phase": "T1a_playback_no_phone",
+   "tag": null,
+   "totalMB": 1643,
+   "privMB": 0,
+   "cpu": 58.4,
+   "byType": {
+    "Browser": {
+     "mb": 222,
+     "cpu": 11.2,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 1169,
+     "cpu": 22.4,
+     "n": 2
+    },
+    "GPU": {
+     "mb": 127,
+     "cpu": 24.5,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 60,
+     "cpu": 0.2,
+     "n": 1
+    }
+   },
+   "treeMB": 1790,
+   "children": {
+    "ffmpeg": 52
+   }
+  },
+  {
+   "t": 187,
+   "phase": "T1a_playback_no_phone",
+   "tag": null,
+   "totalMB": 1629,
+   "privMB": 0,
+   "cpu": 50.7,
+   "byType": {
+    "Browser": {
+     "mb": 210,
+     "cpu": 8,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 1168,
+     "cpu": 20.4,
+     "n": 2
+    },
+    "GPU": {
+     "mb": 126,
+     "cpu": 22.2,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 60,
+     "cpu": 0,
+     "n": 1
+    }
+   },
+   "treeMB": 1724,
+   "children": {}
+  },
+  {
+   "t": 189,
+   "phase": "T1a_playback_no_phone",
+   "tag": null,
+   "totalMB": 1637,
+   "privMB": 0,
+   "cpu": 54.5,
+   "byType": {
+    "Browser": {
+     "mb": 215,
+     "cpu": 9.2,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 1170,
+     "cpu": 21.7,
+     "n": 2
+    },
+    "GPU": {
+     "mb": 127,
+     "cpu": 23.2,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 60,
+     "cpu": 0.2,
+     "n": 1
+    }
+   },
+   "treeMB": 1763,
+   "children": {
+    "ffmpeg": 31
+   }
+  },
+  {
+   "t": 191,
+   "phase": "T1a_playback_no_phone",
+   "tag": null,
+   "totalMB": 1647,
+   "privMB": 0,
+   "cpu": 57.9,
+   "byType": {
+    "Browser": {
+     "mb": 222,
+     "cpu": 11.7,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 1173,
+     "cpu": 22,
+     "n": 2
+    },
+    "GPU": {
+     "mb": 127,
+     "cpu": 24,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 60,
+     "cpu": 0.2,
+     "n": 1
+    }
+   },
+   "treeMB": 1793,
+   "children": {
+    "ffmpeg": 52
+   }
+  },
+  {
+   "t": 193,
+   "phase": "T1a_playback_no_phone",
+   "tag": null,
+   "totalMB": 1567,
+   "privMB": 0,
+   "cpu": 51,
+   "byType": {
+    "Browser": {
+     "mb": 210,
+     "cpu": 8.2,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 1121,
+     "cpu": 17.2,
+     "n": 2
+    },
+    "GPU": {
+     "mb": 111,
+     "cpu": 25.2,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 60,
+     "cpu": 0.2,
+     "n": 1
+    }
+   },
+   "treeMB": 1663,
+   "children": {}
+  },
+  {
+   "t": 195,
+   "phase": "T1a_playback_no_phone",
+   "tag": null,
+   "totalMB": 1669,
+   "privMB": 0,
+   "cpu": 53.3,
+   "byType": {
+    "Browser": {
+     "mb": 215,
+     "cpu": 9.2,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 1201,
+     "cpu": 20.9,
+     "n": 2
+    },
+    "GPU": {
+     "mb": 129,
+     "cpu": 22.9,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 60,
+     "cpu": 0.2,
+     "n": 1
+    }
+   },
+   "treeMB": 1814,
+   "children": {
+    "ffmpeg": 49
+   }
+  },
+  {
+   "t": 197,
+   "phase": "T1a_playback_no_phone",
+   "tag": null,
+   "totalMB": 1642,
+   "privMB": 0,
+   "cpu": 58.8,
+   "byType": {
+    "Browser": {
+     "mb": 223,
+     "cpu": 12,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 1165,
+     "cpu": 22.8,
+     "n": 2
+    },
+    "GPU": {
+     "mb": 130,
+     "cpu": 24,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 60,
+     "cpu": 0,
+     "n": 1
+    }
+   },
+   "treeMB": 1789,
+   "children": {
+    "ffmpeg": 52
+   }
+  },
+  {
+   "t": 199,
+   "phase": "T1a_playback_no_phone",
+   "tag": null,
+   "totalMB": 1620,
+   "privMB": 0,
+   "cpu": 55.8,
+   "byType": {
+    "Browser": {
+     "mb": 210,
+     "cpu": 8.3,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 1158,
+     "cpu": 23.1,
+     "n": 2
+    },
+    "GPU": {
+     "mb": 127,
+     "cpu": 24,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 60,
+     "cpu": 0.5,
+     "n": 1
+    }
+   },
+   "treeMB": 1715,
+   "children": {}
+  },
+  {
+   "t": 201,
+   "phase": "T1a_playback_no_phone",
+   "tag": null,
+   "totalMB": 1620,
+   "privMB": 0,
+   "cpu": 56.2,
+   "byType": {
+    "Browser": {
+     "mb": 216,
+     "cpu": 8.7,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 1156,
+     "cpu": 22.7,
+     "n": 2
+    },
+    "GPU": {
+     "mb": 123,
+     "cpu": 24.5,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 60,
+     "cpu": 0.2,
+     "n": 1
+    }
+   },
+   "treeMB": 1770,
+   "children": {
+    "ffmpeg": 56
+   }
+  },
+  {
+   "t": 203,
+   "phase": "T1a_playback_no_phone",
+   "tag": null,
+   "totalMB": 1632,
+   "privMB": 0,
+   "cpu": 57.2,
+   "byType": {
+    "Browser": {
+     "mb": 222,
+     "cpu": 11,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 1161,
+     "cpu": 21.2,
+     "n": 2
+    },
+    "GPU": {
+     "mb": 123,
+     "cpu": 25,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 60,
+     "cpu": 0,
+     "n": 1
+    }
+   },
+   "treeMB": 1779,
+   "children": {
+    "ffmpeg": 52
+   }
+  },
+  {
+   "t": 205,
+   "phase": "T1a_playback_no_phone",
+   "tag": null,
+   "totalMB": 1619,
+   "privMB": 0,
+   "cpu": 55.9,
+   "byType": {
+    "Browser": {
+     "mb": 210,
+     "cpu": 8.5,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 1161,
+     "cpu": 21.7,
+     "n": 2
+    },
+    "GPU": {
+     "mb": 123,
+     "cpu": 25.5,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 60,
+     "cpu": 0.2,
+     "n": 1
+    }
+   },
+   "treeMB": 1715,
+   "children": {}
+  },
+  {
+   "t": 207,
+   "phase": "T1a_playback_no_phone",
+   "tag": null,
+   "totalMB": 1644,
+   "privMB": 0,
+   "cpu": 47.4,
+   "byType": {
+    "Browser": {
+     "mb": 214,
+     "cpu": 9,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 1177,
+     "cpu": 18.2,
+     "n": 2
+    },
+    "GPU": {
+     "mb": 128,
+     "cpu": 20,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 60,
+     "cpu": 0.2,
+     "n": 1
+    }
+   },
+   "treeMB": 1740,
+   "children": {}
+  },
+  {
+   "t": 209,
+   "phase": "T1a_playback_no_phone",
+   "tag": null,
+   "totalMB": 1646,
+   "privMB": 0,
+   "cpu": 60,
+   "byType": {
+    "Browser": {
+     "mb": 210,
+     "cpu": 13,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 1183,
+     "cpu": 19.3,
+     "n": 2
+    },
+    "GPU": {
+     "mb": 128,
+     "cpu": 27.5,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 60,
+     "cpu": 0.3,
+     "n": 1
+    }
+   },
+   "treeMB": 1741,
+   "children": {}
+  },
+  {
+   "t": 211,
+   "phase": "T1a_playback_no_phone",
+   "tag": null,
+   "totalMB": 1648,
+   "privMB": 0,
+   "cpu": 51.2,
+   "byType": {
+    "Browser": {
+     "mb": 210,
+     "cpu": 7.5,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 1185,
+     "cpu": 19.9,
+     "n": 2
+    },
+    "GPU": {
+     "mb": 128,
+     "cpu": 23.5,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 60,
+     "cpu": 0.2,
+     "n": 1
+    }
+   },
+   "treeMB": 1743,
+   "children": {}
+  },
+  {
+   "t": 213,
+   "phase": "T1b_full_system_phone_connected",
+   "tag": null,
+   "totalMB": 1644,
+   "privMB": 0,
+   "cpu": 58.3,
+   "byType": {
+    "Browser": {
+     "mb": 218,
+     "cpu": 10.3,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 1175,
+     "cpu": 22.3,
+     "n": 2
+    },
+    "GPU": {
+     "mb": 126,
+     "cpu": 25.5,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 60,
+     "cpu": 0.3,
+     "n": 1
+    }
+   },
+   "treeMB": 1738,
+   "children": {}
+  },
+  {
+   "t": 215,
+   "phase": "T1b_full_system_phone_connected",
+   "tag": null,
+   "totalMB": 1651,
+   "privMB": 0,
+   "cpu": 58,
+   "byType": {
+    "Browser": {
+     "mb": 223,
+     "cpu": 12.2,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 1177,
+     "cpu": 20.9,
+     "n": 2
+    },
+    "GPU": {
+     "mb": 126,
+     "cpu": 24.7,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 60,
+     "cpu": 0,
+     "n": 1
+    }
+   },
+   "treeMB": 1797,
+   "children": {
+    "ffmpeg": 51
+   }
+  },
+  {
+   "t": 217,
+   "phase": "T1b_full_system_phone_connected",
+   "tag": null,
+   "totalMB": 1635,
+   "privMB": 0,
+   "cpu": 55.2,
+   "byType": {
+    "Browser": {
+     "mb": 211,
+     "cpu": 8.7,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 1175,
+     "cpu": 21.5,
+     "n": 2
+    },
+    "GPU": {
+     "mb": 124,
+     "cpu": 24.5,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 60,
+     "cpu": 0.5,
+     "n": 1
+    }
+   },
+   "treeMB": 1731,
+   "children": {}
+  },
+  {
+   "t": 219,
+   "phase": "T1b_full_system_phone_connected",
+   "tag": null,
+   "totalMB": 1573,
+   "privMB": 0,
+   "cpu": 51.5,
+   "byType": {
+    "Browser": {
+     "mb": 215,
+     "cpu": 8.2,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 1123,
+     "cpu": 19.4,
+     "n": 2
+    },
+    "GPU": {
+     "mb": 110,
+     "cpu": 23.7,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 60,
+     "cpu": 0,
+     "n": 1
+    }
+   },
+   "treeMB": 1670,
+   "children": {}
+  },
+  {
+   "t": 221,
+   "phase": "T1b_full_system_phone_connected",
+   "tag": null,
+   "totalMB": 1674,
+   "privMB": 0,
+   "cpu": 52.8,
+   "byType": {
+    "Browser": {
+     "mb": 224,
+     "cpu": 12.5,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 1195,
+     "cpu": 17.8,
+     "n": 2
+    },
+    "GPU": {
+     "mb": 129,
+     "cpu": 22.3,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 60,
+     "cpu": 0.3,
+     "n": 1
+    }
+   },
+   "treeMB": 1821,
+   "children": {
+    "ffmpeg": 51
+   }
+  },
+  {
+   "t": 223,
+   "phase": "T1b_full_system_phone_connected",
+   "tag": null,
+   "totalMB": 1660,
+   "privMB": 0,
+   "cpu": 52.2,
+   "byType": {
+    "Browser": {
+     "mb": 211,
+     "cpu": 7.7,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 1196,
+     "cpu": 19.7,
+     "n": 2
+    },
+    "GPU": {
+     "mb": 128,
+     "cpu": 24.5,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 60,
+     "cpu": 0.2,
+     "n": 1
+    }
+   },
+   "treeMB": 1756,
+   "children": {}
+  },
+  {
+   "t": 225,
+   "phase": "T1b_full_system_phone_connected",
+   "tag": null,
+   "totalMB": 1663,
+   "privMB": 0,
+   "cpu": 54.7,
+   "byType": {
+    "Browser": {
+     "mb": 215,
+     "cpu": 8.5,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 1193,
+     "cpu": 21.2,
+     "n": 2
+    },
+    "GPU": {
+     "mb": 130,
+     "cpu": 25,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 60,
+     "cpu": 0,
+     "n": 1
+    }
+   },
+   "treeMB": 1758,
+   "children": {}
+  },
+  {
+   "t": 227,
+   "phase": "T1b_full_system_phone_connected",
+   "tag": null,
+   "totalMB": 1656,
+   "privMB": 0,
+   "cpu": 59.6,
+   "byType": {
+    "Browser": {
+     "mb": 222,
+     "cpu": 12,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 1186,
+     "cpu": 22.4,
+     "n": 2
+    },
+    "GPU": {
+     "mb": 123,
+     "cpu": 25,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 60,
+     "cpu": 0.2,
+     "n": 1
+    }
+   },
+   "treeMB": 1803,
+   "children": {
+    "ffmpeg": 51
+   }
+  },
+  {
+   "t": 229,
+   "phase": "T1b_full_system_phone_connected",
+   "tag": null,
+   "totalMB": 1645,
+   "privMB": 0,
+   "cpu": 58.4,
+   "byType": {
+    "Browser": {
+     "mb": 211,
+     "cpu": 8.8,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 1186,
+     "cpu": 23.3,
+     "n": 2
+    },
+    "GPU": {
+     "mb": 123,
+     "cpu": 26.1,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 60,
+     "cpu": 0.3,
+     "n": 1
+    }
+   },
+   "treeMB": 1740,
+   "children": {}
+  },
+  {
+   "t": 231,
+   "phase": "T1b_full_system_phone_connected",
+   "tag": null,
+   "totalMB": 1644,
+   "privMB": 0,
+   "cpu": 56.5,
+   "byType": {
+    "Browser": {
+     "mb": 215,
+     "cpu": 8.7,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 1182,
+     "cpu": 22.7,
+     "n": 2
+    },
+    "GPU": {
+     "mb": 122,
+     "cpu": 24.7,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 60,
+     "cpu": 0.2,
+     "n": 1
+    }
+   },
+   "treeMB": 1738,
+   "children": {}
+  },
+  {
+   "t": 233,
+   "phase": "T1b_full_system_phone_connected",
+   "tag": null,
+   "totalMB": 1590,
+   "privMB": 0,
+   "cpu": 46.4,
+   "byType": {
+    "Browser": {
+     "mb": 223,
+     "cpu": 12,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 1129,
+     "cpu": 14.2,
+     "n": 2
+    },
+    "GPU": {
+     "mb": 112,
+     "cpu": 19.9,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 60,
+     "cpu": 0.2,
+     "n": 1
+    }
+   },
+   "treeMB": 1738,
+   "children": {
+    "ffmpeg": 51
+   }
+  },
+  {
+   "t": 235,
+   "phase": "T1b_full_system_phone_connected",
+   "tag": null,
+   "totalMB": 1665,
+   "privMB": 0,
+   "cpu": 67.1,
+   "byType": {
+    "Browser": {
+     "mb": 210,
+     "cpu": 9.8,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 1203,
+     "cpu": 28.1,
+     "n": 2
+    },
+    "GPU": {
+     "mb": 127,
+     "cpu": 29,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 60,
+     "cpu": 0.3,
+     "n": 1
+    }
+   },
+   "treeMB": 1761,
+   "children": {}
+  },
+  {
+   "t": 237,
+   "phase": "T1b_full_system_phone_connected",
+   "tag": null,
+   "totalMB": 1671,
+   "privMB": 0,
+   "cpu": 58.6,
+   "byType": {
+    "Browser": {
+     "mb": 216,
+     "cpu": 8.7,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 1203,
+     "cpu": 23.7,
+     "n": 2
+    },
+    "GPU": {
+     "mb": 127,
+     "cpu": 26,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 60,
+     "cpu": 0.2,
+     "n": 1
+    }
+   },
+   "treeMB": 1766,
+   "children": {}
+  },
+  {
+   "t": 239,
+   "phase": "T1b_full_system_phone_connected",
+   "tag": null,
+   "totalMB": 1668,
+   "privMB": 0,
+   "cpu": 58.8,
+   "byType": {
+    "Browser": {
+     "mb": 223,
+     "cpu": 11.5,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 1195,
+     "cpu": 22,
+     "n": 2
+    },
+    "GPU": {
+     "mb": 124,
+     "cpu": 25,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 60,
+     "cpu": 0.3,
+     "n": 1
+    }
+   },
+   "treeMB": 1816,
+   "children": {
+    "ffmpeg": 52
+   }
+  },
+  {
+   "t": 241,
+   "phase": "T1b_full_system_phone_connected",
+   "tag": null,
+   "totalMB": 1659,
+   "privMB": 0,
+   "cpu": 55,
+   "byType": {
+    "Browser": {
+     "mb": 210,
+     "cpu": 8,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 1198,
+     "cpu": 22.4,
+     "n": 2
+    },
+    "GPU": {
+     "mb": 126,
+     "cpu": 24.2,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 60,
+     "cpu": 0.2,
+     "n": 1
+    }
+   },
+   "treeMB": 1754,
+   "children": {}
+  },
+  {
+   "t": 243,
+   "phase": "T1b_full_system_phone_connected",
+   "tag": null,
+   "totalMB": 1660,
+   "privMB": 0,
+   "cpu": 56.9,
+   "byType": {
+    "Browser": {
+     "mb": 215,
+     "cpu": 8.5,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 1198,
+     "cpu": 23.2,
+     "n": 2
+    },
+    "GPU": {
+     "mb": 121,
+     "cpu": 25,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 60,
+     "cpu": 0.2,
+     "n": 1
+    }
+   },
+   "treeMB": 1757,
+   "children": {}
+  },
+  {
+   "t": 245,
+   "phase": "T1b_full_system_phone_connected",
+   "tag": null,
+   "totalMB": 1653,
+   "privMB": 0,
+   "cpu": 54.5,
+   "byType": {
+    "Browser": {
+     "mb": 211,
+     "cpu": 6.8,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 1194,
+     "cpu": 22.3,
+     "n": 2
+    },
+    "GPU": {
+     "mb": 122,
+     "cpu": 25.5,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 60,
+     "cpu": 0,
+     "n": 1
+    }
+   },
+   "treeMB": 1748,
+   "children": {}
+  },
+  {
+   "t": 247,
+   "phase": "T1b_full_system_phone_connected",
+   "tag": null,
+   "totalMB": 1680,
+   "privMB": 0,
+   "cpu": 44.3,
+   "byType": {
+    "Browser": {
+     "mb": 210,
+     "cpu": 1,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 1215,
+     "cpu": 19.5,
+     "n": 2
+    },
+    "GPU": {
+     "mb": 130,
+     "cpu": 23.5,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 60,
+     "cpu": 0.3,
+     "n": 1
+    }
+   },
+   "treeMB": 1774,
+   "children": {}
+  },
+  {
+   "t": 249,
+   "phase": "T1b_full_system_phone_connected",
+   "tag": null,
+   "totalMB": 1682,
+   "privMB": 0,
+   "cpu": 45.8,
+   "byType": {
+    "Browser": {
+     "mb": 210,
+     "cpu": 0.3,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 1217,
+     "cpu": 21.3,
+     "n": 2
+    },
+    "GPU": {
+     "mb": 130,
+     "cpu": 24,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 60,
+     "cpu": 0.3,
+     "n": 1
+    }
+   },
+   "treeMB": 1777,
+   "children": {}
+  },
+  {
+   "t": 251,
+   "phase": "T1b_full_system_phone_connected",
+   "tag": null,
+   "totalMB": 1675,
+   "privMB": 0,
+   "cpu": 48.5,
+   "byType": {
+    "Browser": {
+     "mb": 209,
+     "cpu": 0.7,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 1214,
+     "cpu": 22.4,
+     "n": 2
+    },
+    "GPU": {
+     "mb": 126,
+     "cpu": 25,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 60,
+     "cpu": 0.2,
+     "n": 1
+    }
+   },
+   "treeMB": 1771,
+   "children": {}
+  },
+  {
+   "t": 253,
+   "phase": "T2_active_phone_commands",
+   "tag": null,
+   "totalMB": 1669,
+   "privMB": 0,
+   "cpu": 46.7,
+   "byType": {
+    "Browser": {
+     "mb": 210,
+     "cpu": 0.5,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 1209,
+     "cpu": 22,
+     "n": 2
+    },
+    "GPU": {
+     "mb": 124,
+     "cpu": 24,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 60,
+     "cpu": 0.2,
+     "n": 1
+    }
+   },
+   "treeMB": 1764,
+   "children": {}
+  },
+  {
+   "t": 255,
+   "phase": "T2_active_phone_commands",
+   "tag": null,
+   "totalMB": 1671,
+   "privMB": 0,
+   "cpu": 16.7,
+   "byType": {
+    "Browser": {
+     "mb": 209,
+     "cpu": 0.7,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 1213,
+     "cpu": 7.5,
+     "n": 2
+    },
+    "GPU": {
+     "mb": 124,
+     "cpu": 8.5,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 60,
+     "cpu": 0,
+     "n": 1
+    }
+   },
+   "treeMB": 1766,
+   "children": {}
+  },
+  {
+   "t": 257,
+   "phase": "T2_active_phone_commands",
+   "tag": null,
+   "totalMB": 1670,
+   "privMB": 0,
+   "cpu": 29,
+   "byType": {
+    "Browser": {
+     "mb": 210,
+     "cpu": 0.5,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 1211,
+     "cpu": 11.2,
+     "n": 2
+    },
+    "GPU": {
+     "mb": 124,
+     "cpu": 17,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 60,
+     "cpu": 0.2,
+     "n": 1
+    }
+   },
+   "treeMB": 1764,
+   "children": {}
+  },
+  {
+   "t": 259,
+   "phase": "T2_active_phone_commands",
+   "tag": null,
+   "totalMB": 1670,
+   "privMB": 0,
+   "cpu": 44.7,
+   "byType": {
+    "Browser": {
+     "mb": 209,
+     "cpu": 0.2,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 1211,
+     "cpu": 20.7,
+     "n": 2
+    },
+    "GPU": {
+     "mb": 124,
+     "cpu": 23.5,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 60,
+     "cpu": 0.2,
+     "n": 1
+    }
+   },
+   "treeMB": 1765,
+   "children": {}
+  },
+  {
+   "t": 261,
+   "phase": "T2_active_phone_commands",
+   "tag": null,
+   "totalMB": 1663,
+   "privMB": 0,
+   "cpu": 45.1,
+   "byType": {
+    "Browser": {
+     "mb": 210,
+     "cpu": 0.5,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 1207,
+     "cpu": 20.8,
+     "n": 2
+    },
+    "GPU": {
+     "mb": 122,
+     "cpu": 23.5,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 60,
+     "cpu": 0.3,
+     "n": 1
+    }
+   },
+   "treeMB": 1759,
+   "children": {}
+  },
+  {
+   "t": 263,
+   "phase": "T2_active_phone_commands",
+   "tag": null,
+   "totalMB": 1669,
+   "privMB": 0,
+   "cpu": 42.7,
+   "byType": {
+    "Browser": {
+     "mb": 210,
+     "cpu": 0.7,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 1211,
+     "cpu": 17,
+     "n": 2
+    },
+    "GPU": {
+     "mb": 123,
+     "cpu": 24.7,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 60,
+     "cpu": 0.2,
+     "n": 1
+    }
+   },
+   "treeMB": 1765,
+   "children": {}
+  },
+  {
+   "t": 265,
+   "phase": "T2_active_phone_commands",
+   "tag": null,
+   "totalMB": 1674,
+   "privMB": 0,
+   "cpu": 46.2,
+   "byType": {
+    "Browser": {
+     "mb": 210,
+     "cpu": 0.5,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 1215,
+     "cpu": 21.5,
+     "n": 2
+    },
+    "GPU": {
+     "mb": 124,
+     "cpu": 24.2,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 60,
+     "cpu": 0,
+     "n": 1
+    }
+   },
+   "treeMB": 1770,
+   "children": {}
+  },
+  {
+   "t": 267,
+   "phase": "T2_active_phone_commands",
+   "tag": null,
+   "totalMB": 1674,
+   "privMB": 0,
+   "cpu": 46.7,
+   "byType": {
+    "Browser": {
+     "mb": 210,
+     "cpu": 0.7,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 1215,
+     "cpu": 21.7,
+     "n": 2
+    },
+    "GPU": {
+     "mb": 124,
+     "cpu": 23.7,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 60,
+     "cpu": 0.5,
+     "n": 1
+    }
+   },
+   "treeMB": 1769,
+   "children": {}
+  },
+  {
+   "t": 269,
+   "phase": "T2_active_phone_commands",
+   "tag": null,
+   "totalMB": 1668,
+   "privMB": 0,
+   "cpu": 47.2,
+   "byType": {
+    "Browser": {
+     "mb": 210,
+     "cpu": 0.2,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 1210,
+     "cpu": 22.9,
+     "n": 2
+    },
+    "GPU": {
+     "mb": 123,
+     "cpu": 24,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 60,
+     "cpu": 0,
+     "n": 1
+    }
+   },
+   "treeMB": 1764,
+   "children": {}
+  },
+  {
+   "t": 271,
+   "phase": "T2_active_phone_commands",
+   "tag": null,
+   "totalMB": 1665,
+   "privMB": 0,
+   "cpu": 46.7,
+   "byType": {
+    "Browser": {
+     "mb": 210,
+     "cpu": 0.5,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 1208,
+     "cpu": 21.9,
+     "n": 2
+    },
+    "GPU": {
+     "mb": 123,
+     "cpu": 23.7,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 60,
+     "cpu": 0.5,
+     "n": 1
+    }
+   },
+   "treeMB": 1762,
+   "children": {}
+  },
+  {
+   "t": 273,
+   "phase": "T2_active_phone_commands",
+   "tag": null,
+   "totalMB": 1662,
+   "privMB": 0,
+   "cpu": 44.7,
+   "byType": {
+    "Browser": {
+     "mb": 211,
+     "cpu": 0.5,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 1207,
+     "cpu": 20.7,
+     "n": 2
+    },
+    "GPU": {
+     "mb": 120,
+     "cpu": 23.2,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 60,
+     "cpu": 0.2,
+     "n": 1
+    }
+   },
+   "treeMB": 1758,
+   "children": {}
+  },
+  {
+   "t": 275,
+   "phase": "T2_active_phone_commands",
+   "tag": null,
+   "totalMB": 1597,
+   "privMB": 0,
+   "cpu": 35.2,
+   "byType": {
+    "Browser": {
+     "mb": 210,
+     "cpu": 0.5,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 1153,
+     "cpu": 15.2,
+     "n": 2
+    },
+    "GPU": {
+     "mb": 109,
+     "cpu": 19.5,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 60,
+     "cpu": 0,
+     "n": 1
+    }
+   },
+   "treeMB": 1693,
+   "children": {}
+  },
+  {
+   "t": 277,
+   "phase": "T2_active_phone_commands",
+   "tag": null,
+   "totalMB": 1692,
+   "privMB": 0,
+   "cpu": 46.2,
+   "byType": {
+    "Browser": {
+     "mb": 210,
+     "cpu": 1,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 1231,
+     "cpu": 20.7,
+     "n": 2
+    },
+    "GPU": {
+     "mb": 126,
+     "cpu": 24.2,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 60,
+     "cpu": 0.2,
+     "n": 1
+    }
+   },
+   "treeMB": 1790,
+   "children": {}
+  },
+  {
+   "t": 279,
+   "phase": "T2_active_phone_commands",
+   "tag": null,
+   "totalMB": 1696,
+   "privMB": 0,
+   "cpu": 44,
+   "byType": {
+    "Browser": {
+     "mb": 210,
+     "cpu": 0.2,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 1235,
+     "cpu": 20.7,
+     "n": 2
+    },
+    "GPU": {
+     "mb": 126,
+     "cpu": 23,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 60,
+     "cpu": 0,
+     "n": 1
+    }
+   },
+   "treeMB": 1791,
+   "children": {}
+  },
+  {
+   "t": 281,
+   "phase": "T2_active_phone_commands",
+   "tag": null,
+   "totalMB": 1684,
+   "privMB": 0,
+   "cpu": 46.2,
+   "byType": {
+    "Browser": {
+     "mb": 210,
+     "cpu": 0.2,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 1225,
+     "cpu": 22.2,
+     "n": 2
+    },
+    "GPU": {
+     "mb": 123,
+     "cpu": 23.5,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 60,
+     "cpu": 0.2,
+     "n": 1
+    }
+   },
+   "treeMB": 1780,
+   "children": {}
+  },
+  {
+   "t": 283,
+   "phase": "T2_active_phone_commands",
+   "tag": null,
+   "totalMB": 1688,
+   "privMB": 0,
+   "cpu": 47.2,
+   "byType": {
+    "Browser": {
+     "mb": 210,
+     "cpu": 0.5,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 1226,
+     "cpu": 21.9,
+     "n": 2
+    },
+    "GPU": {
+     "mb": 126,
+     "cpu": 24.2,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 60,
+     "cpu": 0.5,
+     "n": 1
+    }
+   },
+   "treeMB": 1782,
+   "children": {}
+  },
+  {
+   "t": 285,
+   "phase": "T2_active_phone_commands",
+   "tag": null,
+   "totalMB": 1689,
+   "privMB": 0,
+   "cpu": 26.5,
+   "byType": {
+    "Browser": {
+     "mb": 210,
+     "cpu": 0.5,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 1229,
+     "cpu": 11.2,
+     "n": 2
+    },
+    "GPU": {
+     "mb": 124,
+     "cpu": 14.7,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 60,
+     "cpu": 0,
+     "n": 1
+    }
+   },
+   "treeMB": 1785,
+   "children": {}
+  },
+  {
+   "t": 287,
+   "phase": "T2_active_phone_commands",
+   "tag": null,
+   "totalMB": 1685,
+   "privMB": 0,
+   "cpu": 23.5,
+   "byType": {
+    "Browser": {
+     "mb": 210,
+     "cpu": 0.5,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 1225,
+     "cpu": 9.3,
+     "n": 2
+    },
+    "GPU": {
+     "mb": 124,
+     "cpu": 13.5,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 60,
+     "cpu": 0.3,
+     "n": 1
+    }
+   },
+   "treeMB": 1779,
+   "children": {}
+  },
+  {
+   "t": 289,
+   "phase": "T2_active_phone_commands",
+   "tag": null,
+   "totalMB": 1686,
+   "privMB": 0,
+   "cpu": 47.2,
+   "byType": {
+    "Browser": {
+     "mb": 210,
+     "cpu": 0.5,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 1225,
+     "cpu": 21.7,
+     "n": 2
+    },
+    "GPU": {
+     "mb": 125,
+     "cpu": 25,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 60,
+     "cpu": 0,
+     "n": 1
+    }
+   },
+   "treeMB": 1780,
+   "children": {}
+  },
+  {
+   "t": 291,
+   "phase": "T2_active_phone_commands",
+   "tag": null,
+   "totalMB": 1623,
+   "privMB": 0,
+   "cpu": 40.7,
+   "byType": {
+    "Browser": {
+     "mb": 210,
+     "cpu": 0.5,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 1171,
+     "cpu": 17.7,
+     "n": 2
+    },
+    "GPU": {
+     "mb": 117,
+     "cpu": 22,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 60,
+     "cpu": 0.5,
+     "n": 1
+    }
+   },
+   "treeMB": 1719,
+   "children": {}
+  },
+  {
+   "t": 293,
+   "phase": "T2_active_phone_commands",
+   "tag": null,
+   "totalMB": 1718,
+   "privMB": 0,
+   "cpu": 54.2,
+   "byType": {
+    "Browser": {
+     "mb": 210,
+     "cpu": 1.2,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 1245,
+     "cpu": 25.5,
+     "n": 2
+    },
+    "GPU": {
+     "mb": 137,
+     "cpu": 27.5,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 60,
+     "cpu": 0,
+     "n": 1
+    }
+   },
+   "treeMB": 1814,
+   "children": {}
+  },
+  {
+   "t": 295,
+   "phase": "T2_active_phone_commands",
+   "tag": null,
+   "totalMB": 1708,
+   "privMB": 0,
+   "cpu": 46.2,
+   "byType": {
+    "Browser": {
+     "mb": 209,
+     "cpu": 0.5,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 1244,
+     "cpu": 20.2,
+     "n": 2
+    },
+    "GPU": {
+     "mb": 130,
+     "cpu": 25.2,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 60,
+     "cpu": 0.2,
+     "n": 1
+    }
+   },
+   "treeMB": 1803,
+   "children": {}
+  },
+  {
+   "t": 297,
+   "phase": "T2_active_phone_commands",
+   "tag": null,
+   "totalMB": 1709,
+   "privMB": 0,
+   "cpu": 46.4,
+   "byType": {
+    "Browser": {
+     "mb": 210,
+     "cpu": 0.2,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 1245,
+     "cpu": 22.4,
+     "n": 2
+    },
+    "GPU": {
+     "mb": 130,
+     "cpu": 23.4,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 60,
+     "cpu": 0.2,
+     "n": 1
+    }
+   },
+   "treeMB": 1804,
+   "children": {}
+  },
+  {
+   "t": 299,
+   "phase": "T2_active_phone_commands",
+   "tag": null,
+   "totalMB": 1701,
+   "privMB": 0,
+   "cpu": 46.5,
+   "byType": {
+    "Browser": {
+     "mb": 209,
+     "cpu": 0.5,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 1241,
+     "cpu": 22.9,
+     "n": 2
+    },
+    "GPU": {
+     "mb": 126,
+     "cpu": 22.7,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 60,
+     "cpu": 0.2,
+     "n": 1
+    }
+   },
+   "treeMB": 1796,
+   "children": {}
+  },
+  {
+   "t": 301,
+   "phase": "T2_active_phone_commands",
+   "tag": null,
+   "totalMB": 1700,
+   "privMB": 0,
+   "cpu": 47.8,
+   "byType": {
+    "Browser": {
+     "mb": 210,
+     "cpu": 0.5,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 1239,
+     "cpu": 23,
+     "n": 2
+    },
+    "GPU": {
+     "mb": 126,
+     "cpu": 24,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 60,
+     "cpu": 0.3,
+     "n": 1
+    }
+   },
+   "treeMB": 1795,
+   "children": {}
+  },
+  {
+   "t": 303,
+   "phase": "T2_active_phone_commands",
+   "tag": null,
+   "totalMB": 1692,
+   "privMB": 0,
+   "cpu": 48.3,
+   "byType": {
+    "Browser": {
+     "mb": 210,
+     "cpu": 0.5,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 1235,
+     "cpu": 22.8,
+     "n": 2
+    },
+    "GPU": {
+     "mb": 122,
+     "cpu": 24.8,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 60,
+     "cpu": 0.3,
+     "n": 1
+    }
+   },
+   "treeMB": 1786,
+   "children": {}
+  },
+  {
+   "t": 305,
+   "phase": "T2_active_phone_commands",
+   "tag": null,
+   "totalMB": 1627,
+   "privMB": 0,
+   "cpu": 48.3,
+   "byType": {
+    "Browser": {
+     "mb": 210,
+     "cpu": 0.8,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 1184,
+     "cpu": 21.6,
+     "n": 2
+    },
+    "GPU": {
+     "mb": 109,
+     "cpu": 26,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 60,
+     "cpu": 0,
+     "n": 1
+    }
+   },
+   "treeMB": 1723,
+   "children": {}
+  },
+  {
+   "t": 307,
+   "phase": "T2_active_phone_commands",
+   "tag": null,
+   "totalMB": 1719,
+   "privMB": 0,
+   "cpu": 49.5,
+   "byType": {
+    "Browser": {
+     "mb": 209,
+     "cpu": 0.7,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 1257,
+     "cpu": 24.2,
+     "n": 2
+    },
+    "GPU": {
+     "mb": 127,
+     "cpu": 24.2,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 60,
+     "cpu": 0.2,
+     "n": 1
+    }
+   },
+   "treeMB": 1814,
+   "children": {}
+  },
+  {
+   "t": 309,
+   "phase": "T2_active_phone_commands",
+   "tag": null,
+   "totalMB": 1721,
+   "privMB": 0,
+   "cpu": 47.2,
+   "byType": {
+    "Browser": {
+     "mb": 210,
+     "cpu": 0.5,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 1258,
+     "cpu": 22,
+     "n": 2
+    },
+    "GPU": {
+     "mb": 127,
+     "cpu": 24.5,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 60,
+     "cpu": 0.2,
+     "n": 1
+    }
+   },
+   "treeMB": 1816,
+   "children": {}
+  },
+  {
+   "t": 311,
+   "phase": "T2_active_phone_commands",
+   "tag": null,
+   "totalMB": 1714,
+   "privMB": 0,
+   "cpu": 48.2,
+   "byType": {
+    "Browser": {
+     "mb": 210,
+     "cpu": 0.5,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 1253,
+     "cpu": 23.7,
+     "n": 2
+    },
+    "GPU": {
+     "mb": 127,
+     "cpu": 23.7,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 60,
+     "cpu": 0.2,
+     "n": 1
+    }
+   },
+   "treeMB": 1809,
+   "children": {}
+  },
+  {
+   "t": 313,
+   "phase": "T2_active_phone_commands",
+   "tag": null,
+   "totalMB": 1711,
+   "privMB": 0,
+   "cpu": 47,
+   "byType": {
+    "Browser": {
+     "mb": 211,
+     "cpu": 0.5,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 1251,
+     "cpu": 22.4,
+     "n": 2
+    },
+    "GPU": {
+     "mb": 124,
+     "cpu": 23.5,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 60,
+     "cpu": 0.5,
+     "n": 1
+    }
+   },
+   "treeMB": 1807,
+   "children": {}
+  },
+  {
+   "t": 315,
+   "phase": "T3_phone_bingo_check",
+   "tag": null,
+   "totalMB": 1752,
+   "privMB": 0,
+   "cpu": 47.8,
+   "byType": {
+    "Browser": {
+     "mb": 211,
+     "cpu": 1.5,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 1274,
+     "cpu": 17.5,
+     "n": 2
+    },
+    "GPU": {
+     "mb": 143,
+     "cpu": 28.8,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 60,
+     "cpu": 0,
+     "n": 1
+    }
+   },
+   "treeMB": 1847,
+   "children": {}
+  },
+  {
+   "t": 317,
+   "phase": "T3_phone_bingo_check",
+   "tag": null,
+   "totalMB": 1753,
+   "privMB": 0,
+   "cpu": 28.2,
+   "byType": {
+    "Browser": {
+     "mb": 211,
+     "cpu": 0.2,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 1273,
+     "cpu": 6.5,
+     "n": 2
+    },
+    "GPU": {
+     "mb": 143,
+     "cpu": 21.2,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 60,
+     "cpu": 0.2,
+     "n": 1
+    }
+   },
+   "treeMB": 1848,
+   "children": {}
+  },
+  {
+   "t": 319,
+   "phase": "T3_phone_bingo_check",
+   "tag": null,
+   "totalMB": 1750,
+   "privMB": 0,
+   "cpu": 16.8,
+   "byType": {
+    "Browser": {
+     "mb": 210,
+     "cpu": 0.3,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 1272,
+     "cpu": 6.3,
+     "n": 2
+    },
+    "GPU": {
+     "mb": 143,
+     "cpu": 10,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 60,
+     "cpu": 0.3,
+     "n": 1
+    }
+   },
+   "treeMB": 1845,
+   "children": {}
+  },
+  {
+   "t": 321,
+   "phase": "T3_phone_bingo_check",
+   "tag": null,
+   "totalMB": 1730,
+   "privMB": 0,
+   "cpu": 38.3,
+   "byType": {
+    "Browser": {
+     "mb": 210,
+     "cpu": 0.5,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 1261,
+     "cpu": 16.6,
+     "n": 2
+    },
+    "GPU": {
+     "mb": 133,
+     "cpu": 21,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 60,
+     "cpu": 0.3,
+     "n": 1
+    }
+   },
+   "treeMB": 1828,
+   "children": {}
+  },
+  {
+   "t": 323,
+   "phase": "T3_phone_bingo_check",
+   "tag": null,
+   "totalMB": 1746,
+   "privMB": 0,
+   "cpu": 55,
+   "byType": {
+    "Browser": {
+     "mb": 210,
+     "cpu": 0.5,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 1269,
+     "cpu": 22.7,
+     "n": 2
+    },
+    "GPU": {
+     "mb": 142,
+     "cpu": 31.5,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 60,
+     "cpu": 0.2,
+     "n": 1
+    }
+   },
+   "treeMB": 1842,
+   "children": {}
+  },
+  {
+   "t": 325,
+   "phase": "T3_phone_bingo_check",
+   "tag": null,
+   "totalMB": 1773,
+   "privMB": 0,
+   "cpu": 40.3,
+   "byType": {
+    "Browser": {
+     "mb": 210,
+     "cpu": 1,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 1281,
+     "cpu": 18,
+     "n": 2
+    },
+    "GPU": {
+     "mb": 157,
+     "cpu": 21.3,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 60,
+     "cpu": 0,
+     "n": 1
+    }
+   },
+   "treeMB": 1871,
+   "children": {}
+  },
+  {
+   "t": 327,
+   "phase": "T6_phone_disconnect",
+   "tag": null,
+   "totalMB": 1730,
+   "privMB": 0,
+   "cpu": 48.5,
+   "byType": {
+    "Browser": {
+     "mb": 210,
+     "cpu": 0.5,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 1269,
+     "cpu": 20.7,
+     "n": 2
+    },
+    "GPU": {
+     "mb": 127,
+     "cpu": 26.7,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 60,
+     "cpu": 0.5,
+     "n": 1
+    }
+   },
+   "treeMB": 1826,
+   "children": {}
+  },
+  {
+   "t": 329,
+   "phase": "T6_phone_disconnect",
+   "tag": null,
+   "totalMB": 1730,
+   "privMB": 0,
+   "cpu": 46,
+   "byType": {
+    "Browser": {
+     "mb": 210,
+     "cpu": 0.5,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 1268,
+     "cpu": 20.7,
+     "n": 2
+    },
+    "GPU": {
+     "mb": 126,
+     "cpu": 24.5,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 60,
+     "cpu": 0.2,
+     "n": 1
+    }
+   },
+   "treeMB": 1826,
+   "children": {}
+  },
+  {
+   "t": 331,
+   "phase": "T6_phone_disconnect",
+   "tag": null,
+   "totalMB": 1727,
+   "privMB": 0,
+   "cpu": 46.2,
+   "byType": {
+    "Browser": {
+     "mb": 210,
+     "cpu": 0.5,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 1266,
+     "cpu": 21.4,
+     "n": 2
+    },
+    "GPU": {
+     "mb": 125,
+     "cpu": 24.2,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 60,
+     "cpu": 0,
+     "n": 1
+    }
+   },
+   "treeMB": 1822,
+   "children": {}
+  },
+  {
+   "t": 333,
+   "phase": "T6_phone_disconnect",
+   "tag": null,
+   "totalMB": 1725,
+   "privMB": 0,
+   "cpu": 46.2,
+   "byType": {
+    "Browser": {
+     "mb": 210,
+     "cpu": 0.2,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 1264,
+     "cpu": 22.2,
+     "n": 2
+    },
+    "GPU": {
+     "mb": 125,
+     "cpu": 23.5,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 60,
+     "cpu": 0.2,
+     "n": 1
+    }
+   },
+   "treeMB": 1821,
+   "children": {}
+  },
+  {
+   "t": 335,
+   "phase": "T6_phone_disconnect",
+   "tag": null,
+   "totalMB": 1721,
+   "privMB": 0,
+   "cpu": 47.5,
+   "byType": {
+    "Browser": {
+     "mb": 210,
+     "cpu": 0.5,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 1263,
+     "cpu": 22.2,
+     "n": 2
+    },
+    "GPU": {
+     "mb": 122,
+     "cpu": 24.5,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 60,
+     "cpu": 0.2,
+     "n": 1
+    }
+   },
+   "treeMB": 1818,
+   "children": {}
+  },
+  {
+   "t": 337,
+   "phase": "T6_phone_disconnect",
+   "tag": null,
+   "totalMB": 1656,
+   "privMB": 0,
+   "cpu": 42.7,
+   "byType": {
+    "Browser": {
+     "mb": 210,
+     "cpu": 0.5,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 1210,
+     "cpu": 17.7,
+     "n": 2
+    },
+    "GPU": {
+     "mb": 111,
+     "cpu": 24.5,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 60,
+     "cpu": 0,
+     "n": 1
+    }
+   },
+   "treeMB": 1752,
+   "children": {}
+  },
+  {
+   "t": 339,
+   "phase": "T6_phone_disconnect",
+   "tag": null,
+   "totalMB": 1747,
+   "privMB": 0,
+   "cpu": 43.5,
+   "byType": {
+    "Browser": {
+     "mb": 210,
+     "cpu": 0.7,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 1284,
+     "cpu": 20.2,
+     "n": 2
+    },
+    "GPU": {
+     "mb": 128,
+     "cpu": 22,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 60,
+     "cpu": 0.5,
+     "n": 1
+    }
+   },
+   "treeMB": 1842,
+   "children": {}
+  },
+  {
+   "t": 341,
+   "phase": "T6_phone_disconnect",
+   "tag": null,
+   "totalMB": 1750,
+   "privMB": 0,
+   "cpu": 42.2,
+   "byType": {
+    "Browser": {
+     "mb": 210,
+     "cpu": 0.5,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 1286,
+     "cpu": 20,
+     "n": 2
+    },
+    "GPU": {
+     "mb": 128,
+     "cpu": 21.7,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 60,
+     "cpu": 0,
+     "n": 1
+    }
+   },
+   "treeMB": 1845,
+   "children": {}
+  },
+  {
+   "t": 343,
+   "phase": "T6_phone_disconnect",
+   "tag": null,
+   "totalMB": 1740,
+   "privMB": 0,
+   "cpu": 42.4,
+   "byType": {
+    "Browser": {
+     "mb": 210,
+     "cpu": 0.2,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 1278,
+     "cpu": 20.7,
+     "n": 2
+    },
+    "GPU": {
+     "mb": 127,
+     "cpu": 21.5,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 60,
+     "cpu": 0,
+     "n": 1
+    }
+   },
+   "treeMB": 1835,
+   "children": {}
+  },
+  {
+   "t": 345,
+   "phase": "T6_phone_disconnect",
+   "tag": null,
+   "totalMB": 1739,
+   "privMB": 0,
+   "cpu": 42.7,
+   "byType": {
+    "Browser": {
+     "mb": 212,
+     "cpu": 1,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 1276,
+     "cpu": 19.9,
+     "n": 2
+    },
+    "GPU": {
+     "mb": 125,
+     "cpu": 21.5,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 60,
+     "cpu": 0.2,
+     "n": 1
+    }
+   },
+   "treeMB": 1834,
+   "children": {}
+  },
+  {
+   "t": 347,
+   "phase": "T6_phone_disconnect",
+   "tag": null,
+   "totalMB": 1738,
+   "privMB": 0,
+   "cpu": 44.7,
+   "byType": {
+    "Browser": {
+     "mb": 210,
+     "cpu": 1,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 1279,
+     "cpu": 20.7,
+     "n": 2
+    },
+    "GPU": {
+     "mb": 124,
+     "cpu": 22.5,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 60,
+     "cpu": 0.5,
+     "n": 1
+    }
+   },
+   "treeMB": 1833,
+   "children": {}
+  },
+  {
+   "t": 348,
+   "phase": "T4_extended",
+   "tag": "after 4 songs",
+   "totalMB": 1737,
+   "privMB": 0,
+   "cpu": 43.3,
+   "byType": {
+    "Browser": {
+     "mb": 211,
+     "cpu": 0.7,
+     "n": 1
+    },
+    "Utility:Network Service": {
+     "mb": 65,
+     "cpu": 0,
+     "n": 1
+    },
+    "Tab": {
+     "mb": 1278,
+     "cpu": 19,
+     "n": 2
+    },
+    "GPU": {
+     "mb": 124,
+     "cpu": 23.5,
+     "n": 1
+    },
+    "Utility:Audio Service": {
+     "mb": 60,
+     "cpu": 0,
+     "n": 1
+    }
+   },
+   "treeMB": 1835,
+   "children": {}
+  }
+ ],
+ "phases": {
+  "import40": {
+   "seconds": 50,
+   "memAvgMB": 773,
+   "memMaxMB": 989,
+   "cpuAvg": 25,
+   "cpuMax": 33,
+   "main": {
+    "lagMax": 13082,
+    "lagAvg": 66.6,
+    "lag50": 25,
+    "ipc": {
+     "host:library-audio": 35
+    },
+    "ipcBytes": {
+     "host:library-audio": 3796
+    },
+    "fsyncs": 45,
+    "writes": {
+     "library": 45
+    }
+   },
+   "extra": {
+    "importSec": 50,
+    "memMB": 989
+   },
+   "ipcPerMin": {
+    "host:library-audio": 42
+   },
+   "ipcKBPerMin": {
+    "host:library-audio": 4.4
+   },
+   "wsPerMin": 0,
+   "wsKBPerMin": 0
+  },
+  "import100": {
+   "seconds": 74,
+   "memAvgMB": 1181,
+   "memMaxMB": 1284,
+   "cpuAvg": 22,
+   "cpuMax": 34.5,
+   "main": {
+    "lagMax": 13512,
+    "lagAvg": 48.1,
+    "lag50": 23,
+    "ipc": {
+     "host:library-audio": 59
+    },
+    "ipcBytes": {
+     "host:library-audio": 6431
+    },
+    "fsyncs": 70,
+    "writes": {
+     "library": 70
+    }
+   },
+   "extra": {
+    "importSec": 74,
+    "memMB": 1277
+   },
+   "ipcPerMin": {
+    "host:library-audio": 48
+   },
+   "ipcKBPerMin": {
+    "host:library-audio": 5.1
+   },
+   "wsPerMin": 0,
+   "wsKBPerMin": 0
+  },
+  "pdf100": {
+   "seconds": 2,
+   "memAvgMB": 1384,
+   "memMaxMB": 1475,
+   "cpuAvg": 16,
+   "cpuMax": 19.6,
+   "main": {
+    "lagMax": 55,
+    "lagAvg": 3.2,
+    "lag50": 1,
+    "ipc": {
+     "host:library-audio": 3,
+     "host:state": 1
+    },
+    "ipcBytes": {
+     "host:library-audio": 327,
+     "host:state": 22063
+    },
+    "fsyncs": 5,
+    "writes": {
+     "playlists": 1,
+     "games": 2,
+     "settings": 1,
+     "library": 1
+    }
+   },
+   "extra": {
+    "pdfSec": 2,
+    "memMB": 1292,
+    "pdfKB": 2533
+   },
+   "ipcPerMin": {
+    "host:library-audio": 84,
+    "host:state": 28
+   },
+   "ipcKBPerMin": {
+    "host:library-audio": 8.9,
+    "host:state": 602.7
+   },
+   "wsPerMin": 0,
+   "wsKBPerMin": 0
+  },
+  "T1a_playback_no_phone": {
+   "seconds": 40,
+   "memAvgMB": 1627,
+   "memMaxMB": 1669,
+   "cpuAvg": 54,
+   "cpuMax": 60,
+   "main": {
+    "lagMax": 118,
+    "lagAvg": 1,
+    "lag50": 2,
+    "ipc": {
+     "host:tick": 118,
+     "host:library-audio": 53,
+     "tv:player": 6,
+     "host:state": 9,
+     "tv:audience-state": 9
+    },
+    "ipcBytes": {
+     "host:tick": 5781,
+     "host:library-audio": 5777,
+     "tv:player": 1072,
+     "host:state": 203686,
+     "tv:audience-state": 5737
+    },
+    "fsyncs": 51,
+    "writes": {
+     "library": 27,
+     "games": 24
+    }
+   },
+   "extra": {},
+   "ipcPerMin": {
+    "host:tick": 177,
+    "host:library-audio": 80,
+    "tv:player": 9,
+    "host:state": 14,
+    "tv:audience-state": 14
+   },
+   "ipcKBPerMin": {
+    "host:tick": 8.5,
+    "host:library-audio": 8.5,
+    "tv:player": 1.6,
+    "host:state": 298.4,
+    "tv:audience-state": 8.4
+   },
+   "wsPerMin": 0,
+   "wsKBPerMin": 0,
+   "tv": {
+    "frames": 2363,
+    "gaps50": 2,
+    "gaps100": 0,
+    "maxGap": 50,
+    "longTasks": 0,
+    "longTaskMs": 0,
+    "loadstarts": 3,
+    "dropped": 16,
+    "decoded": 1092,
+    "t": 4.853333,
+    "paused": false,
+    "src": "file:///tmp/claude-0/media1080/Saffron%20Lane%20-%20Rhythm%20Zindagi%2053.mp4",
+    "droppedPct": 1.5,
+    "janky50PerMin": 3
+   },
+   "songsPlayed": 3,
+   "engineLoads": 3,
+   "unexpectedReloads": 0
+  },
+  "T1b_full_system_phone_connected": {
+   "seconds": 40,
+   "memAvgMB": 1652,
+   "memMaxMB": 1682,
+   "cpuAvg": 55,
+   "cpuMax": 67.1,
+   "main": {
+    "lagMax": 58,
+    "lagAvg": 0.8,
+    "lag50": 2,
+    "ipc": {
+     "host:tick": 124,
+     "host:library-audio": 42,
+     "tv:player": 6,
+     "host:state": 9,
+     "tv:audience-state": 9
+    },
+    "ipcBytes": {
+     "host:tick": 6069,
+     "host:library-audio": 4559,
+     "tv:player": 1082,
+     "host:state": 207697,
+     "tv:audience-state": 8047
+    },
+    "fsyncs": 46,
+    "writes": {
+     "settings": 1,
+     "library": 21,
+     "games": 24
+    }
+   },
+   "extra": {},
+   "ipcPerMin": {
+    "host:tick": 186,
+    "host:library-audio": 63,
+    "tv:player": 9,
+    "host:state": 14,
+    "tv:audience-state": 14
+   },
+   "ipcKBPerMin": {
+    "host:tick": 8.9,
+    "host:library-audio": 6.7,
+    "tv:player": 1.6,
+    "host:state": 304.2,
+    "tv:audience-state": 11.8
+   },
+   "wsPerMin": 84,
+   "wsKBPerMin": 218.8,
+   "tv": {
+    "frames": 2373,
+    "gaps50": 1,
+    "gaps100": 0,
+    "maxGap": 50,
+    "longTasks": 0,
+    "longTaskMs": 0,
+    "loadstarts": 3,
+    "dropped": 15,
+    "decoded": 1092,
+    "t": 6.317333,
+    "paused": false,
+    "src": "file:///tmp/claude-0/media1080/Neha%20Rao%20-%20Dil%20Neon%2080.mp4",
+    "droppedPct": 1.4,
+    "janky50PerMin": 1.5
+   },
+   "songsPlayed": 3,
+   "engineLoads": 3,
+   "unexpectedReloads": 0
+  },
+  "T2_active_phone_commands": {
+   "seconds": 61,
+   "memAvgMB": 1681,
+   "memMaxMB": 1721,
+   "cpuAvg": 43,
+   "cpuMax": 54.2,
+   "main": {
+    "lagMax": 7,
+    "lagAvg": 0.4,
+    "lag50": 0,
+    "ipc": {
+     "host:tick": 168,
+     "tv:player": 15,
+     "host:state": 22,
+     "tv:audience-state": 22
+    },
+    "ipcBytes": {
+     "host:tick": 8216,
+     "tv:player": 1912,
+     "host:state": 515893,
+     "tv:audience-state": 24178
+    },
+    "fsyncs": 36,
+    "writes": {
+     "games": 36
+    }
+   },
+   "extra": {
+    "actions": [
+     "pause",
+     "resume",
+     "volume",
+     "replay",
+     "crawler speed",
+     "view history",
+     "view rounds",
+     "next",
+     "pause",
+     "resume",
+     "volume",
+     "replay",
+     "crawler speed",
+     "view history",
+     "view rounds",
+     "next"
+    ],
+    "latency": {
+     "n": 12,
+     "median": 14,
+     "max": 18
+    }
+   },
+   "ipcPerMin": {
+    "host:tick": 165,
+    "tv:player": 15,
+    "host:state": 22,
+    "tv:audience-state": 22
+   },
+   "ipcKBPerMin": {
+    "host:tick": 7.9,
+    "tv:player": 1.8,
+    "host:state": 495.8,
+    "tv:audience-state": 23.2
+   },
+   "wsPerMin": 99,
+   "wsKBPerMin": 350.3,
+   "tv": {
+    "frames": 3608,
+    "gaps50": 4,
+    "gaps100": 1,
+    "maxGap": 117,
+    "longTasks": 0,
+    "longTaskMs": 0,
+    "loadstarts": 5,
+    "dropped": 22,
+    "decoded": 1518,
+    "t": 7.754573,
+    "paused": false,
+    "src": "file:///tmp/claude-0/media1080/DJ%20Kesar%20-%20Monsoon%20Fever%2064.mp4",
+    "droppedPct": 1.4,
+    "janky50PerMin": 3.9
+   },
+   "songsPlayed": 3,
+   "engineLoads": 5,
+   "unexpectedReloads": 0
+  },
+  "T3_phone_bingo_check": {
+   "seconds": 13,
+   "memAvgMB": 1751,
+   "memMaxMB": 1773,
+   "cpuAvg": 38,
+   "cpuMax": 55,
+   "main": {
+    "lagMax": 6,
+    "lagAvg": 0.4,
+    "lag50": 0,
+    "ipc": {
+     "host:tick": 20,
+     "tv:player": 4,
+     "host:state": 8,
+     "tv:audience-state": 8,
+     "tv:event": 1,
+     "host:event": 1
+    },
+    "ipcBytes": {
+     "host:tick": 982,
+     "tv:player": 387,
+     "host:state": 192264,
+     "tv:audience-state": 10155,
+     "tv:event": 99,
+     "host:event": 99
+    },
+    "fsyncs": 7,
+    "writes": {
+     "games": 7
+    }
+   },
+   "extra": {
+    "claims": [
+     {
+      "cardNo": 1,
+      "verdict": "NOT VALID",
+      "phoneValid": false,
+      "truth": false,
+      "accurate": true,
+      "desktopAgrees": true,
+      "decided": "rejected",
+      "resumed": true,
+      "posBefore": 8.104,
+      "posAfter": 1.533333,
+      "reloads": 1,
+      "srcSame": false
+     }
+    ],
+    "latency": {
+     "n": 4,
+     "median": 15,
+     "max": 16
+    }
+   },
+   "ipcPerMin": {
+    "host:tick": 95,
+    "tv:player": 19,
+    "host:state": 38,
+    "tv:audience-state": 38,
+    "tv:event": 5,
+    "host:event": 5
+   },
+   "ipcKBPerMin": {
+    "host:tick": 4.6,
+    "tv:player": 1.8,
+    "host:state": 894.2,
+    "tv:audience-state": 47.2,
+    "tv:event": 0.5,
+    "host:event": 0.5
+   },
+   "wsPerMin": 105,
+   "wsKBPerMin": 673.3,
+   "tv": {
+    "frames": 736,
+    "gaps50": 0,
+    "gaps100": 0,
+    "maxGap": 50,
+    "longTasks": 0,
+    "longTaskMs": 0,
+    "loadstarts": 1,
+    "dropped": 7,
+    "decoded": 175,
+    "t": 1.533333,
+    "paused": false,
+    "src": "file:///tmp/claude-0/media1080/Luna%20Park%20-%20Mirage%20Dreams%2068.mp4",
+    "droppedPct": 4,
+    "janky50PerMin": 0
+   },
+   "songsPlayed": 1,
+   "engineLoads": 1,
+   "unexpectedReloads": 0
+  },
+  "T6_phone_disconnect": {
+   "seconds": 22,
+   "memAvgMB": 1728,
+   "memMaxMB": 1750,
+   "cpuAvg": 45,
+   "cpuMax": 48.5,
+   "main": {
+    "lagMax": 4,
+    "lagAvg": 0.4,
+    "lag50": 0,
+    "ipc": {
+     "host:tick": 68,
+     "tv:player": 3,
+     "host:state": 4,
+     "tv:audience-state": 4,
+     "host:remote": 2
+    },
+    "ipcBytes": {
+     "host:tick": 3389,
+     "tv:player": 388,
+     "host:state": 96845,
+     "tv:audience-state": 5588,
+     "host:remote": 12375
+    },
+    "fsyncs": 13,
+    "writes": {
+     "games": 12,
+     "settings": 1
+    }
+   },
+   "extra": {
+    "videoKeptPlaying": true,
+    "loadsWhileOffline": 1,
+    "reconnected": true,
+    "latencyAfter": {
+     "n": 1,
+     "median": 8,
+     "max": 8
+    },
+    "engineStatus": "playing"
+   },
+   "ipcPerMin": {
+    "host:tick": 185,
+    "tv:player": 8,
+    "host:state": 11,
+    "tv:audience-state": 11,
+    "host:remote": 5
+   },
+   "ipcKBPerMin": {
+    "host:tick": 9,
+    "tv:player": 1,
+    "host:state": 257.6,
+    "tv:audience-state": 14.9,
+    "host:remote": 32.9
+   },
+   "wsPerMin": 71,
+   "wsKBPerMin": 224.4,
+   "tv": {
+    "frames": 1309,
+    "gaps50": 1,
+    "gaps100": 1,
+    "maxGap": 133,
+    "longTasks": 0,
+    "longTaskMs": 0,
+    "loadstarts": 1,
+    "dropped": 7,
+    "decoded": 625,
+    "t": 10.450667,
+    "paused": false,
+    "src": "file:///tmp/claude-0/media1080/Arjun%20Vale%20-%20Sapna%20Barsaat%2022.mp4",
+    "droppedPct": 1.1,
+    "janky50PerMin": 2.7
+   },
+   "songsPlayed": 1,
+   "engineLoads": 1,
+   "unexpectedReloads": 0
+  },
+  "T4_extended": {
+   "seconds": 0,
+   "memAvgMB": null,
+   "memMaxMB": null,
+   "cpuAvg": null,
+   "cpuMax": null,
+   "main": {
+    "lagMax": 0,
+    "lagAvg": 0,
+    "lag50": 0,
+    "ipc": {},
+    "ipcBytes": {},
+    "fsyncs": 0,
+    "writes": {}
+   },
+   "extra": {
+    "memTrail": [],
+    "claims": [],
+    "roundsReached": [],
+    "latency": {
+     "n": 0,
+     "median": null,
+     "max": null
+    }
+   },
+   "ipcPerMin": {},
+   "ipcKBPerMin": {},
+   "wsPerMin": 0,
+   "wsKBPerMin": 0,
+   "tv": {
+    "frames": 1,
+    "gaps50": 0,
+    "gaps100": 0,
+    "maxGap": 17,
+    "longTasks": 0,
+    "longTaskMs": 0,
+    "loadstarts": 0,
+    "dropped": 0,
+    "decoded": 0,
+    "t": 10.472,
+    "paused": false,
+    "src": "file:///tmp/claude-0/media1080/Arjun%20Vale%20-%20Sapna%20Barsaat%2022.mp4",
+    "droppedPct": 0,
+    "janky50PerMin": 0
+   },
+   "songsPlayed": 0,
+   "engineLoads": 0,
+   "unexpectedReloads": 0
+  }
+ },
+ "checks": [
+  {
+   "ok": true,
+   "name": "Phone remote pairs and connects",
+   "detail": ""
+  },
+  {
+   "ok": true,
+   "name": "Phone verdict matches independent rule check (card 1)",
+   "detail": "NOT VALID vs truth false"
+  },
+  {
+   "ok": true,
+   "name": "Desktop shows the same result as the phone",
+   "detail": ""
+  },
+  {
+   "ok": false,
+   "name": "Bingo check did not reload the video",
+   "detail": "reloads 1"
+  },
+  {
+   "ok": true,
+   "name": "Playback resumed after the check",
+   "detail": ""
+  },
+  {
+   "ok": true,
+   "name": "TV kept playing while the phone was offline",
+   "detail": "loads while offline 1 (song changes are normal)"
+  },
+  {
+   "ok": true,
+   "name": "Phone reconnected by itself",
+   "detail": ""
+  },
+  {
+   "ok": true,
+   "name": "Phone command works after reconnecting",
+   "detail": "{\"n\":1,\"median\":8,\"max\":8}"
+  },
+  {
+   "ok": true,
+   "name": "4 songs played",
+   "detail": "11"
+  },
+  {
+   "ok": false,
+   "name": "Advanced through 3 rounds from the phone",
+   "detail": "[]"
+  }
+ ],
+ "notes": [],
+ "app": {
+  "version": "1.4.2"
+ },
+ "final": {
+  "played": 11,
+  "index": 11,
+  "status": "playing",
+  "round": 1,
+  "rstatus": "active"
+ },
+ "durationMin": 6
+}

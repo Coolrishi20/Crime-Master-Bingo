@@ -1,4 +1,53 @@
 App.register('settings', {
+  /** Settings → Performance: Low Resource Mode + optional 720p copies for slow laptops. */
+  async drawPerf(box) {
+    if (!box || !document.body.contains(box)) return;
+    const p = await api('perf:status');
+    const on = p.lowResource;
+    box.innerHTML = `<h2>⚡ Performance</h2>
+      <div class="row">${toggleHtml('pfLow', 'Low Resource Mode', on)}<span class="grow"></span>${p.lowRam ? '<span class="badge warn">Recommended for this laptop</span>' : ''}</div>
+      <p class="muted small" style="margin:8px 0">This laptop: <b style="color:#fff">${p.totalRamGB} GB</b> memory · Crime Master Bingo is using about <b style="color:#fff">${p.appMemoryMB} MB</b> right now.</p>
+      <div class="small" style="line-height:1.55">Low Resource Mode keeps <b>every game feature</b> — TV video, title overlay, winning patterns, crawler, phone remote, BINGO checks, saving. It reduces:<ul style="margin:6px 0 0 18px;padding:0" class="muted">
+        <li>animations, glows, blur and shadow effects (laptop and TV), lighter confetti</li>
+        <li>background work while a game is live: loudness analysis, video conversion and new-video checks wait until the game ends</li>
+        <li>how often the laptop screen updates the progress bar and checks the video files</li></ul></div>
+      <h3 style="margin:14px 0 6px;font-size:14px">Smaller copies of big videos</h3>
+      <p class="muted small" style="margin:0 0 8px">High-resolution videos are the hardest thing for a slow laptop. Make a 720p copy of each video above 720p — <b>your original files are never changed</b>, and you can go back to the original from the song's Edit window.</p>
+      <div class="row"><button class="btn sm" id="pfOpt" ${p.over720 && p.converter && p.converter.available ? '' : 'disabled'}>Make 720p copies (${p.over720} video${p.over720 === 1 ? '' : 's'})</button><span class="muted small">${p.optimising ? `${p.optimising} in progress` : ''}${p.optimised ? ` · ${p.optimised} already optimised` : ''}${p.converter && !p.converter.available ? 'Converter (ffmpeg) not found' : ''}</span></div>`;
+    $('#pfLow', box).onchange = async (e) => { App.settings = await api('settings:update', { performance: { lowResource: e.target.checked } }); App.applyAppearance(); toast(e.target.checked ? 'Low Resource Mode on' : 'Low Resource Mode off', 'ok'); this.drawPerf(box); };
+    $('#pfOpt', box).onclick = async () => { if (!await confirmBox('Make 720p copies?', `${p.over720} video(s) above 720p will get a smaller copy in the app's data folder (originals untouched). It runs in the background and pauses during a live game. Allow roughly 1 minute per video on a slow laptop.`, 'Start')) return; const r = await api('library:optimise', {}); toast(`${r.queued} video(s) queued`, 'ok'); this.drawPerf(box); };
+  },
+  /** Settings → Bingo Rules: default winning rules for NEW games, presets and custom patterns. */
+  async drawRules(box) {
+    const st = App.settings = await api('settings:get');
+    const cnt = st.gameDefaults.roundCount || 3;
+    const infos = await api('rules:roundsInfo', { rounds: st.gameDefaults.rounds, count: cnt });
+    const presets = st.rulePresets || []; const customs = st.customPatterns || [];
+    box.innerHTML = `<div class="row"><h2 class="grow" style="margin:0">🎯 Bingo Rules</h2><button class="btn sm" id="brStd">Restore standard rules</button></div>
+      <p class="muted small">How many rounds and which winning patterns for <b style="color:#fff">new games</b>: 3 rounds of One Line → Two Parallel Lines → Full House as standard, or choose L Shape, T Shape, Diagonal, Fast 5 or your own patterns. Tick several for a round and any of them wins. A game's rules can also be changed in <b style="color:#fff">Host Game → Rules</b> until that round starts. Every check — laptop or phone — uses the same rules.</p>
+      ${roundCountHtml(cnt)}
+      ${roundsSummaryHtml(infos)}
+      <div class="row" style="margin-top:10px;flex-wrap:wrap">${Object.keys(infos).map(Number).map(n => `<button class="btn sm" data-chg="${n}">Change Round ${n}…</button>`).join('')}</div>
+      <div class="cols c2" style="margin-top:14px;gap:16px">
+        <div><div class="eyebrow">Presets</div>
+          <div class="row"><select id="brPreset" class="grow">${presets.length ? presets.map((p, i) => `<option value="${i}">${esc(p.name)}</option>`).join('') : '<option value="">No presets saved yet</option>'}</select><button class="btn sm" id="brApply" ${presets.length ? '' : 'disabled'}>Use preset</button><button class="btn sm ghost" id="brDel" ${presets.length ? '' : 'disabled'}>Delete</button></div>
+          <button class="btn sm" id="brSave" style="margin-top:8px">Save current rules as a preset…</button></div>
+        <div><div class="eyebrow">Custom patterns</div>
+          ${customs.length ? customs.map(c => `<div class="check-row"><div style="width:34px">${patternGridHtml(Array.from({ length: 25 }, (_, i) => c.cells.includes(i)))}</div><div class="grow"><b>${esc(c.name)}</b><div class="muted tiny">${c.cells.length} squares</div></div><button class="btn sm ghost" data-cpe="${c.id}">Edit</button><button class="btn sm danger" data-cpd="${c.id}">Delete</button></div>`).join('') : '<div class="muted small">None yet.</div>'}
+          <button class="btn sm" id="brNewCp" style="margin-top:8px">＋ New custom pattern…</button></div></div>`;
+    const setRounds = async (rounds, count) => { App.settings = await api('settings:update', { gameDefaults: Object.assign({ rounds }, count ? { roundCount: count } : {}) }); toast('Bingo rules saved for new games', 'ok'); this.drawRules(box); };
+    $$('[data-rc]', box).forEach(b => b.onclick = () => setRounds(st.gameDefaults.rounds, cnt + Number(b.dataset.rc)));
+    $$('[data-chg]', box).forEach(b => b.onclick = async () => { const n = Number(b.dataset.chg); const r = await ruleEditor(st.gameDefaults.rounds[n], { title: `Round ${n} — winning rules (new games)`, round: n }); if (r) setRounds(Object.assign({}, st.gameDefaults.rounds, { [n]: r })); });
+    $('#brStd', box).onclick = async () => { if (await confirmBox('Restore standard rules?', '3 rounds: One Line, Two Parallel Lines, Full House — for new games. Games already created keep their rules.', 'Restore')) setRounds({ 1: [{ id: 'line' }], 2: [{ id: 'twoLines' }], 3: [{ id: 'full' }] }, 3); };
+    $('#brSave', box).onclick = async () => { const name = await promptBox('Save preset', 'Preset name', 'My rules'); if (!name) return; App.settings = await api('settings:update', { rulePresets: presets.concat([{ name, roundCount: cnt, rounds: st.gameDefaults.rounds }]) }); toast('Preset saved', 'ok'); this.drawRules(box); };
+    if (presets.length) {
+      $('#brApply', box).onclick = () => { const p = presets[Number($('#brPreset', box).value)]; if (p) setRounds(p.rounds, p.roundCount || Object.keys(p.rounds).length); };
+      $('#brDel', box).onclick = async () => { const i = Number($('#brPreset', box).value); App.settings = await api('settings:update', { rulePresets: presets.filter((_, k) => k !== i) }); this.drawRules(box); };
+    }
+    $('#brNewCp', box).onclick = async () => { if (await customPatternDialog(null)) this.drawRules(box); };
+    $$('[data-cpe]', box).forEach(b => b.onclick = async () => { if (await customPatternDialog(customs.find(c => c.id === b.dataset.cpe))) this.drawRules(box); });
+    $$('[data-cpd]', box).forEach(b => b.onclick = async () => { App.settings = await api('settings:update', { customPatterns: customs.filter(c => c.id !== b.dataset.cpd) }); this.drawRules(box); });
+  },
   async render(el) {
     this.el = el;
     const s = App.settings = await api('settings:get');
@@ -38,7 +87,7 @@ App.register('settings', {
         <div class="panel"><h2>Bingo cards</h2><div class="form-grid"><label class="field">Printable text size (%)<input type="number" id="kT" min="80" max="125" step="5" value="${Math.round(s.cards.textScale * 100)}"></label></div>
           <div class="row" style="margin-top:12px;gap:24px">${toggleHtml('kQ', 'QR codes on cards', s.cards.qr)}${toggleHtml('kB', 'Black & white printing', s.cards.bw)}${toggleHtml('kL', 'Logo on cards', s.cards.useLogo)}</div>
           <p class="muted small">Cards are always printed two per A4 sheet.</p></div>
-        <div class="panel"><h2>Gameplay</h2><div class="form-grid"><label class="field">Gap between songs (s)<input type="number" id="gG" min="0" max="30" value="${gd.autoAdvanceGap}"></label><label class="field">Volume (%)<input type="number" id="gV" min="0" max="100" value="${gd.volume}"></label></div>
+        <div class="panel"><h2>Gameplay</h2><div class="form-grid"><label class="field">After a round is won<select id="gAW"><option value="ask" ${gd.afterWinner !== 'intermission' ? 'selected' : ''}>Ask me: intermission or next round</option><option value="intermission" ${gd.afterWinner === 'intermission' ? 'selected' : ''}>Go to intermission automatically</option></select></label><label class="field">Intermission length (minutes)<input type="number" id="gIM" min="0" max="120" value="${gd.intermissionMinutes != null ? gd.intermissionMinutes : 10}"></label><label class="field">Gap between songs (s)<input type="number" id="gG" min="0" max="30" value="${gd.autoAdvanceGap}"></label><label class="field">Volume (%)<input type="number" id="gV" min="0" max="100" value="${gd.volume}"></label></div>
           <div style="display:flex;flex-direction:column;gap:10px;margin-top:12px">${toggleHtml('gWel', 'Welcome screen on the TV before Round 1', !gd.screens || gd.screens.welcome !== false)}${toggleHtml('gEnd', '“Thanks for playing!” screen after the game', !gd.screens || gd.screens.end !== false)}${toggleHtml('lConv', 'Convert unplayable videos to MP4 automatically', !s.library || s.library.autoConvert !== false)}${toggleHtml('gS', 'Shuffle playlist for new games', gd.shuffle)}${toggleHtml('gA', 'Auto-play next song', gd.autoAdvance)}${toggleHtml('gP', 'Pause music during bingo verification', gd.pauseOnClaim)}${toggleHtml('gW', 'Winner animation on TV', gd.winnerAnimation)}</div>
           <p class="muted small">Winners are always confirmed by the host. Auto-save is always on (every change is saved immediately, crash-safe).</p></div>
         <div class="panel"><h2>Audio — automatic volume levelling</h2>
@@ -54,12 +103,16 @@ App.register('settings', {
           <div class="row" style="margin-top:12px">${toggleHtml('upAuto', 'Check for updates automatically', s.updates ? s.updates.auto !== false : true)}</div>
           <div class="row" style="margin-top:12px"><button class="btn sm" id="upCheck">Check now</button><button class="btn sm primary" id="upAct" style="display:none"></button></div>
           <p class="muted small">Updates come from the Crime Master Bingo releases on GitHub. They download in the background (never during a live game) and install only when you choose “Restart to update” or close the app. No internet? Nothing happens — the app works fully offline.</p></div>
+        <div class="panel" id="perfPanel"></div>
+        <div class="panel" id="rulesPanel" style="grid-column:1 / -1"></div>
         <div class="panel"><h2>🏠 Home play</h2>
           <div style="display:flex;flex-direction:column;gap:10px">${toggleHtml('hImg', 'Share cards as images (for WhatsApp)', !!(s.home && s.home.shareImages))}${toggleHtml('hPhone', 'Phone cards for players', !!(s.home && s.home.phoneCards))}${toggleHtml('hTv', 'Show the “Join on your phone” QR code on the TV welcome screen', !s.home || s.home.joinOnTv !== false)}</div>
           <p class="muted small"><b style="color:#fff">Share as images:</b> adds “Share cards as images” to Bingo Cards &amp; Printing — each card is saved as a picture, optionally with a player's name on it.<br><b style="color:#fff">Phone cards:</b> players scan a QR code, type their name and get their own card on their phone. They tap songs to mark them, and pressing BINGO is checked instantly on this laptop. Manage players under <a href="#" id="hGo" style="color:var(--pink)">Mobile Host Connection</a>. Phones must be on the same Wi-Fi.</p></div>
         <div class="panel"><h2>Mobile remote</h2>${toggleHtml('rA', 'Start the remote service when the app opens', s.remote.autoStart)}<p class="muted small">Address, PIN, paired devices and port: see <a href="#" id="rGo" style="color:var(--pink)">Mobile Host Connection</a>.</p>
           <p class="muted tiny">Data folder: ${esc(App.info.dataDir)}</p></div>
       </div>`;
+    this.drawRules($('#rulesPanel', el));
+    this.drawPerf($('#perfPanel', el));
     const v = id => $(id, el).value, c = id => $(id, el).checked, n = id => Number($(id, el).value);
     App.drawUpdateSettings = (st) => {
       const box = $('#upState', el); const act = $('#upAct', el); if (!box) return;
@@ -86,7 +139,7 @@ App.register('settings', {
         library: { autoConvert: c('#lConv') },
         updates: { auto: c('#upAuto') },
         home: { shareImages: c('#hImg'), phoneCards: c('#hPhone'), joinOnTv: c('#hTv') },
-        gameDefaults: { clipMode: v('#sClip') === 'full' ? 'full' : Number(v('#sClip')), defaultStart: n('#sStart'), autoAdvanceGap: n('#gG'), volume: n('#gV'), shuffle: c('#gS'), autoAdvance: c('#gA'), pauseOnClaim: c('#gP'), winnerAnimation: c('#gW'), patternPosition: v('#pPos'),
+        gameDefaults: { clipMode: v('#sClip') === 'full' ? 'full' : Number(v('#sClip')), defaultStart: n('#sStart'), autoAdvanceGap: n('#gG'), volume: n('#gV'), shuffle: c('#gS'), autoAdvance: c('#gA'), pauseOnClaim: c('#gP'), afterWinner: v('#gAW'), intermissionMinutes: n('#gIM'), winnerAnimation: c('#gW'), patternPosition: v('#pPos'),
           overlay: { position: v('#oPos'), titleSize: n('#oT'), artistSize: n('#oA'), opacity: n('#oO') / 100, duration: n('#oD'), revealDelay: n('#oR'), enabled: c('#oOn') },
           crawler: { speed: Math.max(1, Math.min(10, n('#cS'))), fontSize: n('#cF'), height: n('#cH'), separator: v('#cSep') },
           screens: Object.assign({}, gd.screens || {}, { welcome: c('#gWel'), end: c('#gEnd') }),
@@ -98,7 +151,7 @@ App.register('settings', {
       if (App.game && await confirmBox('Apply to the current game?', 'Also apply the overlay, crawler, clip and gameplay settings to the game that is loaded now?', 'Apply')) {
         const g = patch.gameDefaults;
         await App.cmd('setOverlay', g.overlay); await App.cmd('setCrawler', g.crawler); await App.cmd('setAudio', g.audio);
-        await App.cmd('setGameSettings', { clipMode: g.clipMode, autoAdvance: g.autoAdvance, autoAdvanceGap: g.autoAdvanceGap, pauseOnClaim: g.pauseOnClaim, winnerAnimation: g.winnerAnimation, patternPosition: g.patternPosition, defaultStart: g.defaultStart });
+        await App.cmd('setGameSettings', { afterWinner: g.afterWinner, intermissionMinutes: g.intermissionMinutes, clipMode: g.clipMode, autoAdvance: g.autoAdvance, autoAdvanceGap: g.autoAdvanceGap, pauseOnClaim: g.pauseOnClaim, winnerAnimation: g.winnerAnimation, patternPosition: g.patternPosition, defaultStart: g.defaultStart });
       }
     };
   }

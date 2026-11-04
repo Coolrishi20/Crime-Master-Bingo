@@ -1,4 +1,46 @@
-# Crime Master Bingo — Test report (v1.4.2)
+# Crime Master Bingo — Test report (v1.5.0-rc.1)
+
+## v1.5.0-rc.1 (Phase 1 fixes and performance)
+- **Unit tests: 144 / 144 passed.** The 18 new tests cover:
+  - all 4 L Shape and 4 T Shape rotations (9 squares each, with near-misses rejected);
+  - both diagonals, which stay invalid under the standard rules;
+  - Fast 5 (any 5, and a set pattern of exactly 5);
+  - custom patterns and validation of nonsense rules;
+  - the standard rounds giving identical results and wording through the new API;
+  - which song a custom pattern qualified on (fair simultaneous claims);
+  - per-round rule sets in the engine (claims, Claim Freeze, phones, TV, locking once started);
+  - rules surviving save/reload, with invalid stored rules falling back safely;
+  - host-defined round counts (5 rounds, 1 round, limits, can't remove a started round);
+  - **the same card winning 4 rounds** (once per round);
+  - after-winner flow: the host is asked, intermission (round completed, music paused, TV
+    break screen, next round ends it), the automatic-intermission setting, and the final
+    round offering Finish.
+- **Integrated live-hosting benchmark** (`test/perf/hosting-bench.js`): TV 1080p video +
+  overlay + crawler + phone remote + host screen together, app pinned to 2 cores,
+  75 songs, 3 rounds, phone claims and a Wi-Fi drop.
+  - v1.4.2 **12/12**, 1.5 normal **10/10**, 1.5 Low Resource **12/12** checks passed.
+  - Full numbers in `docs/PERFORMANCE.md`; raw data in `docs/perf-results/`.
+- **E2E (real app):**
+  - `v15-check.js` **28/28**: Show in Folder (spaces + Unicode, missing file, unplugged
+    drive, invalid path, the PDF button), rules picked in the real Settings UI (4 rounds,
+    L/Diagonal, Fast 5 pattern, T), the new game, PDF legend, TV, claims, locking, the "what
+    next?" prompt, the intermission screen, Low Resource Mode on the laptop and TV, and
+    recovery.
+  - Also passed against the **packaged** build (`electron-builder --linux dir`): 28/28.
+- **Regression:** acceptance **85/85** (83 original + 2 for the new prompt), printing
+  **12/12**, v1.3 **13/13**, v1.4 phone cards **38/38**, delayed reveal **7/7**.
+- **Windows build:** NSIS installer, portable EXE, `latest.yml` and blockmap built locally
+  with version 1.5.0-rc.1.
+- **Not tested (no hardware here):**
+  - real 4 GB / 8 GB / 16 GB / 2 GB Windows laptops;
+  - the installed Windows EXE's Show in Folder with File Explorer;
+  - hardware video decoding;
+  - real phones on venue Wi-Fi.
+
+  See `docs/PERFORMANCE.md` → *Still to test on real hardware*.
+
+---
+
 
 ## v1.4.2 additions
 - Unit tests: **126 / 126 passed**. A new test covers the TV's one-away count: issued cards

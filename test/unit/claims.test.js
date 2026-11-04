@@ -218,7 +218,7 @@ test('TV winner / wrong-claim screens: no card number by default, never any card
   eng.dispatch('confirmClaim', { claimId: r.claimId });
   const win = calls.events.filter(e => e.n === 'tvScreen').pop().p;
   assert.strictEqual(win.type, 'winner'); assert.strictEqual(win.cardLabel, undefined);
-  assert.deepStrictEqual(Object.keys(win).sort(), ['label', 'pattern', 'round', 'seconds', 'type', 'winners']);
+  assert.deepStrictEqual(Object.keys(win).sort(), ['label', 'last', 'pattern', 'round', 'seconds', 'type', 'winners']);
   assert.strictEqual(win.pattern.filter(Boolean).length, 5);
   const bad = eng.dispatch('addClaim', { cardNo: game.cards[9].no });
   if (!bad.valid) { eng.dispatch('dismissClaim', { claimId: bad.claimId }); assert.strictEqual(calls.events.filter(e => e.n === 'tvScreen').pop().p.type, 'wrong'); }

@@ -46,7 +46,7 @@ App.openChecker = async function (cardNo, opts = {}) {
       <div class="verdict ${cls}"><div class="grow"><div class="vt">${title}</div><div style="font-weight:700;margin-top:4px;font-size:15px">${esc(r.explanation || ('Card ' + r.cardLabel + ' — ' + r.headline))}</div>
           ${r.completingSong ? `<div class="small" style="margin-top:6px">🎵 Completed by song <b>#${r.completingSong.n}</b>: <b>${esc(r.completingSong.title)}</b> — ${esc(r.completingSong.artist)}${r.completingSong.credit ? ' (technical credit)' : ''}</div>` : ''}
           ${r.best ? `<div class="small" style="margin-top:6px">Closest pattern: <b>${esc(r.best.description)}</b> — <b>${r.best.missing}</b> more song${r.best.missing === 1 ? '' : 's'} needed</div>` : ''}</div>
-        <div style="text-align:right;min-width:170px"><div class="eyebrow">Round ${r.round} · to win</div><div class="display" style="font-size:20px">${esc(r.roundLabel)}</div><div style="width:64px;margin:6px 0 0 auto">${patternGridHtml(CMBPatterns.examples(r.round)[0])}</div></div></div>
+        <div style="text-align:right;min-width:170px"><div class="eyebrow">Round ${r.round} · to win</div><div class="display" style="font-size:20px">${esc(r.roundLabel)}</div><div style="width:64px;margin:6px 0 0 auto">${patternGridHtml(App.game && App.game.roundRules ? App.game.roundRules[r.round].examples[0] : CMBPatterns.examples(r.round)[0])}</div></div></div>
       <div class="bcard">${r.grid.map(c => `<div class="bcell ${c.winning ? 'win' : (c.played ? 'played' : '')} ${c.inBest && !c.winning ? 'best' : ''} ${c.needed ? 'needed' : ''} ${c.completing ? 'completing' : ''}">${c.playedNo ? `<span class="pn">${c.credit ? 'TC ' : '#'}${c.playedNo}</span>` : (c.needed ? '<span class="pn need">NEEDED</span>' : '')}<b>${esc(c.title)}</b><span>${esc(c.artist)}</span></div>`).join('')}</div>
       <div class="row small muted" style="margin-top:10px;gap:14px;flex-wrap:wrap"><span><span class="lgd win"></span> winning line</span><span><span class="lgd played"></span> played (credited)</span><span><span class="lgd unplayed"></span> not played yet</span>${r.best ? '<span><span class="lgd needed"></span> still needed for the closest pattern</span>' : ''}<span>TC = technical credit</span>${r.completingSong ? '<span><span class="lgd completing"></span> winning song</span>' : ''}</div>
       <div class="row small muted" style="margin-top:6px;gap:16px"><span>${r.grid.filter(c => c.played).length}/25 on this card · checked against ${r.playedCount} frozen songs</span>${r.printed ? '' : '<span style="color:var(--amber)">⚠ card not marked as issued</span>'}${r.otherRoundWins.length ? `<span>Also won round ${r.otherRoundWins.join(', ')}</span>` : ''}</div>
@@ -92,6 +92,7 @@ App.openChecker = async function (cardNo, opts = {}) {
       if (!ok) return false;
       r = await App.cmd('closeSession', { resume, dismissPending: true });
     }
+    if (r && r.next) setTimeout(() => { if (r.next.ask) App.whatNext(r.next); else if (r.next.auto === 'intermission') toast('Round won — intermission started on the TV', 'ok', 6000); }, 350);
     return r && r.ok !== false;
   };
   let closeModalFn = null;

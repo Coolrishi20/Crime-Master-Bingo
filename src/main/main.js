@@ -2,6 +2,7 @@
 const { app, BrowserWindow, ipcMain, dialog, screen, shell, Menu, powerSaveBlocker } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 const { pathToFileURL } = require('url');
 const QRCode = require('qrcode');
 
@@ -42,6 +43,9 @@ function defaultSettings() {
     library: { autoConvert: true },
     updates: { auto: true },
     home: { shareImages: false, phoneCards: false, joinOnTv: true },
+    performance: { lowResource: false, decided: false },
+    customPatterns: [],   // host-designed 5×5 patterns (Settings → Bingo Rules)
+    rulePresets: [],      // saved rule sets for the three rounds
     lastGameId: null,
     cleanShutdown: true
   };
@@ -50,13 +54,23 @@ function loadSettings() {
   const d = defaultSettings();
   const s = store.read('settings', d);
   const merged = Object.assign({}, d, s);
-  ['appearance', 'video', 'cards', 'remote', 'updates', 'library', 'home'].forEach(k => { merged[k] = Object.assign({}, d[k], s[k] || {}); });
+  ['appearance', 'video', 'cards', 'remote', 'updates', 'library', 'home', 'performance'].forEach(k => { merged[k] = Object.assign({}, d[k], s[k] || {}); });
   merged.gameDefaults = Object.assign(defaultGameSettings(), s.gameDefaults || {});
   merged.gameDefaults.overlay = Object.assign(defaultGameSettings().overlay, (s.gameDefaults || {}).overlay || {});
   merged.gameDefaults.crawler = Object.assign(defaultGameSettings().crawler, (s.gameDefaults || {}).crawler || {});
   merged.gameDefaults.audio = Object.assign(defaultGameSettings().audio, (s.gameDefaults || {}).audio || {});
   merged.gameDefaults.screens = Object.assign(defaultGameSettings().screens, (s.gameDefaults || {}).screens || {});
+  merged.gameDefaults.roundCount = Math.max(1, Math.min(10, Number((s.gameDefaults || {}).roundCount) || 3));
+  merged.gameDefaults.rounds = validRounds((s.gameDefaults || {}).rounds, merged.gameDefaults.roundCount);
+  merged.customPatterns = Array.isArray(s.customPatterns) ? s.customPatterns : [];
+  merged.rulePresets = Array.isArray(s.rulePresets) ? s.rulePresets : [];
   return merged;
+}
+/** Three valid rule sets (falls back to the standard rules for anything invalid). */
+function validRounds(r, count) {
+  const out = {}; const cnt = Math.max(1, Math.min(10, Number(count) || 3));
+  for (let n = 1; n <= cnt; n++) { const def = rules.DEFAULT_ROUND_RULES[n] || [{ id: 'line' }]; try { out[n] = rules.normaliseRuleSet((r || {})[n] || def); } catch (e) { out[n] = def; } }
+  return out;
 }
 function saveSettings(urgent = true) { store.write('settings', settings, urgent); }
 
@@ -78,11 +92,14 @@ function gameSummary(g) {
 let tickTimer = null, remoteTickTimer = null;
 function activateGame(game) {
   if (engine && engine.game.id !== game.id) { store.flush(); }
+  applySavedPosition(game);
+  lastHostJson = lastTvJson = null;
   engine = new GameEngine(game, {
     persist: (g, urgent) => saveGame(g, urgent),
     changed: (kind) => onEngineChanged(kind),
     player: (cmd) => { if (cmd.src) cmd.href = pathToFileURL(cmd.src).href; sendAudience('player', cmd); },
     event: (name, payload) => {
+      if (flushQueued) flushEngineChanges(); // state first, then the event (same order as before coalescing)
       if (name === 'celebrate' || name === 'tvScreen') sendAudience('event', { name, payload });
       sendHost('event', { name, payload });
       if (remote) remote.broadcast({ type: 'event', name, payload });
@@ -103,24 +120,110 @@ function activateGame(game) {
 /** Find game videos that are missing or flagged unplayable (never auto-credited). */
 function scanGameMedia() {
   if (!engine) return;
-  const map = {};
-  Object.values(engine.game.songs).forEach(s => {
-    if (!s.path || !fs.existsSync(s.path)) map[s.id] = 'Video file missing — relink it or grant Technical Credit';
+  const eng = engine; const map = {};
+  const songs = Object.values(eng.game.songs);
+  // async existence checks — a sleeping USB drive must not freeze the app
+  return Promise.all(songs.map(s => (s.path ? fs.promises.access(s.path).then(() => true, () => false) : Promise.resolve(false)).then(ok => {
+    if (!ok) map[s.id] = 'Video file missing — relink it or grant Technical Credit';
     else { const l = library.get(s.id); if (l && l.status === 'unsupported') map[s.id] = 'Video cannot be played: ' + (l.statusNote || 'unsupported'); }
-  });
-  const before = JSON.stringify(engine.hostState().unavailable);
-  engine.setUnavailable(map);
-  if (JSON.stringify(engine.hostState().unavailable) !== before) onEngineChanged('state');
+  }))).then(() => {
+    if (engine !== eng) return;
+    const before = JSON.stringify(eng.unavailable || {});
+    eng.setUnavailable(map);
+    if (JSON.stringify(eng.unavailable || {}) !== before) onEngineChanged('state');
+  }).catch(() => {});
 }
-setInterval(() => { try { scanGameMedia(); } catch (e) { /* */ } }, 20000);
+let lastScan = 0;
+setInterval(() => { if (Date.now() - lastScan < (lowRes() ? 60000 : 20000)) return; lastScan = Date.now(); try { scanGameMedia(); } catch (e) { /* */ } }, 5000);
+
+/* Playback position is saved to games/<id>.pos.json (a few dozen bytes) instead of
+   re-serialising and fsync-ing the whole game file every couple of seconds while a
+   song plays. Real state changes still save the full game immediately and durably. */
+let posTimer = 0, posWriting = false;
+function posFile(id) { return path.join(DATA_DIR, 'games', id + '.pos.json'); }
+function savePosition(game) {
+  const now = Date.now(); if (posWriting || now - posTimer < 4000) return; posTimer = now; posWriting = true;
+  const pb = game.playback; const f = posFile(game.id);
+  const data = JSON.stringify({ index: pb.index, position: Math.round((pb.position || 0) * 10) / 10, status: pb.status, version: game.version, at: new Date().toISOString() });
+  fs.promises.writeFile(f + '.tmp', data).then(() => fs.promises.rename(f + '.tmp', f)).catch(() => {}).finally(() => { posWriting = false; });
+}
+/** On load: take the newer position from the side file if it belongs to the same song. */
+function applySavedPosition(game) {
+  try { const p = JSON.parse(fs.readFileSync(posFile(game.id), 'utf8')); if (p && p.index === game.playback.index && p.version >= (game.version || 0) && p.position > 0) game.playback.position = p.position; } catch (e) { /* none */ }
+}
+
+/* ======================================================================= media probe
+ * Imported videos are checked (playable here? duration, size, thumbnail) in a hidden,
+ * short-lived window — not in the host window. Measured on v1.4.2: probing in the host
+ * window left ~7 MB per video in the host renderer (146 MB → 880 MB after 100 videos).
+ * The probe window is closed after a batch / when idle, which returns that memory, and
+ * it never decodes while a song is playing on the TV (no duplicate decoding). */
+let probeWin = null, probeBusy = false, probeCount = 0, probeIdleSince = 0, probeReady = null;
+function probeAllowed() {
+  if (!engine || engine.game.status !== 'live') return true;
+  if (lowRes()) return false;                                     // Low Resource: wait until the game is over
+  return !['playing', 'loading'].includes(engine.game.playback.status); // normal: only between songs
+}
+function closeProbeWin() { if (probeWin && !probeWin.isDestroyed()) probeWin.destroy(); probeWin = null; probeReady = null; probeCount = 0; }
+function ensureProbeWin() {
+  if (probeWin && !probeWin.isDestroyed()) return probeReady;
+  probeWin = new BrowserWindow({ show: false, width: 340, height: 200, webPreferences: { spellcheck: false, preload: path.join(__dirname, 'preload.js'), contextIsolation: true, sandbox: false, backgroundThrottling: false, autoplayPolicy: 'no-user-gesture-required' } });
+  probeReady = new Promise(res => ipcMain.once('probe:ready:' + probeWin.webContents.id, () => res(true)));
+  probeWin.loadFile(path.join(RENDERER, 'probe', 'probe.html'));
+  return probeReady;
+}
+async function probePump() {
+  if (probeBusy || !library) return;
+  const s = library.nextUnchecked();
+  if (!s) { if (probeWin && Date.now() - probeIdleSince > 8000) closeProbeWin(); return; }
+  if (!probeAllowed()) { closeProbeWin(); return; }
+  probeBusy = true;
+  try {
+    await ensureProbeWin();
+    const wc = probeWin.webContents;
+    const result = await new Promise(res => {
+      const t = setTimeout(() => { ipcMain.removeAllListeners('probe:result:' + wc.id); res({ error: 'Timed out reading the video (file may be corrupted or on a slow drive).' }); }, 25000);
+      ipcMain.once('probe:result:' + wc.id, (e, d) => { clearTimeout(t); res(d.result); });
+      wc.send('probe:job', { id: s.id, href: pathToFileURL(s.path).href });
+    });
+    library.probeResult(s.id, result, path.join(DATA_DIR, 'thumbs'));
+    sendHost('library-probed', { id: s.id });
+    if (++probeCount >= 15) closeProbeWin(); // recycle: give the decoder memory back regularly
+  } catch (e) { console.error('probe', e); closeProbeWin(); }
+  probeBusy = false; probeIdleSince = Date.now();
+  setImmediate(probePump);
+}
+setInterval(() => { probePump().catch(() => {}); }, 1000);
+ipcMain.on('probe:ready', (e) => ipcMain.emit('probe:ready:' + e.sender.id, e));
+ipcMain.on('probe:result', (e, d) => ipcMain.emit('probe:result:' + e.sender.id, e, d));
+
+/* ======================================================================= performance */
+function perfStatus() {
+  const songs = library ? library.songs() : [];
+  const big = songs.filter(x => x.status === 'ok' && (x.height || 0) > 720 && !(x.converted && x.converted.optimised));
+  const mem = app.getAppMetrics().reduce((a, m) => a + m.memory.workingSetSize, 0);
+  return { totalRamGB: TOTAL_RAM_GB, lowRam: LOW_RAM, lowResource: lowRes(), appMemoryMB: Math.round(mem / 1024), over720: big.length, optimising: songs.filter(x => x.optimise).length, optimised: songs.filter(x => x.converted && x.converted.optimised).length, converter: converter ? converter.status() : null };
+}
+const TOTAL_RAM_GB = Math.round(os.totalmem() / 1073741824 * 10) / 10;
+const LOW_RAM = os.totalmem() <= 4.6 * 1073741824; // "4 GB" laptops report a little under 4 GB
+function lowRes() { return !!(settings && settings.performance && settings.performance.lowResource); }
+/** Keep the TV video first: background media work yields while a game is live. */
+function updateBackgroundWork() {
+  const live = !!(engine && engine.game.status === 'live');
+  if (analyser && analyser.setScope) {
+    if (!live) analyser.setScope(null);
+    else if (lowRes()) analyser.setScope({ hold: true });
+    else { const up = engine.upNext ? engine.upNext() : null; const ids = [engine.currentSongId(), up && up.songId, up && engine.upNext(up.index) && engine.upNext(up.index).songId].filter(Boolean); analyser.setScope({ focus: ids }); }
+  }
+}
 
 function onTick() {
-  if (!tickTimer) tickTimer = setTimeout(() => { tickTimer = null; if (engine) sendHost('tick', { position: engine.game.playback.position, index: engine.game.playback.index, status: engine.game.playback.status }); }, 250);
+  if (!tickTimer) tickTimer = setTimeout(() => { tickTimer = null; if (engine) sendHost('tick', { position: engine.game.playback.position, index: engine.game.playback.index, status: engine.game.playback.status }); }, lowRes() ? 1000 : 250);
   if (!remoteTickTimer) remoteTickTimer = setTimeout(() => {
     remoteTickTimer = null;
     if (engine && remote) remote.broadcast({ type: 'tick', position: engine.game.playback.position, index: engine.game.playback.index, status: engine.game.playback.status });
-    // light persistence of the playback position (non-urgent, coalesced)
-    if (engine) saveGame(engine.game, false);
+    // playback position → a tiny side file every few seconds (no full-game rewrite, no fsync)
+    if (engine) savePosition(engine.game);
   }, 1000);
 }
 
@@ -156,11 +259,24 @@ function remoteState() {
   return { game: st };
 }
 
+/* State fan-out: everything that changes during one command is coalesced into ONE update
+   (setImmediate), and each consumer only receives a new state when its own view actually
+   changed. A volume tap on the phone no longer re-sends the TV its full state, and the TV
+   renderer (which is also the video player) is left alone. */
+let lastHostJson = null, lastTvJson = null, flushQueued = false, pendingTv = false;
+function flushEngineChanges() {
+  flushQueued = false;
+  if (!engine) return;
+  const h = fullHostState(); const hj = JSON.stringify(h);
+  if (hj !== lastHostJson) { lastHostJson = hj; sendHost('state', h); }
+  if (pendingTv) { pendingTv = false; const a = audienceStateWithJoin(); const aj = JSON.stringify(a); if (aj !== lastTvJson) { lastTvJson = aj; sendAudience('audience-state', a); } }
+  if (remote) remote.broadcastState();
+}
 function onEngineChanged(kind) {
   if (!engine) return;
-  sendHost('state', fullHostState());
-  if (kind !== 'tickOnly') sendAudience('audience-state', audienceStateWithJoin());
-  if (remote) remote.broadcastState();
+  if (kind !== 'tickOnly') pendingTv = true;
+  if (!flushQueued) { flushQueued = true; setImmediate(flushEngineChanges); }
+  updateBackgroundWork();
   // keep the laptop awake while a game is live
   const live = engine.game.status === 'live';
   if (!live && updater && updater.status.state === 'available' && settings.updates.auto !== false) updater.download();
@@ -188,7 +304,7 @@ function createHostWindow() {
     width: 1440, height: 900, minWidth: 1100, minHeight: 700,
     backgroundColor: '#1a1033', title: 'Crime Master Bingo', show: false,
     icon: path.join(ROOT, 'assets', 'icon.png'),
-    webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: false }
+    webPreferences: { spellcheck: false, preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: false }
   });
   hostWin.loadFile(path.join(RENDERER, 'host', 'index.html'));
   hostWin.once('ready-to-show', () => { if (!IS_TEST || process.env.CMB_SHOW) hostWin.show(); if (!IS_TEST) hostWin.maximize(); });
@@ -220,7 +336,7 @@ function openAudienceWindow(opts = {}) {
     width: external ? b.width : Math.round(b.width * 0.6), height: external ? b.height : Math.round(b.width * 0.6 * 9 / 16),
     backgroundColor: '#0f091e', title: 'Crime Master Bingo — Audience', autoHideMenuBar: true, show: false,
     icon: path.join(ROOT, 'assets', 'icon.png'),
-    webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: false, backgroundThrottling: false, autoplayPolicy: 'no-user-gesture-required' }
+    webPreferences: { spellcheck: false, preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: false, backgroundThrottling: false, autoplayPolicy: 'no-user-gesture-required' }
   });
   audienceWin.setMenuBarVisibility(false);
   audienceReady = false;
@@ -262,7 +378,7 @@ async function buildPrintJob(game, opts) {
     game: { id: game.cardSetId || game.id, internalId: game.id, name: game.name, date: game.date, venue: game.venue, total: game.cards.length },
     cards: list.map(c => ({ no: c.no, cells: c.cells, batch: c.batch || 1 })), songs, qrs, logo,
     bw: !!cardOpts.bw, textScale: Number(cardOpts.textScale) || 1, showArtist: cardOpts.showArtist !== false, cutLines: cardOpts.cutLines !== false,
-    rounds: [1, 2, 3].map(n => ({ n, label: rules.ROUNDS[n].label, short: rules.ROUNDS[n].short, pattern: rules.patternExamples(n)[0] })),
+    rounds: Object.keys(validRounds(game.settings.rounds, game.settings.roundCount)).map(Number).map(n => { const i = rules.roundInfo({ round: n, rules: validRounds(game.settings.rounds, game.settings.roundCount)[n] }); return { n, label: i.label, short: i.short, pattern: i.examples[0], diagonals: i.diagonalsCount }; }),
     names: opts.names || null,
     locked: !!game.cardsLocked,
     opts: { qr: !!cardOpts.qr, bw: !!cardOpts.bw, useLogo: !!cardOpts.useLogo, textScale: Number(cardOpts.textScale) || 1, showArtist: cardOpts.showArtist !== false, cutLines: cardOpts.cutLines !== false }
@@ -272,7 +388,7 @@ async function buildPrintJob(game, opts) {
 
 async function renderPrintJob(game, opts, mode) {
   const { job, list } = await buildPrintJob(game, opts);
-  const win = new BrowserWindow({ show: mode === 'print' && false, width: 794, height: 1123, webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, sandbox: false } });
+  const win = new BrowserWindow({ show: mode === 'print' && false, width: 794, height: 1123, webPreferences: { spellcheck: false, preload: path.join(__dirname, 'preload.js'), contextIsolation: true, sandbox: false } });
   try {
     await win.loadFile(path.join(RENDERER, 'print', 'print.html'));
     const ready = new Promise((resolve) => ipcMain.once('print:ready:' + win.webContents.id, (e, info) => resolve(info)));
@@ -303,10 +419,17 @@ function getGameObj(id) { if (engine && engine.game.id === id) return engine.gam
 
 /* ======================================================================= IPC */
 const handlers = {
-  'app:info': () => ({ version: app.getVersion(), dataDir: DATA_DIR, recovery: recoveryInfo, platform: process.platform, isTest: IS_TEST }),
+  'app:info': () => ({ version: app.getVersion(), dataDir: DATA_DIR, recovery: recoveryInfo, platform: process.platform, isTest: IS_TEST, totalRamGB: TOTAL_RAM_GB, recommendLowResource: LOW_RAM && !settings.performance.lowResource && !settings.performance.decided }),
+  'library:optimise': ({ ids, maxHeight }) => ({ queued: converter.optimise(ids && ids.length ? ids : library.songs().map(s => s.id), Number(maxHeight) || 720) }),
+  'library:restoreOriginal': ({ id }) => converter.restoreOriginal(id),
+  'perf:status': () => perfStatus(),
   'settings:get': () => settings,
   'settings:update': (patch) => {
-    ['appearance', 'video', 'cards', 'remote', 'updates', 'library', 'home'].forEach(k => { if (patch[k]) Object.assign(settings[k], patch[k]); });
+    if (patch.performance) patch.performance.decided = true;
+    ['appearance', 'video', 'cards', 'remote', 'updates', 'library', 'home', 'performance'].forEach(k => { if (patch[k]) Object.assign(settings[k], patch[k]); });
+    if (patch.performance) { sendAudience('app-settings', audienceAppSettings()); updateBackgroundWork(); }
+    if (Array.isArray(patch.customPatterns)) settings.customPatterns = patch.customPatterns.map(p => { try { const r = rules.normaliseRule({ id: 'custom', name: p.name, cells: p.cells }); return { id: String(p.id || 'cp_' + Date.now().toString(36)).slice(0, 40), name: r.name, cells: r.cells }; } catch (e) { return null; } }).filter(Boolean).slice(0, 50);
+    if (Array.isArray(patch.rulePresets)) settings.rulePresets = patch.rulePresets.map(p => { const c = Math.max(1, Math.min(10, Number(p.roundCount) || Object.keys(p.rounds || {}).length || 3)); return { name: String(p.name || 'Preset').trim().slice(0, 40) || 'Preset', roundCount: c, rounds: validRounds(p.rounds, c) }; }).slice(0, 30);
     if (patch.home) { if (remote && remote.broadcastPlayers) remote.broadcastPlayers(); if (engine) onEngineChanged('state'); }
     if (patch.updates && updater) updater.start(settings.updates.auto !== false);
     if (patch.gameDefaults) {
@@ -315,7 +438,9 @@ const handlers = {
       if (gd.crawler) Object.assign(settings.gameDefaults.crawler, gd.crawler);
       if (gd.audio) settings.gameDefaults.audio = Object.assign({}, settings.gameDefaults.audio || {}, gd.audio);
       if (gd.screens) settings.gameDefaults.screens = Object.assign({}, settings.gameDefaults.screens || {}, gd.screens);
-      Object.keys(gd).forEach(k => { if (!['overlay', 'crawler', 'audio', 'screens'].includes(k)) settings.gameDefaults[k] = gd[k]; });
+      if (gd.roundCount != null) settings.gameDefaults.roundCount = Math.max(1, Math.min(10, Number(gd.roundCount) || 3));
+      if (gd.rounds || gd.roundCount != null) settings.gameDefaults.rounds = validRounds(Object.assign({}, settings.gameDefaults.rounds, gd.rounds || {}), settings.gameDefaults.roundCount);
+      Object.keys(gd).forEach(k => { if (!['overlay', 'crawler', 'audio', 'screens', 'rounds', 'roundCount'].includes(k)) settings.gameDefaults[k] = gd[k]; });
     }
     saveSettings();
     sendAudience('app-settings', audienceAppSettings());
@@ -399,7 +524,7 @@ const handlers = {
   'games:open': ({ id }) => { const g = readGame(id); if (!g) throw new Error('Game not found'); activateGame(g); return gameSummary(g); },
   'games:active': () => (engine ? gameSummary(engine.game) : null),
   'games:delete': ({ id }) => { if (engine && engine.game.id === id) throw new Error('Close this game before deleting it.'); store.deleteGame(id); return true; },
-  'games:close': () => { if (engine) { store.flush(); engine.cancelAdvance(); sendAudience('player', { cmd: 'clear' }); engine = null; sendHost('state', { game: null }); if (remote) remote.broadcastState(); } return true; },
+  'games:close': () => { if (engine) { store.flush(); engine.cancelAdvance(); sendAudience('player', { cmd: 'clear' }); engine = null; lastHostJson = lastTvJson = null; sendHost('state', { game: null }); if (remote) remote.broadcastState(); } return true; },
   'games:details': ({ id }) => {
     const g = getGameObj(id);
     const songs = g.songs;
@@ -449,7 +574,7 @@ const handlers = {
     job.preview = true; job.gameKey = g.id;
     if (previewWin && !previewWin.isDestroyed()) previewWin.destroy();
     previewWin = new BrowserWindow({ width: 1100, height: 980, title: 'Print Preview — Crime Master Bingo', backgroundColor: '#1a1033', parent: IS_TEST ? undefined : hostWin, show: false,
-      webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, sandbox: false } });
+      webPreferences: { spellcheck: false, preload: path.join(__dirname, 'preload.js'), contextIsolation: true, sandbox: false } });
     previewWin.setMenuBarVisibility(false);
     await previewWin.loadFile(path.join(RENDERER, 'print', 'print.html'), { query: { preview: '1' } });
     const ready = new Promise((resolve) => ipcMain.once('print:ready:' + previewWin.webContents.id, (e, info) => resolve(info)));
@@ -500,7 +625,7 @@ const handlers = {
     job.images = true;
     const Z = 2; // 2× = ~1590 × 1120 px per card, sharp on any phone
     const W = Math.ceil(210 * 96 / 25.4 * Z), H = Math.ceil(148.5 * 96 / 25.4 * Z);
-    const win = new BrowserWindow({ show: false, useContentSize: true, width: W, height: H + 20, webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, sandbox: false, offscreen: true, zoomFactor: Z } });
+    const win = new BrowserWindow({ show: false, useContentSize: true, width: W, height: H + 20, webPreferences: { spellcheck: false, preload: path.join(__dirname, 'preload.js'), contextIsolation: true, sandbox: false, offscreen: true, zoomFactor: Z } });
     const files = [];
     try {
       win.webContents.setFrameRate(10);
@@ -577,7 +702,9 @@ const handlers = {
   },
   'games:missing': ({ id }) => backup.missingMedia(getGameObj(id)),
   'shell:open': (p) => shell.openPath(p),
-  'shell:showItem': (p) => { shell.showItemInFolder(p); return true; },
+  'shell:showItem': (p) => showInFolder(typeof p === 'string' ? p : (p && p.path)),
+  /** Show a library video in File Explorer, highlighted. Missing → offer relink. */
+  'library:showInFolder': ({ id }) => { const s = library.get(id); if (!s) return { ok: false, reason: 'not-found', message: 'This song is no longer in the library.' }; return Object.assign(showInFolder(s.path), { id }); },
 
   /* host game */
   'game:state': () => fullHostState(),
@@ -650,6 +777,10 @@ const handlers = {
   'players:setOpen': ({ open }) => dispatch('setPlayersOpen', { open }, 'laptop'),
   'players:remove': ({ playerId }) => dispatch('playerRemove', { playerId }, 'laptop'),
   'players:rename': ({ playerId, name }) => dispatch('playerRename', { playerId, name }, 'laptop'),
+  /* winning rules (v1.5) */
+  'rules:catalogue': () => rules.catalogue(),
+  'rules:info': ({ rules: list, round }) => rules.roundInfo({ round: Number(round) || 1, rules: list }),
+  'rules:roundsInfo': ({ rounds, count }) => { const c = count || settings.gameDefaults.roundCount || 3; const r = validRounds(rounds || settings.gameDefaults.rounds, c); const out = {}; Object.keys(r).forEach(n => { out[n] = rules.roundInfo({ round: Number(n), rules: r[n] }); }); return out; },
   'remote:info': async () => remoteInfo(),
   'remote:start': async () => { if (!remote) createRemote(); await remote.start(); return remoteInfo(); },
   'remote:stop': async () => { if (remote) await remote.stop(); return remoteInfo(); },
@@ -664,7 +795,7 @@ const handlers = {
   },
 
   /* audience-window → main */
-  'player:ready': () => { audienceReady = true; ipcMain.emit('audience:ready-once'); if (engine) engine.playerReady(); return { appSettings: audienceAppSettings(), state: engine ? audienceStateWithJoin() : null }; },
+  'player:ready': () => { audienceReady = true; lastTvJson = null; ipcMain.emit('audience:ready-once'); if (engine) engine.playerReady(); return { appSettings: audienceAppSettings(), state: engine ? audienceStateWithJoin() : null }; },
   'player:started': ({ token }) => { if (engine) engine.playerStarted(token); return true; },
   'player:time': ({ token, t }) => { if (engine) engine.playerTime(token, t); return true; },
   'player:ended': ({ token }) => { if (engine) engine.playerEnded(token); return true; },
@@ -673,7 +804,31 @@ const handlers = {
 };
 
 function audienceAppSettings() {
-  return { logo: settings.appearance.logo ? pathToFileURL(settings.appearance.logo).href : null, aspect: settings.video.aspect, audioDeviceId: settings.video.audioDeviceId };
+  return { logo: settings.appearance.logo ? pathToFileURL(settings.appearance.logo).href : null, aspect: settings.video.aspect, audioDeviceId: settings.video.audioDeviceId, lowResource: lowRes() };
+}
+
+/**
+ * Open File Explorer at a file and highlight it (Electron's native shell.showItemInFolder).
+ * Handles missing/moved files, unplugged USB/network drives, spaces, Unicode and bad paths
+ * by checking first and reporting clearly instead of silently doing nothing.
+ * Returns { ok, reason?, message?, openedFolder? }.
+ */
+function showInFolder(p) {
+  if (!p || typeof p !== 'string' || p.includes('\0')) return { ok: false, reason: 'invalid', message: 'No valid file location is stored for this item.' };
+  let full;
+  try { full = path.resolve(path.normalize(p)); } catch (e) { return { ok: false, reason: 'invalid', message: 'The stored file location is not a valid path.' }; }
+  let st = null;
+  try { st = fs.statSync(full); } catch (e) {
+    if (e.code === 'EACCES' || e.code === 'EPERM') return { ok: false, reason: 'permission', message: 'Windows did not allow access to this location (permissions).' };
+  }
+  if (st) { shell.showItemInFolder(full); return { ok: true, path: full }; }
+  // file gone: open the nearest folder that still exists (USB/network drive may be unplugged)
+  let dir = path.dirname(full); let opened = null;
+  for (let i = 0; i < 6 && dir && dir !== path.dirname(dir); i++) { try { if (fs.statSync(dir).isDirectory()) { opened = dir; break; } } catch (e) { /* keep walking up */ } dir = path.dirname(dir); }
+  const root = path.parse(full).root; const driveGone = !opened || opened === root;
+  if (opened && !driveGone) shell.openPath(opened);
+  return { ok: false, reason: 'missing', path: full, openedFolder: driveGone ? null : opened,
+    message: driveGone ? `The drive or network location (${root || full}) is not available — plug the drive in or reconnect, then try again.` : 'The file has been moved, renamed or deleted. Its old folder has been opened.' };
 }
 
 function summariseValidation(v) { return { total: v.total, uniquePlayable: v.uniquePlayable, needed: v.needed, ok: v.ok, problems: v.problems }; }
@@ -786,6 +941,7 @@ function createRemote() {
     },
     mounts: { '/fonts/': path.join(RENDERER, 'shared', 'fonts') },
     players: playerHooks,
+    flush: () => { if (flushQueued) flushEngineChanges(); },
     getState: () => remoteState(),
     dispatch: (action, args, source) => dispatch(action, args, source),
     devices: { list: () => settings.remote.devices, save: (list) => { settings.remote.devices = list; saveSettings(); } },
@@ -858,7 +1014,8 @@ function createUpdater() {
 ipcMain.handle('invoke', async (e, channel, payload) => {
   const h = handlers[channel];
   if (!h) throw new Error('Unknown request: ' + channel);
-  return h(payload || {}, e);
+  try { return await h(payload || {}, e); }
+  finally { if (flushQueued) flushEngineChanges(); } // windows get the new state before the reply
 });
 ipcMain.on('print:ready', (e, info) => ipcMain.emit('print:ready:' + e.sender.id, e, info));
 ipcMain.on('player:time-sync', (e, d) => { if (engine) engine.playerTime(d.token, d.t); });
@@ -877,6 +1034,7 @@ else {
     library.checkFiles();
     updater = createUpdater();
     converter = new Converter({ dataDir: DATA_DIR, library, ffmpeg: require('./audio').findFfmpeg(process.resourcesPath), isAuto: () => settings.library.autoConvert !== false,
+      hold: () => !!(engine && engine.game.status === 'live' && (lowRes() || ['playing', 'loading'].includes(engine.game.playback.status))), // TV video first
       onChange: () => { library.songs().forEach(s => { if (s.converted) relinkInGames(s); }); sendHost('library-convert', converter.status()); } });
     analyser = new AudioAnalyser({ dataDir: DATA_DIR, library, resourcesPath: process.resourcesPath, onChange: () => sendHost('library-audio', analyser.status()) });
     // Crash detection: cleanShutdown is cleared while running and set on normal exit.

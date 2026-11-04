@@ -10,11 +10,14 @@ const path = require('path');
 const os = require('os');
 const { spawn, spawnSync } = require('child_process');
 
-function buildArgs(src, out) {
+function buildArgs(src, out, opts = {}) {
+  // opts.maxHeight: optional downscale (Low Resource "optimise for this laptop" copies)
+  const vf = opts.maxHeight ? `scale=-2:'min(${opts.maxHeight},ih)'` : 'scale=trunc(iw/2)*2:trunc(ih/2)*2';
   return ['-hide_banner', '-nostdin', '-y', '-i', src,
     '-map', '0:v:0', '-map', '0:a:0?',
-    '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '20', '-pix_fmt', 'yuv420p',
-    '-vf', 'scale=trunc(iw/2)*2:trunc(ih/2)*2',
+    '-c:v', 'libx264', '-preset', 'veryfast', '-crf', opts.maxHeight ? '23' : '20', '-pix_fmt', 'yuv420p',
+    ...(opts.maxHeight ? ['-profile:v', 'high', '-level', '4.0'] : []),
+    '-vf', vf,
     '-c:a', 'aac', '-b:a', '192k', '-ac', '2',
     '-movflags', '+faststart', '-f', 'mp4', '-progress', 'pipe:1', '-nostats', out];
 }
@@ -27,7 +30,8 @@ function probeDuration(ffmpeg, file) {
 }
 
 class Converter {
-  constructor({ dataDir, library, ffmpeg, onChange, isAuto }) {
+  constructor({ dataDir, library, ffmpeg, onChange, isAuto, hold }) {
+    this.hold = hold || (() => false); // true while a game is live in Low Resource Mode
     this.dir = path.join(dataDir, 'converted');
     fs.mkdirSync(this.dir, { recursive: true });
     this.library = library; this.ffmpeg = ffmpeg; this.onChange = onChange || (() => {});
@@ -37,6 +41,7 @@ class Converter {
   }
 
   wants(s) {
+    if (s.optimise && s.optimise.state === 'queued' && s.status === 'ok') return true;
     if (s.status === 'needs-conversion') return true;
     if (s.status === 'unsupported' && this.isAuto() && !(s.conversion && ['failed', 'done'].includes(s.conversion.state))) return true;
     return false;
@@ -44,13 +49,29 @@ class Converter {
 
   status() {
     const songs = this.library.songs();
-    return { available: !!this.ffmpeg, running: this.current ? { songId: this.current.songId, percent: this.current.percent } : null, queued: songs.filter(s => this.wants(s)).length, failed: songs.filter(s => s.conversion && s.conversion.state === 'failed').length, converted: songs.filter(s => s.converted).length };
+    return { available: !!this.ffmpeg, held: this.hold(), running: this.current ? { songId: this.current.songId, percent: this.current.percent } : null, queued: songs.filter(s => this.wants(s)).length, failed: songs.filter(s => s.conversion && s.conversion.state === 'failed').length, converted: songs.filter(s => s.converted).length };
   }
 
   /** Host asks to convert (or retry) specific songs. */
   request(ids) {
     ids.forEach(id => { const s = this.library.get(id); if (s && ['unsupported', 'needs-conversion'].includes(s.status)) { s.status = 'needs-conversion'; s.conversion = null; s.statusNote = 'Queued for conversion to MP4'; } });
     this.library.save(); this.onChange(); this.pump();
+  }
+
+  /** Make smaller 720p copies of high-resolution videos for low-end laptops. Originals untouched. */
+  optimise(ids, maxHeight = 720) {
+    let n = 0;
+    ids.forEach(id => { const s = this.library.get(id); if (s && s.status === 'ok' && (s.height || 0) > maxHeight && !(s.converted && s.converted.optimised)) { s.optimise = { state: 'queued', maxHeight }; n++; } });
+    this.library.save(); this.onChange(); this.pump(); return n;
+  }
+  /** Go back to the original file of an optimised (or converted) song. */
+  restoreOriginal(id) {
+    const s = this.library.get(id); if (!s || !s.originalPath) return false;
+    if (this.current && this.current.songId === id) this.cancel(id);
+    const file = s.converted && s.converted.file;
+    s.path = s.originalPath; delete s.originalPath; delete s.converted; delete s.optimise; s.status = 'unchecked'; s.audio = null;
+    try { if (file && file.startsWith(this.dir)) fs.unlinkSync(file); } catch (e) { /* */ }
+    this.library.save(); this.onChange(); return true;
   }
 
   cancel(id) {
@@ -60,7 +81,8 @@ class Converter {
   }
 
   pump() {
-    if (this.current || !this.ffmpeg) {
+    if (this.current || !this.ffmpeg || (this.ffmpeg && this.hold())) {
+      if (this.ffmpeg && this.hold()) return;
       if (!this.ffmpeg) {
         let changed = false;
         this.library.songs().forEach(s => { if (s.status === 'needs-conversion') { s.status = 'unsupported'; s.statusNote = 'Needs converting to MP4, but the converter (ffmpeg) is missing.'; s.conversion = { state: 'failed', error: 'ffmpeg not found' }; changed = true; } });
@@ -81,11 +103,14 @@ class Converter {
       s.status = 'unsupported'; s.conversion = { state: 'failed', error: !info.readable ? 'File is damaged or not a video' : 'No video track' };
       s.statusNote = 'Could not convert: ' + s.conversion.error; this.library.save(); this.onChange(); return;
     }
-    const out = path.join(this.dir, `${s.id}-${String(s.fingerprint || '').slice(0, 8)}.mp4`);
+    const opt = s.optimise && s.optimise.state === 'queued' ? s.optimise : null;
+    const out = path.join(this.dir, `${s.id}-${String(s.fingerprint || '').slice(0, 8)}${opt ? '-' + opt.maxHeight + 'p' : ''}.mp4`);
     const partial = out + '.partial';
-    s.status = 'converting'; s.statusNote = 'Converting to MP4…'; s.conversion = { state: 'running', percent: 0 };
+    if (opt) { s.optimise.state = 'running'; s.statusNote = `Making a ${opt.maxHeight}p copy for this laptop…`; }
+    else { s.status = 'converting'; s.statusNote = 'Converting to MP4…'; }
+    s.conversion = { state: 'running', percent: 0 };
     this.library.save();
-    const proc = spawn(this.ffmpeg, buildArgs(src, partial), { windowsHide: true });
+    const proc = spawn(this.ffmpeg, buildArgs(src, partial, opt ? { maxHeight: opt.maxHeight } : {}), { windowsHide: true });
     try { os.setPriority(proc.pid, 10); } catch (e) { /* */ }
     const cur = this.current = { songId: s.id, proc, percent: 0 };
     let errTail = '';
@@ -104,11 +129,13 @@ class Converter {
         fs.renameSync(partial, out);
         s.originalPath = s.originalPath || s.path;
         s.path = out;
-        s.converted = { from: s.originalPath, file: out, at: new Date().toISOString() };
+        s.converted = { from: s.originalPath, file: out, at: new Date().toISOString(), optimised: !!opt, maxHeight: opt ? opt.maxHeight : null };
+        if (opt) delete s.optimise;
         s.status = 'unchecked'; s.statusNote = ''; s.conversion = { state: 'done', percent: 100 };
         s.audio = null; // re-measure loudness on the converted copy
       } else {
         try { if (fs.existsSync(partial)) fs.unlinkSync(partial); } catch (e) { /* */ }
+        if (opt) { delete s.optimise; s.statusNote = ''; s.conversion = { state: 'failed', error: (cur.cancelled ? 'Cancelled' : 'Could not make the smaller copy — the original is used') }; this.library.save(); this.onChange(); return; }
         s.status = 'unsupported';
         const err = cur.cancelled ? 'Cancelled' : (errTail.trim().split('\n').filter(Boolean).pop() || `ffmpeg exited with code ${code}`);
         s.conversion = { state: 'failed', error: err.slice(0, 200) };

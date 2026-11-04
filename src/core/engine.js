@@ -38,9 +38,18 @@ function defaultGameSettings() {
     overlay: { enabled: true, position: 'bottom-left', titleSize: 64, artistSize: 38, opacity: 0.78, duration: 0, revealDelay: 0 },
     crawler: { speed: 4, fontSize: 30, height: 72, separator: 'diamond', paused: false },
     audio: defaultAudio(),
-    patternPosition: 'top-right'
+    patternPosition: 'top-right',
+    // winning rules per round (v1.5): one or more rules, any of which wins
+    rounds: JSON.parse(JSON.stringify(rules.DEFAULT_ROUND_RULES)),
+    roundCount: 3, // host-defined number of rounds (1–10); the last round ends the game
+    afterWinner: 'ask',      // when a round has a winner: 'ask' the host, or go to 'intermission' automatically
+    intermissionMinutes: 10
   };
 }
+
+const MAX_ROUNDS = 10;
+/** Standard rules for rounds 1–3; any extra round starts as One Line until the host picks. */
+function defaultRuleSet(n) { return JSON.parse(JSON.stringify(rules.DEFAULT_ROUND_RULES[n] || [{ id: 'line' }])); }
 
 function uid(prefix = '') { return prefix + crypto.randomBytes(6).toString('hex'); }
 
@@ -78,6 +87,11 @@ class GameEngine {
     game.settings.audio = Object.assign({}, d.audio, (game.settings.audio || {}));
     game.settings.tvScreens = Object.assign({}, d.tvScreens, (game.settings.tvScreens || {}));
     game.settings.screens = Object.assign({}, d.screens, (game.settings.screens || {}));
+    const cnt = Math.max(1, Math.min(MAX_ROUNDS, Number(game.settings.roundCount) || 3));
+    game.settings.roundCount = cnt;
+    const src = Object.assign({}, d.rounds, game.settings.rounds || {}); const rs = {};
+    for (let n = 1; n <= cnt; n++) { try { rs[n] = rules.normaliseRuleSet(src[n] || defaultRuleSet(n)); } catch (e) { rs[n] = defaultRuleSet(n); } }
+    game.settings.rounds = rs;
     game.playback = Object.assign({ index: -1, status: 'idle', position: 0, recovered: false }, game.playback || {});
     game.played = game.played || [];
     game.skipped = game.skipped || [];
@@ -86,6 +100,7 @@ class GameEngine {
     game.claims = game.claims || [];
     game.players = game.players || [];
     if (game.playersOpen === undefined) game.playersOpen = true;
+    game.intermission = game.intermission || null;
     game.claimSessions = game.claimSessions || [];
     game.queue = game.queue || [];       // host-queued songs (play next, in order)
     game.deferred = game.deferred || []; // skipped from Up Next — still eligible later
@@ -103,6 +118,24 @@ class GameEngine {
 
   /* ------------------------------------------------------------------ helpers */
   get settings() { return this.game.settings; }
+  /** Rule set for a round (custom rules, v1.5). */
+  rr(n) { return { round: n, rules: (this.settings.rounds && this.settings.rounds[n]) || defaultRuleSet(n) }; }
+  roundCount() { return Math.max(1, Math.min(MAX_ROUNDS, Number(this.settings.roundCount) || 3)); }
+  roundNumbers() { return Array.from({ length: this.roundCount() }, (_, i) => i + 1); }
+  /** Labels, rule text and pattern diagrams for a round (cached per rule set). */
+  info(n) {
+    if (!n) n = 1;
+    const key = n + ':' + JSON.stringify(this.rr(n).rules);
+    this._info = this._info || {};
+    if (!this._info[key]) this._info[key] = rules.roundInfo(this.rr(n));
+    return this._info[key];
+  }
+  roundLocked(n) { const r = this.game.round; return n < r.number || (n === r.number && r.status !== 'ready'); }
+  roundRulesView() {
+    const out = {};
+    this.roundNumbers().forEach(n => { const i = this.info(n); out[n] = { label: i.label, short: i.short, rule: i.rule, examples: i.examples, rules: i.rules, legacy: i.legacy, diagonalsCount: i.diagonalsCount, locked: this.roundLocked(n) }; });
+    return out;
+  }
   song(id) { return this.game.songs[id]; }
   currentSongId() { const i = this.game.playback.index; return i >= 0 ? this.game.order[i] : null; }
   /** Set of every eligible song (played + technical credit). */
@@ -332,7 +365,7 @@ class GameEngine {
   dispatch(action, args = {}, source = 'desktop') {
     const fn = this.actions[action];
     if (!fn) throw new Error(`Unknown action: ${action}`);
-    const allowedWhenFinished = ['playerRemove', 'playerRename', 'setPlayersOpen', 'setScreens', 'showTvScreen', 'setTvScreens', 'openChecker', 'closeChecker', 'checkClaim', 'freezeClaims', 'addClaim', 'closeSession', 'confirmClaim', 'dismissClaim', 'removeClaim', 'viewClaim', 'setCrawler', 'setOverlay', 'reopenGame', 'setVolume', 'setAudio', 'reverseCredit'];
+    const allowedWhenFinished = ['endIntermission', 'playerRemove', 'playerRename', 'setPlayersOpen', 'setScreens', 'showTvScreen', 'setTvScreens', 'openChecker', 'closeChecker', 'checkClaim', 'freezeClaims', 'addClaim', 'closeSession', 'confirmClaim', 'dismissClaim', 'removeClaim', 'viewClaim', 'setCrawler', 'setOverlay', 'reopenGame', 'setVolume', 'setAudio', 'reverseCredit'];
     if (this.game.status === 'finished' && !allowedWhenFinished.includes(action)) {
       throw new Error('This game has ended. Re-open it from Game History to continue.');
     }
@@ -361,6 +394,8 @@ class GameEngine {
       excludeSong: this.aExcludeSong, includeSong: this.aIncludeSong,
       updateSong: this.aUpdateSong,
       // home play: phone cards for players
+      setRoundRules: this.aSetRoundRules, setRoundCount: this.aSetRoundCount,
+      startIntermission: this.aStartIntermission, endIntermission: this.aEndIntermission,
       playerJoin: this.aPlayerJoin, playerRemove: this.aPlayerRemove, playerRename: this.aPlayerRename, playerBingo: this.aPlayerBingo, setPlayersOpen: this.aSetPlayersOpen
     };
   }
@@ -456,6 +491,17 @@ class GameEngine {
     const pb = this.game.playback;
     if (pb.index < 0) throw new Error('No song to replay yet.');
     if (this.game.round.number === 0) throw new Error('Start Round 1 first.');
+    // The TV still has this video loaded → just seek back to the clip start (no reload, no
+    // decoder re-initialisation). Only reload when the player was cleared or after recovery.
+    if (['playing', 'paused', 'loading'].includes(pb.status) && this.audienceConnected && !pb.recovered && this.loadToken != null) {
+      const start = pb.clipStart || 0;
+      pb.position = start; pb.status = 'playing'; pb.pausedForClaim = false;
+      if (this.game.gamePaused) this.game.gamePaused = false;
+      this.player({ cmd: 'seek', position: start, token: this.loadToken });
+      this.player({ cmd: 'play' });
+      this.touch('state');
+      return { ok: true, seek: true };
+    }
     this.loadIndex(pb.index, { autoplay: true }); // already-played songs are never re-added to the ledger
     this.touch('state');
     return { ok: true };
@@ -612,8 +658,9 @@ class GameEngine {
 
   aStartRound(args) {
     const g = this.game;
+    if (g.intermission) { g.intermission = null; this.audit('intermission-end', { by: 'start-round' }); }
     const n = Number(args.round || (g.round.number + 1));
-    if (![1, 2, 3].includes(n)) throw new Error('Round must be 1, 2 or 3');
+    if (!Number.isInteger(n) || n < 1 || n > this.roundCount()) throw new Error(`Round must be between 1 and ${this.roundCount()}`);
     if (n < g.round.number) throw new Error(`Round ${g.round.number} has already started — rounds cannot go backwards.`);
     if (n === g.round.number && g.round.status === 'active') return { ok: true, already: true };
     if (n > g.round.number + 1 || (n === g.round.number + 1 && g.round.status === 'ready')) throw new Error(`Rounds are played in order — Round ${g.round.status === 'ready' ? g.round.number : g.round.number + 1} is next.`);
@@ -625,7 +672,7 @@ class GameEngine {
     if (g.status === 'finished') throw new Error('The game has finished.');
     g.status = 'live';
     g.gamePaused = false;
-    this.log(`Round ${n} started — ${rules.ROUNDS[n].label}`);
+    this.log(`Round ${n} started — ${this.info(n).label}`);
     this.touch('round');
     const st = g.playback.status;
     if (args.play !== false && !['playing', 'loading', 'between'].includes(st)) {
@@ -660,7 +707,7 @@ class GameEngine {
     const winners = g.claims.filter(c => c.status === 'confirmed' && c.round === n).map(c => ({ claimId: c.id, cardNo: c.cardNo }));
     const at = this.nowIso();
     g.rounds[n] = Object.assign(g.rounds[n] || {}, { endedAt: g.rounds[n] && g.rounds[n].endedAt || at, completedAt: at, winners });
-    const final = n === 3;
+    const final = n >= this.roundCount();
     const tr = { id: uid('t_'), from: n, to: final ? null : n + 1, at, by: source || 'laptop', winners: winners.length };
     g.transitions.push(tr);
     let preQualified = [];
@@ -672,13 +719,13 @@ class GameEngine {
       g.round = { number: n + 1, status: 'ready' };
       // Cards that ALREADY meet the next round's pattern: notify the host; never auto-award.
       const set = this.playedSet();
-      preQualified = g.cards.filter(c => rules.checkCard(c.cells, set, n + 1).valid).map(c => formatCardNo(c.no));
+      preQualified = g.cards.filter(c => rules.checkCard(c.cells, set, this.rr(n + 1)).valid).map(c => formatCardNo(c.no));
       g.rounds[n + 1] = Object.assign(g.rounds[n + 1] || {}, { preparedAt: at, preQualified });
       tr.preQualified = preQualified.length;
     }
     this.audit('round-completed', { round: n, winners: winners.length, next: final ? null : n + 1, preQualified: preQualified.length }, source);
-    this.log(final ? 'Round 3 complete — FULL HOUSE! Game finished.' : `Round ${n} complete (${winners.length} winner${winners.length === 1 ? '' : 's'}). Ready for Round ${n + 1} — ${rules.ROUNDS[n + 1].label}.`);
-    this.event('tvScreen', { type: 'round', from: n, to: final ? null : n + 1, fromLabel: rules.ROUNDS[n].label, toLabel: final ? null : rules.ROUNDS[n + 1].label, final, seconds: 9, pattern: final ? null : rules.patternExamples(n + 1)[0] });
+    this.log(final ? `Round ${n} complete (final round) — game finished.` : `Round ${n} complete (${winners.length} winner${winners.length === 1 ? '' : 's'}). Ready for Round ${n + 1} — ${this.info(n + 1).label}.`);
+    this.event('tvScreen', { type: 'round', from: n, to: final ? null : n + 1, fromLabel: this.info(n).label, toLabel: final ? null : this.info(n + 1).label, final, seconds: 9, pattern: final ? null : this.info(n + 1).examples[0], finalPattern: final ? this.info(n).examples[0] : null, finalLabel: final ? this.info(n).label : null });
     this.touch('round');
     return { ok: true, final, nextRound: final ? null : n + 1, winners: winners.length, preQualified };
   }
@@ -811,6 +858,9 @@ class GameEngine {
     if (args.autoAdvanceGap != null) s.autoAdvanceGap = Math.max(0, Math.min(30, Number(args.autoAdvanceGap)));
     if (args.defaultStart != null) s.defaultStart = Math.max(0, Number(args.defaultStart));
     if (args.patternPosition && ['top-right', 'top-left', 'bottom-right', 'bottom-left'].includes(args.patternPosition)) s.patternPosition = args.patternPosition;
+    if (args.afterWinner && ['ask', 'intermission'].includes(args.afterWinner)) s.afterWinner = args.afterWinner;
+    if (args.intermissionMinutes != null) s.intermissionMinutes = Math.max(0, Math.min(120, Number(args.intermissionMinutes) || 0));
+    if (args.intermissionMessage != null) s.intermissionMessage = String(args.intermissionMessage).slice(0, 140);
     if (args.clipMode != null) this.aClipMode({ clipMode: args.clipMode });
     this.touch('audience');
     return { ok: true };
@@ -919,13 +969,13 @@ class GameEngine {
     const res = this.evaluate(card, claim.round, ids, session ? session.snapshot : null);
     return {
       ok: true, claimId: claim.id, sessionId: claim.sessionId || null, status: claim.status, cardNo: claim.cardNo, cardLabel: formatCardNo(claim.cardNo), owner: this.ownerOf(claim.cardNo), round: claim.round,
-      roundLabel: rules.ROUNDS[claim.round].label, roundStatus: g.round.status,
+      roundLabel: this.info(claim.round).label, roundStatus: g.round.status,
       valid: res.valid, headline: res.headline, reason: res.reason,
       alreadyWinner: claim.status === 'duplicate' || (claim.status !== 'confirmed' && g.claims.some(c => c.cardNo === claim.cardNo && c.round === claim.round && c.status === 'confirmed')),
       otherRoundWins: g.claims.filter(c => c.cardNo === claim.cardNo && c.status === 'confirmed' && c.round !== claim.round).map(c => c.round),
       qualifiedAtSong: res.qualifiedAtSong, completingSong: res.completingSong || null, explanation: res.explanation,
       best: res.best ? { description: res.best.description, missing: res.best.missing, missingCells: res.best.missingCells, cells: res.best.cells } : null,
-      roundRule: rules.ROUNDS[claim.round].rule, playedCount: ids.length,
+      roundRule: this.info(claim.round).rule, playedCount: ids.length,
       printed: !!card.printed, review: claim.review || null,
       grid: res.grid, winningCells: res.winningCells, lines: res.lines
     };
@@ -933,14 +983,14 @@ class GameEngine {
 
   evaluate(card, round, playedIds, snapshot) {
     const set = new Set(playedIds);
-    const res = rules.checkCard(card.cells, set, round);
+    const res = rules.checkCard(card.cells, set, this.rr(round));
     const win = new Set(res.winningCells);
     const order = new Map(playedIds.map((id, i) => [id, i + 1]));
     const kinds = new Map((snapshot || this.game.played.map(p => ({ songId: p.songId, kind: p.kind }))).map(x => [x.songId, x.kind || 'played']));
-    res.best = res.valid ? null : rules.bestProgress(card.cells, set, round);
+    res.best = res.valid ? null : rules.bestProgress(card.cells, set, this.rr(round));
     const bestCells = new Set(res.best ? res.best.cells : []);
     const needed = new Set(res.best ? res.best.missingCells : []);
-    res.qualifiedAtSong = res.valid ? rules.qualifiedAt(card.cells, playedIds, round) : null;
+    res.qualifiedAtSong = res.valid ? rules.qualifiedAt(card.cells, playedIds, this.rr(round)) : null;
     const completingId = res.qualifiedAtSong ? playedIds[res.qualifiedAtSong - 1] : null;
     res.grid = card.cells.map((id, i) => {
       const s = this.song(id) || { title: '?', artist: '' };
@@ -948,7 +998,7 @@ class GameEngine {
       return { songId: id, title: label ? label.title : (s.displayTitle || s.title), artist: s.artist, played: set.has(id), credit: set.has(id) && kinds.get(id) === 'credit', playedNo: order.get(id) || null, winning: win.has(i), inBest: bestCells.has(i), needed: needed.has(i), completing: id === completingId };
     });
     if (completingId) { const cs = this.song(completingId) || {}; res.completingSong = { n: res.qualifiedAtSong, songId: completingId, title: cs.displayTitle || cs.title, artist: cs.artist, credit: kinds.get(completingId) === 'credit' }; }
-    res.explanation = rules.explainClaim(formatCardNo(card.no), round, res, res.best);
+    res.explanation = rules.explainClaim(formatCardNo(card.no), this.rr(round), res, res.best);
     return res;
   }
 
@@ -963,7 +1013,7 @@ class GameEngine {
     if (session && session.status !== 'open') throw new Error('That claim session is closed.');
     // Re-verify against the SAME frozen snapshot — other winners never invalidate this claim.
     const card = this.findCard(claim.cardNo);
-    const res = rules.checkCard(card.cells, new Set(this.sessionPlayedIds(session)), claim.round);
+    const res = rules.checkCard(card.cells, new Set(this.sessionPlayedIds(session)), this.rr(claim.round));
     if (!res.valid) throw new Error('This card does not meet the winning rule for its claim snapshot.');
     claim.status = 'confirmed';
     claim.confirmedAt = this.nowIso();
@@ -971,7 +1021,7 @@ class GameEngine {
     claim.headline = res.headline;
     this.audit('winner-confirmed', { sessionId: claim.sessionId, claimId: claim.id, cardNo: claim.cardNo, round: claim.round, headline: res.headline }, source);
     this.log(`WINNER confirmed: card ${formatCardNo(claim.cardNo)}, Round ${claim.round} (${res.headline})`);
-    if (this.settings.winnerAnimation) this.event('celebrate', { round: claim.round, label: rules.ROUNDS[claim.round].label });
+    if (this.settings.winnerAnimation) this.event('celebrate', { round: claim.round, label: this.info(claim.round).label });
     if (this.settings.tvScreens.winner) this.tvScreen('winner', claim, res);
     this.touch('claims');
     return this.claimView(claim);
@@ -999,7 +1049,7 @@ class GameEngine {
     const t = this.settings.tvScreens;
     const session = this.game.claimSessions.find(s => s.id === claim.sessionId);
     const winnersInSession = session ? session.claimIds.map(id => this.game.claims.find(c => c.id === id)).filter(c => c && c.status === 'confirmed').length : 1;
-    const payload = { type, round: claim.round, label: rules.ROUNDS[claim.round].label, seconds: Math.max(3, Math.min(30, Number(t.seconds) || 7)), winners: winnersInSession };
+    const payload = { type, round: claim.round, last: claim.round >= this.roundCount(), label: this.info(claim.round).label, seconds: Math.max(3, Math.min(30, Number(t.seconds) || 7)), winners: winnersInSession };
     if (t.showCardNumber) payload.cardLabel = formatCardNo(claim.cardNo);
     // winner names (phone players / named cards) — never on the "Not a Bingo" screen
     if (type === 'winner' && t.showName !== false && session) {
@@ -1016,7 +1066,7 @@ class GameEngine {
     const type = args.type === 'wrong' ? 'wrong' : 'winner';
     if (type === 'winner' && claim.status !== 'confirmed') throw new Error('Only a confirmed winner can be shown as a winner.');
     if (type === 'wrong' && claim.valid) throw new Error('This claim is valid.');
-    const res = type === 'winner' ? rules.checkCard(this.findCard(claim.cardNo).cells, new Set(this.sessionPlayedIds(this.game.claimSessions.find(s => s.id === claim.sessionId))), claim.round) : null;
+    const res = type === 'winner' ? rules.checkCard(this.findCard(claim.cardNo).cells, new Set(this.sessionPlayedIds(this.game.claimSessions.find(s => s.id === claim.sessionId))), this.rr(claim.round)) : null;
     this.tvScreen(type, claim, res);
     return { ok: true };
   }
@@ -1085,8 +1135,21 @@ class GameEngine {
         resumed = true;
       } catch (e) { /* nothing to resume */ }
     } else if (s.resumeTo === 'between' && pb.status === 'idle') { /* stays idle until host plays */ }
+    // The round now has a winner and the host has finished checking claims → what's next?
+    const r = g.round; let next = null;
+    const winners = g.claims.filter(c => c.status === 'confirmed' && c.round === r.number).length;
+    const newWin = s.claimIds.some(id => { const c = g.claims.find(x => x.id === id); return c && c.status === 'confirmed' && c.round === r.number; });
+    if (newWin && winners && ['active', 'ended'].includes(r.status) && g.status !== 'finished') {
+      const final = r.number >= this.roundCount();
+      if (!final && this.settings.afterWinner === 'intermission') {
+        try { next = Object.assign({ auto: 'intermission' }, this.aStartIntermission({ minutes: this.settings.intermissionMinutes }, 'auto')); } catch (e) { next = null; }
+      } else {
+        next = { ask: true, round: r.number, winners, final, nextRound: final ? null : r.number + 1, nextLabel: final ? null : this.info(r.number + 1).label, minutes: this.settings.intermissionMinutes };
+        this.event('roundWon', next);
+      }
+    }
     this.touch('claims');
-    return { ok: true, resumed, sessionId: s.id };
+    return { ok: true, resumed, sessionId: s.id, next };
   }
 
   aRevokeWinner(args, source) {
@@ -1106,6 +1169,72 @@ class GameEngine {
       const s = this.song(p.songId) || {};
       return { n: i + 1, songId: p.songId, title: s.displayTitle || s.title, artist: s.artist, round: p.round, manual: p.manual, kind: p.kind || 'played', at: p.at };
     });
+  }
+
+  /**
+   * Intermission: a break between rounds. Completes the current round if it has a winner
+   * (so the next round is READY), pauses the music, and the TV shows a break screen with a
+   * countdown, the host's message and the next round's pattern. Starting the next round
+   * (or "End intermission") brings the game back.
+   */
+  aStartIntermission(args, source) {
+    const g = this.game; const r = g.round;
+    if (g.status === 'finished') throw new Error('The game has ended.');
+    if (!r.number) throw new Error('Start Round 1 first.');
+    if (this.activeSession()) throw new Error('Close the open claim session first.');
+    if (['active', 'ended'].includes(r.status)) {
+      if (r.number >= this.roundCount()) throw new Error('This is the last round — complete the game instead.');
+      this.aCompleteRound({ fromRound: r.number }, source);
+    }
+    const pb = g.playback;
+    if (['playing', 'loading'].includes(pb.status)) { pb.status = 'paused'; this.player({ cmd: 'pause' }); }
+    this.cancelAdvance();
+    const minutes = Math.max(0, Math.min(120, Number(args.minutes != null ? args.minutes : this.settings.intermissionMinutes) || 0));
+    g.intermission = { at: this.nowIso(), until: minutes ? new Date(this._now() + minutes * 60000).toISOString() : null, minutes, message: String(args.message != null ? args.message : (this.settings.intermissionMessage || '')).slice(0, 140) };
+    this.audit('intermission-start', { minutes, round: g.round.number }, source);
+    this.log(`Intermission${minutes ? ` (${minutes} min)` : ''} — next: Round ${g.round.number}`);
+    this.touch('state', true);
+    return { ok: true, intermission: g.intermission, nextRound: g.round.number };
+  }
+  aEndIntermission(args, source) {
+    const g = this.game; if (!g.intermission) return { ok: true, already: true };
+    g.intermission = null;
+    this.audit('intermission-end', {}, source);
+    this.touch('state', true);
+    return { ok: true };
+  }
+
+  /** The host decides how many rounds the game has (1–10). Rounds already started stay. */
+  aSetRoundCount(args, source) {
+    const g = this.game;
+    const cnt = Number(args.count);
+    if (!Number.isInteger(cnt) || cnt < 1 || cnt > MAX_ROUNDS) throw new Error(`Choose between 1 and ${MAX_ROUNDS} rounds.`);
+    if (g.status === 'finished') throw new Error('This game has ended.');
+    const minimum = g.round.number && g.round.status !== 'ready' ? g.round.number : Math.max(1, g.round.number);
+    if (cnt < minimum) throw new Error(`Round ${minimum} is already under way — the game needs at least ${minimum} round${minimum === 1 ? '' : 's'}.`);
+    const rs = Object.assign({}, this.settings.rounds);
+    for (let n = 1; n <= cnt; n++) if (!rs[n]) rs[n] = defaultRuleSet(n);
+    Object.keys(rs).forEach(k => { if (Number(k) > cnt) delete rs[k]; });
+    this.settings.rounds = rs; this.settings.roundCount = cnt; this._info = {};
+    this.audit('round-count', { count: cnt }, source);
+    this.log(`The game now has ${cnt} round${cnt === 1 ? '' : 's'}`);
+    this.touch('state', true);
+    return { ok: true, count: cnt };
+  }
+
+  /** Choose the winning rule(s) for a round that has not started yet (v1.5). */
+  aSetRoundRules(args, source) {
+    const n = Number(args.round);
+    if (!Number.isInteger(n) || n < 1 || n > this.roundCount()) throw new Error(`Round must be between 1 and ${this.roundCount()}`);
+    if (this.roundLocked(n)) throw new Error(`Round ${n} has already started — its winning rules are locked.`);
+    if (this.activeSession()) throw new Error('Close the open claim session first.');
+    const set = rules.normaliseRuleSet(args.rules);
+    this.settings.rounds = Object.assign({}, this.settings.rounds, { [n]: set });
+    this._info = {};
+    this.audit('round-rules', { round: n, rules: set }, source);
+    this.log(`Round ${n} winning rules: ${this.info(n).label}`);
+    this.touch('state', true);
+    return { ok: true, round: n, info: this.roundRulesView()[n] };
   }
 
   /* ------------------------------------------------------------ home play: phone cards */
@@ -1189,14 +1318,14 @@ class GameEngine {
     if (g.claims.some(c => c.cardNo === card.no && c.round === r.number && c.status === 'confirmed')) return { result: 'already', round: r.number };
     const open = this.activeSession();
     if (open && g.claims.some(c => c.sessionId === open.id && c.cardNo === card.no && c.status !== 'removed')) return { result: 'checking', round: r.number };
-    const res = rules.checkCard(card.cells, this.playedSet(), r.number);
+    const res = rules.checkCard(card.cells, this.playedSet(), this.rr(r.number));
     pl.calls = (pl.calls || 0) + 1;
     if (!res.valid) {
       this.audit('player-bingo-early', { playerId: pl.id, name: pl.name, cardNo: card.no, round: r.number }, source);
       this.log(`📱 ${pl.name} (card ${formatCardNo(card.no)}) pressed BINGO — not a bingo yet`);
       this.event('playerBingo', { name: pl.name, cardNo: card.no, cardLabel: formatCardNo(card.no), valid: false, round: r.number });
       this.touch('players', false);
-      return { result: 'not-yet', round: r.number, label: rules.ROUNDS[r.number].label };
+      return { result: 'not-yet', round: r.number, label: this.info(r.number).label };
     }
     const view = this.aAddClaim({ cardNo: card.no }, source || ('player:' + pl.name));
     this.event('playerBingo', { name: pl.name, cardNo: card.no, cardLabel: formatCardNo(card.no), valid: true, round: r.number, claimId: view.claimId });
@@ -1216,15 +1345,15 @@ class GameEngine {
     // current round (songs only count once their clip has finished, so no title is spoiled)
     let away = null;
     if (r.number && ['active', 'ended'].includes(r.status) && g.status !== 'finished' && !mine.some(c => c.status === 'confirmed' && c.round === r.number)) {
-      const b = rules.bestProgress(card.cells, this.playedSet(), r.number); away = b ? b.missing : null;
+      const b = rules.bestProgress(card.cells, this.playedSet(), this.rr(r.number)); away = b ? b.missing : null;
     }
     return {
-      gameId: g.id, gameName: g.name, gameStatus: g.status, away,
+      gameId: g.id, gameName: g.name, gameStatus: g.status, away, intermission: g.intermission ? { until: g.intermission.until, message: g.intermission.message } : null,
       // the same list the TV crawler shows (newest last)
       played: g.played.map((p, i) => { const l = (g.lockedLabels && g.lockedLabels[p.songId]) || {}; const x = this.song(p.songId) || {}; return { n: i + 1, t: l.title || x.displayTitle || x.title, a: l.artist || x.artist, credit: p.kind === 'credit' }; }),
       me: { id: pl.id, name: pl.name, cardNo: pl.cardNo, cardLabel: formatCardNo(pl.cardNo) },
       cells,
-      round: { number: r.number, status: r.status, label: r.number ? rules.ROUNDS[r.number].label : null, rule: r.number ? rules.ROUNDS[r.number].rule : null },
+      round: { number: r.number, status: r.status, label: r.number ? this.info(r.number).label : null, rule: r.number ? this.info(r.number).rule : null, example: r.number ? this.info(r.number).examples[0] : null },
       wins: mine.filter(c => c.status === 'confirmed').map(c => c.round),
       last: last ? { id: last.id, round: last.round, status: last.status } : null
     };
@@ -1247,7 +1376,7 @@ class GameEngine {
     let n = 0;
     for (const c of g.cards) {
       if (!c.printed || won.has(c.no)) continue;
-      const b = rules.bestProgress(c.cells, played, r.number);
+      const b = rules.bestProgress(c.cells, played, this.rr(r.number));
       if (b && b.missing === 1) n++;
     }
     return n;
@@ -1263,7 +1392,7 @@ class GameEngine {
     const s = this.activeSession();
     if (!s) return null;
     return {
-      id: s.id, openedAt: s.openedAt, openedBy: s.openedBy, round: s.round, roundLabel: rules.ROUNDS[s.round].label, snapshotCount: s.snapshot.length,
+      id: s.id, openedAt: s.openedAt, openedBy: s.openedBy, round: s.round, roundLabel: this.info(s.round).label, snapshotCount: s.snapshot.length,
       position: s.playback.position,
       claims: s.claimIds.map(id => this.game.claims.find(c => c.id === id)).filter(c => c && c.status !== 'removed')
         .map(c => ({ claimId: c.id, cardNo: c.cardNo, cardLabel: formatCardNo(c.cardNo), owner: this.ownerOf(c.cardNo), status: c.status, valid: c.valid, headline: c.headline }))
@@ -1290,7 +1419,9 @@ class GameEngine {
       logo: g.logo || null,
       song: s ? { title: s.displayTitle || s.title, artist: s.artist, key: `${pb.index}:${this.loadToken}` } : null,
       playbackStatus: pb.status,
-      round: { number: g.round.number, status: g.round.status, label: g.round.number ? rules.ROUNDS[g.round.number].label : 'ONE LINE' },
+      round: { number: g.round.number, status: g.round.status, label: this.info(g.round.number || 1).label, short: this.info(g.round.number || 1).short, examples: this.info(g.round.number || 1).examples },
+      rounds: this.roundNumbers().map(n => ({ n, label: this.info(n).label, example: this.info(n).examples[0] })),
+      diagonalsCount: this.roundNumbers().some(n => this.info(n).diagonalsCount),
       history: g.played.map((p, i) => { const x = this.song(p.songId) || {}; return { n: i + 1, title: x.displayTitle || x.title, artist: x.artist, credit: p.kind === 'credit', round: p.round || 0 }; }),
       overlay: this.settings.overlay,
       crawler: this.settings.crawler,
@@ -1303,6 +1434,10 @@ class GameEngine {
   /** Which full-screen TV page to show: welcome (before Round 1), end (after the game), or none. */
   audienceScreen() {
     const g = this.game; const sc = this.settings.screens;
+    if (g.intermission && g.status !== 'finished') {
+      const n = g.round.number || 1;
+      return { mode: 'intermission', until: g.intermission.until, message: g.intermission.message || '', name: g.name, next: { n, label: this.info(n).label, example: this.info(n).examples[0] } };
+    }
     if (g.round.number === 0 && g.status !== 'finished' && sc.welcome) {
       return { mode: 'welcome', name: g.name, venue: g.venue || '', date: g.date || '', startTime: sc.startTime || '', message: sc.message || '' };
     }
@@ -1330,7 +1465,8 @@ class GameEngine {
       current: this.currentView(),
       next: next ? { title: next.displayTitle || next.title, artist: next.artist, number: nextIdx + 1 } : null, // (compat)
       totals: { songs: total, played: g.played.filter(p => p.kind !== 'credit').length, credited: g.played.filter(p => p.kind === 'credit').length, eligible: g.played.length, remaining, skipped: g.skipped.length, cards: g.cards.length, printed: g.cards.filter(c => c.printed).length },
-      round: { number: g.round.number, status: g.round.status, label: g.round.number ? rules.ROUNDS[g.round.number].label : null, rule: g.round.number ? rules.ROUNDS[g.round.number].rule : null,
+      roundRules: this.roundRulesView(), roundCount: this.roundCount(), intermission: g.intermission,
+      round: { number: g.round.number, status: g.round.status, label: g.round.number ? this.info(g.round.number).label : null, rule: g.round.number ? this.info(g.round.number).rule : null, short: g.round.number ? this.info(g.round.number).short : null,
         winners: g.claims.filter(c => c.status === 'confirmed' && c.round === g.round.number).length,
         canComplete: ['active', 'ended'].includes(g.round.status) && g.status !== 'finished',
         preQualified: (g.rounds[g.round.number] && g.rounds[g.round.number].preQualified) || [] },
@@ -1343,7 +1479,7 @@ class GameEngine {
       credits: g.credits.map(c => ({ id: c.id, songId: c.songId, title: c.title, artist: c.artist, reason: c.reason, at: c.at, status: c.status })),
       unavailable: Object.keys(this.unavailable).filter(id => this.song(id) && !played.has(id)).map(id => ({ songId: id, title: this.song(id).title, artist: this.song(id).artist, reason: this.unavailable[id] })),
       creditReasons: CREDIT_REASONS,
-      settings: { clipMode: this.settings.clipMode, volume: this.settings.volume, autoAdvance: this.settings.autoAdvance, autoAdvanceGap: this.settings.autoAdvanceGap, pauseOnClaim: this.settings.pauseOnClaim, crawler: this.settings.crawler, overlay: this.settings.overlay, audio: this.settings.audio, patternPosition: this.settings.patternPosition, winnerAnimation: this.settings.winnerAnimation, tvScreens: this.settings.tvScreens, screens: this.settings.screens, defaultStart: this.settings.defaultStart },
+      settings: { afterWinner: this.settings.afterWinner, intermissionMinutes: this.settings.intermissionMinutes, clipMode: this.settings.clipMode, volume: this.settings.volume, autoAdvance: this.settings.autoAdvance, autoAdvanceGap: this.settings.autoAdvanceGap, pauseOnClaim: this.settings.pauseOnClaim, crawler: this.settings.crawler, overlay: this.settings.overlay, audio: this.settings.audio, patternPosition: this.settings.patternPosition, winnerAnimation: this.settings.winnerAnimation, tvScreens: this.settings.tvScreens, screens: this.settings.screens, defaultStart: this.settings.defaultStart },
       audienceConnected: this.audienceConnected,
       lastError: this.lastError
     };

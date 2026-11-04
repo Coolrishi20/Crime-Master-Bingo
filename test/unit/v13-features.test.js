@@ -15,29 +15,29 @@ let hasFfmpeg = true; try { execFileSync('ffmpeg', ['-version'], { stdio: 'ignor
 
 function fakeVideo(dir, name) { fs.mkdirSync(dir, { recursive: true }); const f = path.join(dir, name); fs.writeFileSync(f, crypto.randomBytes(2000)); return f; }
 
-test('folder tree → one playlist per sub-folder; loose files → playlist named after the top folder; re-run adds only new', () => {
+test('folder tree → one playlist per sub-folder; loose files → playlist named after the top folder; re-run adds only new', async () => {
   const root = path.join(tmp(), 'Music Videos');
   ['80s', '90s', 'Bollywood'].forEach((d, i) => { for (let k = 0; k < 3; k++) fakeVideo(path.join(root, d, k === 2 ? 'nested' : ''), `${d} Artist ${k} - Song ${k}.mp4`); });
   fakeVideo(root, 'Loose Artist - Loose Song.mp4');
   fakeVideo(path.join(root, 'Empty'), 'notes.txt');
   const lib = new Library(new Store(tmp()));
-  const r = lib.importFolderAsPlaylists(root);
+  const r = await lib.importFolderAsPlaylists(root);
   assert.deepStrictEqual(r.playlists.map(p => p.name), ['Music Videos', '80s', '90s', 'Bollywood']);
   assert.ok(r.playlists.every(p => p.created));
   assert.strictEqual(r.playlists.find(p => p.name === '80s').total, 3, 'includes nested sub-folders');
   assert.strictEqual(r.totals.added, 10);
   fakeVideo(path.join(root, '80s'), 'New Artist - New Song.mp4');
-  const r2 = lib.importFolderAsPlaylists(root);
+  const r2 = await lib.importFolderAsPlaylists(root);
   const p80 = r2.playlists.find(p => p.name === '80s');
   assert.ok(!p80.created); assert.strictEqual(p80.added, 1); assert.strictEqual(p80.total, 4);
   assert.strictEqual(lib.playlists().length, 4, 'no duplicate playlists');
   assert.strictEqual(lib.songs().length, 11, 'no duplicate songs');
 });
 
-test('AVI / WMV / FLV are imported (not refused) and queued for conversion', () => {
+test('AVI / WMV / FLV are imported (not refused) and queued for conversion', async () => {
   const dir = tmp(); ['a.avi', 'b.wmv', 'c.flv', 'd.mpg'].forEach(n => fakeVideo(dir, 'Artist - ' + n));
   const lib = new Library(new Store(tmp()));
-  const r = lib.importPaths([dir]);
+  const r = await lib.importPaths([dir]);
   assert.strictEqual(r.added.length, 4); assert.strictEqual(r.unsupported.length, 0); assert.strictEqual(r.converting, 4);
   assert.ok(lib.songs().every(s => s.status === 'needs-conversion'));
   assert.ok(lib.songs().every(s => lib.problemFor(s) === 'Converting to MP4…'), 'not playable in a game until converted');
@@ -56,7 +56,7 @@ test('real conversion: AVI, WMV and FLV become playable MP4 copies; originals un
   const bad = path.join(src, 'Artist D - Broken.avi'); fs.writeFileSync(bad, crypto.randomBytes(5000));
   const before = files.map(f => crypto.createHash('sha1').update(fs.readFileSync(f)).digest('hex'));
   const lib = new Library(new Store(data));
-  lib.importPaths([src]);
+  await lib.importPaths([src]);
   const conv = new Converter({ dataDir: data, library: lib, ffmpeg: 'ffmpeg', onChange: () => {} });
   for (let i = 0; i < 120 && lib.songs().some(s => ['needs-conversion', 'converting'].includes(s.status)); i++) { conv.pump(); await new Promise(r => setTimeout(r, 500)); }
   conv.stop();

@@ -141,9 +141,10 @@
   function drawRound() {
     var s = state, r = s.round, box = $('round'), won = r.number && s.wins.indexOf(r.number) >= 0;
     var live = r.number && (r.status === 'active' || r.status === 'ended') && s.gameStatus !== 'finished';
-    var pg = '<div class="pg">' + Array.from({ length: 25 }, function (_, i) { return '<i class="' + (r.number && PAT[r.number].indexOf(i) >= 0 ? 'on' : '') + '"></i>'; }).join('') + '</div>';
+    var pg = '<div class="pg">' + Array.from({ length: 25 }, function (_, i) { return '<i class="' + (r.number && (r.example ? r.example[i] : PAT[r.number].indexOf(i) >= 0) ? 'on' : '') + '"></i>'; }).join('') + '</div>';
     box.className = 'round' + (live ? '' : ' idle') + (won ? ' won' : '');
     if (s.gameStatus === 'finished') box.innerHTML = '<div><b>GAME OVER</b><span>THANKS FOR PLAYING!</span><em>' + (s.wins.length ? 'You won round ' + s.wins.join(' & ') + ' 🏆' : 'See you next time!') + '</em></div>';
+    else if (s.intermission) box.innerHTML = '<div><b>BREAK</b><span>☕ INTERMISSION</span><em>' + esc(s.intermission.message || 'Round ' + r.number + ' starts soon — keep your card!') + '</em></div>';
     else if (!r.number) box.innerHTML = '<div><b>GET READY</b><span>WAITING FOR ROUND 1</span><em>Same card all night · tap a song when you hear it</em></div>';
     else if (won) box.innerHTML = pg + '<div><b>ROUND ' + r.number + '</b><span>YOU WON THIS ROUND! 🏆</span><em>Keep your marks — the next round uses the same card</em></div>';
     else if (r.status === 'ready') box.innerHTML = pg + '<div><b>ROUND ' + r.number + ' · NEXT</b><span>' + esc(r.label) + '</span><em>' + esc(r.rule) + ' · starting soon</em></div>';

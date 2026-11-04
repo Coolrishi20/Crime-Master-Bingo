@@ -22,6 +22,12 @@ function compareVersions(a, b) {
     const d = (x[i] || 0) - (y[i] || 0);
     if (d) return d > 0 ? 1 : -1;
   }
+  // same x.y.z: a pre-release (1.5.0-rc.1) is older than the release (1.5.0), as in semver
+  const pre = (v) => { const m = /-(.+)$/.exec(String(v || '').trim()); return m ? m[1] : null; };
+  const pa = pre(a), pb = pre(b);
+  if (pa && !pb) return -1;
+  if (!pa && pb) return 1;
+  if (pa && pb && pa !== pb) return pa.localeCompare(pb, undefined, { numeric: true }) > 0 ? 1 : -1;
   return 0;
 }
 

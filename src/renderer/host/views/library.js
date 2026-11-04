@@ -110,23 +110,27 @@ App.register('library', {
       if (s.status === 'needs-conversion') return '<span class="badge pink">QUEUED FOR CONVERSION</span>';
       if (s.status === 'converting') return `<span class="badge pink">CONVERTING ${(s.conversion && s.conversion.percent) || 0}%</span>`;
       if (!s.title || !s.artist) return '<span class="badge warn">NEEDS TITLE/ARTIST</span>';
-      return `<span class="badge ok">READY${s.height ? ' · ' + s.height + 'p' : ''}</span>${s.converted ? ` <span class="badge" title="Converted copy of ${esc(s.converted.from)}">CONVERTED</span>` : ''}`;
+      return `<span class="badge ok">READY${s.height ? ' · ' + s.height + 'p' : ''}</span>${s.converted ? ` <span class="badge" title="Copy of ${esc(s.converted.from)}">${s.converted.optimised ? s.converted.maxHeight + 'p COPY' : 'CONVERTED'}</span>` : ''}${s.optimise ? ' <span class="badge pink">MAKING 720p COPY…</span>' : ''}`;
     };
-    body.innerHTML = this.visible.map(s => `<tr data-id="${s.id}" class="${this.selected.has(s.id) ? 'sel' : ''}">
+    const PAGE = 200; this.shown = Math.max(this.shown || PAGE, PAGE);
+    const rows = this.visible.slice(0, this.shown);
+    body.innerHTML = rows.map(s => `<tr data-id="${s.id}" class="${this.selected.has(s.id) ? 'sel' : ''}">
       <td><input type="checkbox" data-sel ${this.selected.has(s.id) ? 'checked' : ''}></td>
-      <td>${s.thumb ? `<img class="thumb" src="${fileUrl(s.thumb)}">` : '<div class="thumb"></div>'}</td>
+      <td>${s.thumb ? `<img class="thumb" loading="lazy" decoding="async" width="96" height="54" src="${fileUrl(s.thumb)}">` : '<div class="thumb"></div>'}</td>
       <td><div class="song-cell"><b>${esc(s.title || '— no title —')}</b><span>${esc(s.artist || '— no artist —')}${s.displayTitle ? ` · TV: “${esc(s.displayTitle)}”` : ''}</span><span class="tiny">${esc(s.fileName)}</span></div></td>
       <td class="muted">${s.duration ? fmtTime(s.duration) : '–'}</td>
       <td class="small">${audioCell(s)}</td>
       <td class="muted small">${s.clipStart != null || s.clipEnd != null ? `${fmtTime(s.clipStart || 0)}–${s.clipEnd != null ? fmtTime(s.clipEnd) : 'auto'}` : 'default'}</td>
       <td>${stBadge(s)}${s.duplicateOf ? ' <span class="badge warn">DUPLICATE?</span>' : ''}${s.statusNote && s.status !== 'ok' ? `<div class="tiny muted" style="max-width:240px">${esc(s.statusNote)}</div>` : ''}</td>
-      <td style="text-align:right">${s.status === 'unsupported' ? `<button class="btn sm primary" data-convert>${s.conversion && s.conversion.state === 'failed' ? 'Retry convert' : 'Convert to MP4'}</button> ` : ''}${['converting', 'needs-conversion'].includes(s.status) ? '<button class="btn sm ghost" data-cancelconv>Cancel</button> ' : ''}<button class="btn sm" data-edit>Edit</button> ${s.status === 'missing' ? '<button class="btn sm primary" data-relink>Relink</button>' : ''} ${s.duplicateOf ? '<button class="btn sm" data-notdup>Not a duplicate</button>' : ''}</td></tr>`).join('');
+      <td style="text-align:right">${s.status === 'unsupported' ? `<button class="btn sm primary" data-convert>${s.conversion && s.conversion.state === 'failed' ? 'Retry convert' : 'Convert to MP4'}</button> ` : ''}${['converting', 'needs-conversion'].includes(s.status) ? '<button class="btn sm ghost" data-cancelconv>Cancel</button> ' : ''}<button class="btn sm ghost" data-reveal title="Show in folder">📂</button><button class="btn sm" data-edit>Edit</button> ${s.status === 'missing' ? '<button class="btn sm primary" data-relink>Relink</button>' : ''} ${s.duplicateOf ? '<button class="btn sm" data-notdup>Not a duplicate</button>' : ''}</td></tr>`).join('');
+    if (this.visible.length > rows.length) { body.insertAdjacentHTML('beforeend', `<tr><td colspan="8" style="text-align:center"><button class="btn sm" id="lMore">Show ${Math.min(PAGE, this.visible.length - rows.length)} more (${this.visible.length - rows.length} not shown)</button></td></tr>`); $('#lMore', body).onclick = () => { this.shown += PAGE; this.draw(); }; }
     $$('tr[data-id]', body).forEach(tr => {
       const id = tr.dataset.id;
       $('[data-sel]', tr).onchange = (e) => { e.target.checked ? this.selected.add(id) : this.selected.delete(id); this.draw(); };
       const cv = $('[data-convert]', tr); if (cv) cv.onclick = async () => { await api('convert:start', { ids: [id] }); toast('Converting to MP4 in the background', 'ok'); this.load(); };
       const cc = $('[data-cancelconv]', tr); if (cc) cc.onclick = async () => { await api('convert:cancel', { id }); this.load(); };
       $('[data-edit]', tr).onclick = () => editSong(this.songs.find(s => s.id === id), () => this.load());
+      const rv = $('[data-reveal]', tr); if (rv) rv.onclick = () => revealSong(id, () => this.load());
       const rl = $('[data-relink]', tr); if (rl) rl.onclick = async () => { const s = await api('library:relink', { id }); if (s) { toast('File relinked', 'ok'); this.load(); } };
       const nd = $('[data-notdup]', tr); if (nd) nd.onclick = async () => { await api('library:update', { id, fields: { duplicateOf: null } }); this.load(); };
     });
@@ -137,7 +141,7 @@ App.register('library', {
 async function editSong(s, after) {
   const body = document.createElement('div');
   body.innerHTML = `
-    <video class="preview-video" controls src="${fileUrl(s.path)}"></video>
+    <video class="preview-video" controls preload="metadata" src="${fileUrl(s.path)}"></video>
     <div class="row" style="margin:8px 0 14px"><button class="btn sm" id="eSetS">Set clip start = now</button><button class="btn sm" id="eSetE">Set clip end = now</button><button class="btn sm ghost" id="eClr">Use default clip</button><span class="muted small grow" style="text-align:right">${s.duration ? 'Length ' + fmtTime(s.duration) : ''}</span></div>
     <div class="form-grid">
       <label class="field">Song title *<input type="text" id="eT" value="${esc(s.title)}"></label>
@@ -147,7 +151,9 @@ async function editSong(s, after) {
       <label class="field">Clip start (seconds)<input type="number" min="0" step="0.5" id="eS" value="${s.clipStart != null ? s.clipStart : ''}" placeholder="default"></label>
       <label class="field">Clip end (seconds)<input type="number" min="0" step="0.5" id="eE" value="${s.clipEnd != null ? s.clipEnd : ''}" placeholder="start + clip length"></label>
     </div>
-    <p class="muted small">Leave clip end empty to use the game's clip length (20/30/40/60 s) from the clip start. File: ${esc(s.path)}</p>`;
+    <p class="muted small">Leave clip end empty to use the game's clip length (20/30/40/60 s) from the clip start. File: ${esc(s.path)} <button class="btn sm ghost" id="eReveal">📂 Show in folder</button>${s.converted && s.converted.optimised ? ' <button class="btn sm ghost" id="eOrig">Use the original file again</button>' : ''}</p>`;
+  body.querySelector('#eReveal').onclick = () => revealSong(s.id, after);
+  if (body.querySelector('#eOrig')) body.querySelector('#eOrig').onclick = async () => { if (await api('library:restoreOriginal', { id: s.id })) { toast('Using the original file again', 'ok'); closeTopModal(); if (after) after(); } };
   const v = body.querySelector('video');
   v.addEventListener('loadedmetadata', () => { if (s.clipStart) v.currentTime = s.clipStart; });
   body.querySelector('#eSetS').onclick = () => { body.querySelector('#eS').value = Math.round(v.currentTime * 2) / 2; };
@@ -161,6 +167,17 @@ async function editSong(s, after) {
   if (after) after();
 }
 window.editSong = editSong;
+
+/** Show a library video in File Explorer; if it's missing, explain and offer to relink it. */
+async function revealSong(id, after) {
+  const r = await api('library:showInFolder', { id });
+  if (r && r.ok) return;
+  if (r && r.reason === 'missing') {
+    const go = await confirmBox('Video not found', `${esc(r.message)}<br><span class="muted small">${esc(r.path || '')}</span><br><br>Find the video and relink it? Its game history and cards are kept.`, 'Relink…');
+    if (go) { const s = await api('library:relink', { id }); if (s) { toast('File relinked', 'ok'); if (after) after(); } }
+  } else toast((r && r.message) || 'Could not open the folder', 'err', 6000);
+}
+window.revealSong = revealSong;
 
 function audioCell(s) {
   const a = s.audio;

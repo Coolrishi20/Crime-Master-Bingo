@@ -84,7 +84,7 @@
       if (!$('pair').classList.contains('hidden')) { $('pairMsg').textContent = m.reason; $('pairBtn').disabled = false; }
       else { store(TOKEN_KEY, null); showPair(m.reason); }
     } else if (m.type === 'revoked') { store(TOKEN_KEY, null); showPair('This phone was removed by the laptop. Pair again with the PIN.'); }
-    else if (m.type === 'state') { state = m.state.game; if (state) tick.position = state.playback.position; render(); }
+    else if (m.type === 'state') { state = m.state.game; if (state) tick.position = state.playback.position; render(); if (askingNext && askRound && (!state || state.round.number !== askRound || state.round.status === 'ready' || state.intermission || state.status === 'finished') && !$('modal').classList.contains('hidden')) { $('modal').classList.add('hidden'); askingNext = false; askRound = null; } }
     else if (m.type === 'tick') { tick = m; if (state) { state.playback.position = m.position; state.playback.status = m.status; } renderProgress(); }
     else if (m.type === 'ack') {
       var p = pending[m.id]; if (!p) return;
@@ -94,6 +94,7 @@
       if (m.name === 'celebrate') { vibrate([80, 60, 80]); }
       if (m.name === 'error') toast(m.payload.message, 'err');
       if (m.name === 'playerBingo') playerBingo(m.payload);
+
     }
   }
 
@@ -174,31 +175,35 @@
   }
   function renderRounds() {
     var g = state; var box = $('roundBtns'); box.innerHTML = '';
-    [1, 2, 3].forEach(function (n) {
+    var RC = g.roundCount || 3; var NS = []; for (var q = 1; q <= RC; q++) NS.push(q);
+    NS.forEach(function (n) {
       var active = g.round.number === n && g.round.status === 'active';
       var done = g.round.number > n || (g.round.number === n && g.round.status === 'ended');
       var can = ((g.round.number === 0 && n === 1) || (g.round.number === n && g.round.status === 'ready') || (n === g.round.number + 1 && g.round.status === 'active')) && g.status !== 'finished';
       var el = document.createElement('button');
       el.className = 'round-btn' + (active ? ' active' : '') + (done ? ' done' : '');
       el.disabled = !can && !active;
-      var grid = document.createElement('div'); CMBPatterns.render(grid, CMBPatterns.examples(n)[0], 'pink');
+      var RR = (g.roundRules && g.roundRules[n]) || { label: CMBPatterns.LABELS[n], examples: CMBPatterns.examples(n) };
+      var grid = document.createElement('div'); CMBPatterns.render(grid, RR.examples[0], 'pink');
       el.appendChild(grid);
-      var t = document.createElement('div'); t.innerHTML = '<b>ROUND ' + n + '</b><div class="lab">' + CMBPatterns.LABELS[n] + '</div><div class="st">' + (active ? 'IN PLAY' : (g.round.number === n && g.round.status === 'ready') ? 'READY — tap to start' : done ? 'Complete' : can ? 'Tap to start' : '') + '</div>';
+      var t = document.createElement('div'); t.innerHTML = '<b>ROUND ' + n + '</b><div class="lab">' + esc(RR.label) + '</div><div class="st">' + (active ? 'IN PLAY' : (g.round.number === n && g.round.status === 'ready') ? 'READY — tap to start' : done ? 'Complete' : can ? 'Tap to start' : '') + '</div>';
       el.appendChild(t);
       el.onclick = function () {
         if (active || !can) return;
-        var body = g.round.status === 'active' ? 'Round ' + g.round.number + ' is still in play — normally use <b>Complete round</b>. Change to <b>' + CMBPatterns.LABELS[n] + '</b> now anyway? Played songs stay marked.' : 'Start <b>' + CMBPatterns.LABELS[n] + '</b>? The TV switches to the new winning pattern' + (n === 1 ? ' and the first song starts.' : '.');
+        var body = g.round.status === 'active' ? 'Round ' + g.round.number + ' is still in play — normally use <b>Complete round</b>. Change to <b>' + esc(RR.label) + '</b> now anyway? Played songs stay marked.' : 'Start <b>' + esc(RR.label) + '</b>? The TV switches to the new winning pattern' + (n === 1 ? ' and the first song starts.' : '.');
         confirmIt('Start Round ' + n + '?', body, 'Start Round ' + n).then(function (ok) { if (ok) safe(cmd('startRound', { round: n })).then(function (r) { if (r) { toast('Round ' + n + ' started', 'ok'); if (r.warning) toast(r.warning, 'err'); } }); });
       };
       box.appendChild(el);
     });
     $('endRound').disabled = !g.round.canComplete;
-    $('endRound').textContent = g.round.number === 3 ? 'Complete game…' : 'Complete round…';
+    $('endRound').textContent = g.round.number >= (g.roundCount || 3) ? 'Complete game…' : 'Complete round…';
     var R = g.round, rs = $('roundStatus');
-    if (R.status === 'ready') rs.innerHTML = '<div class="banner ok"><b>Round ' + R.number + ' ready — ' + esc(R.label) + '</b><div class="small">Music is paused until you start it.</div>' + (R.preQualified.length ? '<div class="small" style="margin-top:6px;color:var(--amber)">⚠ ' + R.preQualified.length + ' card(s) already have this pattern (' + R.preQualified.slice(0, 8).join(', ') + (R.preQualified.length > 8 ? '…' : '') + '). Nothing is awarded automatically.</div>' : '') + '<button class="btn primary wide" id="startReady">▶ Start Round ' + R.number + '</button></div>';
-    else if (R.canComplete && R.winners) rs.innerHTML = '<div class="banner ok"><b>🏆 Round ' + R.number + ' has ' + R.winners + ' winner' + (R.winners > 1 ? 's' : '') + '</b><div class="small">Check any other claims, then continue.</div><button class="btn primary wide" id="completeBig">' + (R.number === 3 ? 'Complete game' : 'Complete Round & Continue') + '</button></div>';
+    if (g.intermission) rs.innerHTML = '<div class="banner"><b>☕ Intermission</b>' + (g.intermission.until ? ' — back at ' + new Date(g.intermission.until).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '') + '<div class="small">The TV shows the break screen. Music is paused.</div><button class="btn wide" id="imEnd">End intermission</button><button class="btn primary wide" id="startReady">▶ Start Round ' + R.number + '</button></div>';
+    else if (R.status === 'ready') rs.innerHTML = '<div class="banner ok"><b>Round ' + R.number + ' ready — ' + esc(R.label) + '</b><div class="small">Music is paused until you start it.</div>' + (R.preQualified.length ? '<div class="small" style="margin-top:6px;color:var(--amber)">⚠ ' + R.preQualified.length + ' card(s) already have this pattern (' + R.preQualified.slice(0, 8).join(', ') + (R.preQualified.length > 8 ? '…' : '') + '). Nothing is awarded automatically.</div>' : '') + '<button class="btn primary wide" id="startReady">▶ Start Round ' + R.number + '</button></div>';
+    else if (R.canComplete && R.winners) rs.innerHTML = '<div class="banner ok"><b>🏆 Round ' + R.number + ' has ' + R.winners + ' winner' + (R.winners > 1 ? 's' : '') + '</b><div class="small">Check any other claims, then continue.</div><button class="btn primary wide" id="completeBig">' + (R.number >= (g.roundCount || 3) ? 'Complete game' : 'Complete Round & Continue') + '</button></div>';
     else rs.innerHTML = '';
     var sr = $('startReady'); if (sr) sr.onclick = function () { safe(cmd('startRound', { round: R.number })); };
+    var ie = $('imEnd'); if (ie) ie.onclick = function () { safe(cmd('endIntermission')); };
     var cb = $('completeBig'); if (cb) cb.onclick = completeRound;
     $('pauseGame').textContent = g.gamePaused ? 'Resume game' : 'Pause game';
     $('winners').innerHTML = g.winners.length ? g.winners.map(function (w) { return '<div class="winner"><span class="cn">' + w.cardLabel + '</span><div><b>Round ' + w.round + '</b><div class="muted small">' + esc(w.headline) + '</div></div></div>'; }).join('') : '<div class="muted small">No winners confirmed yet.</div>';
@@ -298,8 +303,8 @@
   $('markBtn').onclick = function () { if (!state || !state.current) return; confirmIt('Mark as played?', 'Add “' + esc(state.current.title) + '” to the played list now? It appears in the TV crawler and counts on cards.', 'Mark played').then(function (ok) { if (ok) safe(cmd('markPlayed', { songId: state.current.songId })); }); };
   var volT; $('vol').oninput = function (e) { $('volV').textContent = e.target.value; clearTimeout(volT); volT = setTimeout(function () { safe(cmd('setVolume', { volume: Number(e.target.value) })); }, 120); };
   function completeRound() {
-    var R = state.round; var final = R.number === 3;
-    confirmIt(final ? 'Complete the game?' : 'Complete Round ' + R.number + '?', (R.winners ? R.winners + ' confirmed winner(s).' : '<b style="color:var(--amber)">No winner confirmed yet.</b>') + (final ? ' The TV shows “That\'s a wrap!”.' : ' The TV shows the transition to <b>' + CMBPatterns.LABELS[R.number + 1] + '</b>. Music stays paused until you start the next round.'), final ? 'Complete game' : 'Complete & continue')
+    var R = state.round; var final = R.number >= (state.roundCount || 3);
+    confirmIt(final ? 'Complete the game?' : 'Complete Round ' + R.number + '?', (R.winners ? R.winners + ' confirmed winner(s).' : '<b style="color:var(--amber)">No winner confirmed yet.</b>') + (final ? ' The TV shows “That\'s a wrap!”.' : ' The TV shows the transition to <b>' + esc(state.roundRules ? state.roundRules[R.number + 1].label : CMBPatterns.LABELS[R.number + 1]) + '</b>. Music stays paused until you start the next round.'), final ? 'Complete game' : 'Complete & continue')
       .then(function (ok) { if (!ok) return; safe(cmd('completeRound', { fromRound: R.number })).then(function (r) { if (r && r.needsDecision) toast(r.message, 'err'); else if (r && r.ok && !r.already) toast(final ? "That's a wrap!" : 'Round ' + R.number + ' complete', 'ok'); }); });
   }
   $('endRound').onclick = completeRound;
@@ -329,6 +334,19 @@
       if (state) renderSession();
     });
   };
+  /* a round has a winner and the claim session is closed: intermission or next round? */
+  var askingNext = false, askRound = null;
+  function whatNext(p) {
+    if (askingNext) return; askingNext = true; askRound = p.round; vibrate([60, 40, 60]);
+    var opts = p.final ? [{ label: '🏁 Finish the game', value: 'finish', kind: 'primary' }, { label: 'Not yet', value: null }]
+      : [{ label: '▶ Start Round ' + p.nextRound + (p.nextLabel ? ' — ' + p.nextLabel : ''), value: 'next', kind: 'primary' }, { label: '☕ Intermission (' + (p.minutes || 10) + ' min)', value: 'break' }, { label: 'Not yet', value: null }];
+    ask('🏆 Round ' + p.round + ' won!', p.final ? 'That was the last round.' : 'What\'s next?', opts).then(function (v) {
+      askingNext = false; askRound = null;
+      if (v === 'finish') safe(cmd('completeRound', { fromRound: p.round }));
+      else if (v === 'next') safe(cmd('completeRound', { fromRound: p.round })).then(function () { return safe(cmd('startRound', { round: p.nextRound })); });
+      else if (v === 'break') safe(cmd('startIntermission', { minutes: p.minutes || 10 })).then(function (r) { if (r) toast('Intermission on the TV', 'ok'); });
+    });
+  }
   /* a player pressed BINGO on their own phone card (home play) */
   function playerBingo(p) {
     if (!p.valid) { toast('📱 ' + p.name + ' (card ' + p.cardLabel + ') pressed BINGO — not yet', ''); return; }
@@ -336,7 +354,7 @@
     toast('📱 ' + p.name + ' called BINGO — card ' + p.cardLabel + ' looks valid!', 'ok');
     ckOpen = true; ckPaused = true;
     $('checker').classList.remove('hidden'); $('ckEntry').classList.add('hidden'); $('ckResult').classList.remove('hidden');
-    if (state) renderSession();
+    if (state && state.session) renderSession();
     if (p.claimId) safe(cmd('viewClaim', { claimId: p.claimId })).then(function (x) { if (x) showResult(x); });
   }
   function closeChecker(resume, dismissPending) {
@@ -346,7 +364,7 @@
           .then(function (yes) { if (yes) closeChecker(resume, true); });
         return;
       }
-      if (r && r.ok !== false) { stopScan(); ckOpen = false; $('checker').classList.add('hidden'); toast(resume ? 'Session closed — music resumed' : 'Session closed', 'ok'); }
+      if (r && r.ok !== false) { stopScan(); ckOpen = false; $('checker').classList.add('hidden'); toast(resume ? 'Session closed — music resumed' : 'Session closed', 'ok'); if (r.next && r.next.ask) setTimeout(function () { whatNext(r.next); }, 300); else if (r.next && r.next.auto) toast('Round won — intermission on the TV', 'ok'); }
     });
   }
   $('ckClose').onclick = function () { stopScan(); ckOpen = false; $('checker').classList.add('hidden'); toast('Claims stay frozen — tap the button to continue'); };
@@ -365,7 +383,7 @@
     ckInput = ''; drawInput();
     var dup = r.alreadyWinner && r.status !== 'confirmed'; var cls = r.status === 'confirmed' ? 'valid' : dup ? 'dup' : (r.valid ? 'valid' : 'invalid');
     vibrate(r.valid && !dup ? [60, 40, 60] : 250);
-    var h = (r.duplicateEntry ? '<div class="banner">Card already entered in this session — same result shown.</div>' : '') + '<div class="verdict ' + cls + '">' + (r.owner ? '<div class="rs" style="margin:0 0 4px;color:#fff;font-weight:800">📱 ' + esc(r.owner) + ' · card ' + r.cardLabel + '</div>' : '') + '<div class="vt">' + (r.status === 'confirmed' ? 'WINNER CONFIRMED' : dup ? 'ALREADY WON' : r.valid ? 'VALID BINGO!' : 'NOT VALID') + '</div><div class="hl">' + esc(r.explanation || ('Card ' + r.cardLabel + ' — ' + r.headline)) + '</div>' + (r.completingSong ? '<div class="rs">🎵 Won on song #' + r.completingSong.n + ': <b style="color:#fff">' + esc(r.completingSong.title) + '</b> — ' + esc(r.completingSong.artist) + '</div>' : '') + (r.best ? '<div class="rs">Closest: <b style="color:#fff">' + esc(r.best.description) + '</b> — ' + r.best.missing + ' more needed (dashed squares)</div>' : '') + '<div class="rs">Round ' + r.round + ' · ' + esc(r.roundLabel) + (r.qualifiedAtSong ? ' · qualified at song #' + r.qualifiedAtSong : '') + (r.printed ? '' : ' · ⚠ card not marked printed') + '</div></div>';
+    var h = (r.duplicateEntry ? '<div class="banner">Card already entered in this session — same result shown.</div>' : '') + '<div class="verdict ' + cls + '">' + (r.owner ? '<div class="rs" style="margin:0 0 4px;color:#fff;font-weight:800">📱 ' + esc(r.owner) + ' · card ' + r.cardLabel + '</div>' : '') + '<div class="vt">' + (r.status === 'confirmed' ? 'WINNER CONFIRMED' : dup ? 'ALREADY WON' : r.valid ? 'VALID BINGO!' : 'NOT VALID') + '</div><div class="hl">' + esc(r.explanation || ('Card ' + r.cardLabel + ' — ' + r.headline)) + '</div>' + (r.completingSong ? '<div class="rs">🎵 Won on song #' + r.completingSong.n + ': <b style="color:#fff">' + esc(r.completingSong.title) + '</b> — ' + esc(r.completingSong.artist) + '</div>' : '') + (r.best ? '<div class="rs">Closest: <b style="color:#fff">' + esc(r.best.description) + '</b> — ' + r.best.missing + ' more needed (dashed squares)</div>' : '') + (r.otherRoundWins && r.otherRoundWins.length ? '<div class="rs" style="color:var(--green)">🏆 This card also won Round ' + r.otherRoundWins.join(' & ') + ' — a card can win more than one round</div>' : '') + '<div class="rs">Round ' + r.round + ' · ' + esc(r.roundLabel) + (r.qualifiedAtSong ? ' · qualified at song #' + r.qualifiedAtSong : '') + (r.printed ? '' : ' · ⚠ card not marked printed') + '</div></div>';
     h += '<div class="mini">' + r.grid.map(function (c) { return '<div class="' + (c.winning ? 'w' : c.played ? 'p' : '') + (c.needed ? ' nd' : '') + (c.inBest && !c.winning ? ' bs' : '') + (c.completing ? ' cm' : '') + '">' + (c.credit ? '<span style="color:var(--amber)">TC</span>' : '') + '<b>' + esc(c.title) + '</b><span>' + esc(c.artist) + '</span></div>'; }).join('') + '</div>';
     if (r.status === 'pending') h += '<button class="btn success big" style="width:100%" id="ckConfirm">✓ CONFIRM WINNER</button><button class="btn danger wide" id="ckDismiss">Reject claim</button>';
     else if (r.status === 'invalid') h += '<button class="btn danger wide" id="ckReject">Reject claim</button>';

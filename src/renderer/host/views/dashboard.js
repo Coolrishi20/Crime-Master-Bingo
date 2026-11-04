@@ -6,7 +6,7 @@ App.register('dashboard', {
     const unfinished = games.filter(g => g.status !== 'finished');
     const rec = info.recovery;
     const active = App.game;
-    el.innerHTML = `
+    el.innerHTML = `${info.recommendLowResource ? `<div class="banner" id="lrmRec" style="border-color:var(--amber);background:rgba(255,200,87,.12)"><div class="grow"><h3>💡 This laptop has ${info.totalRamGB} GB of memory</h3><div class="muted">Turn on <b style="color:#fff">Low Resource Mode</b> for smoother video on 4 GB laptops. Every game feature stays on — only decorative effects and background work are reduced.</div></div><button class="btn primary" id="lrmOn">Turn on</button><button class="btn ghost" id="lrmNo">Not now</button></div>` : ''}
       <div class="page-head"><div><div class="eyebrow">Crime Master Bingo</div><h1>Dashboard</h1><p>Music video bingo for live nights — run it from the laptop or your phone.</p></div>
         <div class="row"><button class="btn" id="dImport">Import videos</button><button class="btn primary" id="dNew">✚ New game</button></div></div>
       ${rec && !active ? `<div class="banner"><div class="grow"><h3>${rec.crashed ? 'RESUME LAST GAME' : 'Continue your last game'}</h3>
@@ -36,4 +36,13 @@ App.register('dashboard', {
     $$('[data-go]', el).forEach(r => r.onclick = () => App.show(r.dataset.go));
     $$('[data-open]', el).forEach(b => b.onclick = async () => { await api('games:open', { id: b.dataset.open }); App.show('host'); });
   }
+});
+
+document.addEventListener('click', async (e) => {
+  const on = e.target.closest && e.target.closest('#lrmOn'); const no = e.target.closest && e.target.closest('#lrmNo');
+  if (!on && !no) return;
+  App.settings = await api('settings:update', { performance: { lowResource: !!on } });
+  App.applyAppearance(); App.info = await api('app:info');
+  const b = document.getElementById('lrmRec'); if (b) b.remove();
+  if (on) toast('Low Resource Mode is on', 'ok');
 });

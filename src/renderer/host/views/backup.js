@@ -53,7 +53,7 @@ App.register('backup', {
         const r = await api('backup:create', { id: $('#bkGame', box).value, includeMedia: full, password });
         $('#bkProg', box).innerHTML = '';
         if (r) $('#bkRes', box).innerHTML = `<div class="check-row" style="margin-top:12px"><span class="ic ok">✓</span><div class="grow"><b>Backup complete — ${(r.size / 1048576).toFixed(1)} MB</b><div class="muted small">${esc(r.file)}${r.type === 'full' ? ` · ${r.mediaIncluded} videos included${r.mediaMissing ? `, ${r.mediaMissing} missing` : ''}` : ''}${r.encrypted ? ' · password protected' : ''}</div></div><button class="btn sm" id="bkShow">Show</button></div>`;
-        if (r && $('#bkShow', box)) $('#bkShow', box).onclick = () => api('shell:showItem', r.file);
+        if (r && $('#bkShow', box)) $('#bkShow', box).onclick = () => showInFolder(r.file);
       } catch (e) { $('#bkProg', box).innerHTML = ''; }
       $('#bkGo', box).disabled = false;
     };

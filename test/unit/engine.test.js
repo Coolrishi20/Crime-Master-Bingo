@@ -81,7 +81,7 @@ test('audience state never exposes cards, claims or upcoming songs', () => {
   const { eng, finish } = makeEngine();
   eng.dispatch('startRound', { round: 1 }); finish();
   const keys = Object.keys(eng.audienceState()).sort();
-  assert.deepStrictEqual(keys, ['crawler', 'gameName', 'history', 'logo', 'oneAway', 'overlay', 'patternPosition', 'playbackStatus', 'round', 'screen', 'song']);
+  assert.deepStrictEqual(keys, ['crawler', 'diagonalsCount', 'gameName', 'history', 'logo', 'oneAway', 'overlay', 'patternPosition', 'playbackStatus', 'round', 'rounds', 'screen', 'song']);
   const json = JSON.stringify(eng.audienceState());
   assert.ok(!/card/i.test(json.replace(/"crawler"/, '')));
 });

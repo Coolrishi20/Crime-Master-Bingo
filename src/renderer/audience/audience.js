@@ -232,12 +232,13 @@
     panel.classList.toggle('ended', r.status === 'ended');
     panel.classList.toggle('ready', r.status === 'ready');
     $('ptRound').textContent = (r.status === 'ready' ? 'NEXT · ' : '') + (r.number === 0 ? 'ROUND 1' : 'ROUND ' + r.number);
-    $('ptLabel').textContent = CMBPatterns.LABELS[n];
-    $('ptSub').textContent = r.number === 0 ? 'Get ready to play!' : (r.status === 'ended' ? 'Round complete' : r.status === 'ready' ? 'Starting soon!' : CMBPatterns.SHORT[n]);
-    if (patternRound !== n) {
-      patternRound = n; patternIdx = 0;
+    $('ptLabel').textContent = r.label || CMBPatterns.LABELS[n];
+    $('ptSub').textContent = r.number === 0 ? 'Get ready to play!' : (r.status === 'ended' ? 'Round complete' : r.status === 'ready' ? 'Starting soon!' : (r.short || CMBPatterns.SHORT[n]));
+    var pkey = n + '|' + (r.label || '');
+    if (patternRound !== pkey) {
+      patternRound = pkey; patternIdx = 0;
       clearInterval(patternTimer);
-      var ex = CMBPatterns.examples(n);
+      var ex = (r.examples && r.examples.length) ? r.examples : CMBPatterns.examples(n);
       CMBPatterns.render($('ptGrid'), ex[0], 'pink');
       if (ex.length > 1) patternTimer = setInterval(function () { patternIdx = (patternIdx + 1) % ex.length; CMBPatterns.render($('ptGrid'), ex[patternIdx], 'pink'); }, 2200);
     }
@@ -251,7 +252,7 @@
 
   /* ------------------------------------------------------------- state */
   /* ------------------------------------------------------------- welcome / end pages */
-  var wlTimer = null, logoUrl = null, endKey = null;
+  var wlTimer = null, logoUrl = null, endKey = null, imTimer = null;
   /* Gentle end-screen scroller: rest at the top, glide down, rest, fade back to the top, repeat. */
   var esRaf = null;
   function startEndScroll(list, vp) {
@@ -274,7 +275,7 @@
   function burst(cv, ms) {
     var ctx = cv.getContext('2d'); cv.width = cv.clientWidth; cv.height = cv.clientHeight;
     var colors = ['#ffffff', '#ff4fa2', '#c4b0ff', '#ffc857', '#35d68f']; var parts = []; var t0 = performance.now();
-    for (var i = 0; i < 220; i++) parts.push({ x: cv.width / 2 + (Math.random() - .5) * cv.width * .3, y: cv.height * .25, vx: (Math.random() - .5) * 18, vy: -Math.random() * 16 - 4, w: 6 + Math.random() * 9, h: 8 + Math.random() * 12, r: Math.random() * 6, vr: (Math.random() - .5) * .4, c: colors[i % colors.length] });
+    for (var i = 0, N = lowRes ? 60 : 220; i < N; i++) parts.push({ x: cv.width / 2 + (Math.random() - .5) * cv.width * .3, y: cv.height * .25, vx: (Math.random() - .5) * 18, vy: -Math.random() * 16 - 4, w: 6 + Math.random() * 9, h: 8 + Math.random() * 12, r: Math.random() * 6, vr: (Math.random() - .5) * .4, c: colors[i % colors.length] });
     (function f(now) {
       var el = now - t0; ctx.clearRect(0, 0, cv.width, cv.height);
       if (el > ms) return;
@@ -307,25 +308,47 @@
     }
     lastClose = n;
   }
+  /* the game's own winning rules (custom rules, v1.5) with the standard ones as fallback */
+  function roundInfoN(n) { return (state && state.rounds && state.rounds[n - 1]) || null; }
+  function roundLabel(n) { var r = roundInfoN(n); return r ? r.label : CMBPatterns.LABELS[n]; }
+  function roundExample(n) { var r = roundInfoN(n); return r && r.example ? r.example : CMBPatterns.examples(n)[0]; }
   function fmtStart(t) { var p = t.split(':'); var h = +p[0], m = p[1]; var ap = h >= 12 ? 'pm' : 'am'; var h12 = h % 12 || 12; return h12 + (m === '00' ? '' : ':' + m) + ap; }
   function renderPages() {
     var sc = (state && state.screen) || { mode: 'none' };
     $('welcome').classList.toggle('hidden', sc.mode !== 'welcome');
     $('endscreen').classList.toggle('hidden', sc.mode !== 'end');
+    $('intermission').classList.toggle('hidden', sc.mode !== 'intermission');
+    clearInterval(imTimer); imTimer = null;
+    if (sc.mode === 'intermission') {
+      $('imName').textContent = sc.name || '';
+      $('imMsg').textContent = sc.message || 'Grab a drink — back soon!';
+      $('imNextN').textContent = 'NEXT: ROUND ' + sc.next.n;
+      $('imNextL').textContent = sc.next.label;
+      CMBPatterns.render($('imGrid'), sc.next.example || roundExample(sc.next.n), 'pink');
+      var imTick = function () {
+        if (!sc.until) { $('imCount').textContent = ''; return; }
+        var left = Math.round((new Date(sc.until) - new Date()) / 1000);
+        $('imCount').textContent = left > 0 ? 'BACK IN ' + Math.floor(left / 60) + ':' + ('0' + (left % 60)).slice(-2) : 'STARTING SOON!';
+      };
+      imTick(); imTimer = setInterval(imTick, 1000);
+    }
     document.body.classList.toggle('page-on', sc.mode !== 'none');
     clearInterval(wlTimer); wlTimer = null;
     if (sc.mode === 'welcome') {
       $('wlName').textContent = sc.name || '';
       $('wlMeta').textContent = [sc.venue, sc.date].filter(Boolean).join('  \u00b7  ');
       var img = $('wlLogo'); if (logoUrl) { img.src = logoUrl; img.classList.add('has'); } else img.classList.remove('has');
-      if (!$('wlRounds').children.length) {
-        [1, 2, 3].forEach(function (n) {
+      var rkey = JSON.stringify((state.rounds || []).map(function (x) { return x.label; }));
+      if ($('wlRounds').getAttribute('data-k') !== rkey) {
+        $('wlRounds').setAttribute('data-k', rkey); $('wlRounds').innerHTML = '';
+        (state.rounds || [{ n: 1 }, { n: 2 }, { n: 3 }]).map(function (x) { return x.n; }).forEach(function (n) {
           var d = document.createElement('div'); d.className = 'wl-round';
-          var g = document.createElement('div'); CMBPatterns.render(g, CMBPatterns.examples(n)[0], 'pink'); d.appendChild(g);
-          var t = document.createElement('div'); t.innerHTML = '<b>ROUND ' + n + '</b><span>' + CMBPatterns.LABELS[n] + '</span>'; d.appendChild(t);
+          var g = document.createElement('div'); CMBPatterns.render(g, roundExample(n), 'pink'); d.appendChild(g);
+          var t = document.createElement('div'); t.innerHTML = '<b>ROUND ' + n + '</b><span></span>'; t.querySelector('span').textContent = roundLabel(n); d.appendChild(t);
           $('wlRounds').appendChild(d);
         });
       }
+      document.querySelector('.wl-nodiag').textContent = state.diagonalsCount ? 'Same card all night \u00b7 songs stay marked' : 'Same card all night \u00b7 songs stay marked \u00b7 diagonals don\'t count';
       $('wlMsg').textContent = sc.message || '';
       $('wlJoin').classList.toggle('hidden', !sc.join);
       drawLobby(sc.players || []);
@@ -357,8 +380,8 @@
           if (h.round && h.round !== lastRound) {
             lastRound = h.round;
             var hd = document.createElement('div'); hd.className = 'es-round';
-            var g = document.createElement('div'); CMBPatterns.render(g, CMBPatterns.examples(h.round)[0], 'pink'); hd.appendChild(g);
-            var lb = document.createElement('b'); lb.textContent = 'ROUND ' + h.round + ' \u00b7 ' + CMBPatterns.LABELS[h.round]; hd.appendChild(lb);
+            var g = document.createElement('div'); CMBPatterns.render(g, roundExample(h.round), 'pink'); hd.appendChild(g);
+            var lb = document.createElement('b'); lb.textContent = 'ROUND ' + h.round + ' \u00b7 ' + roundLabel(h.round); hd.appendChild(lb);
             list.appendChild(hd);
           }
           var d = document.createElement('div'); d.className = 'es-item' + (h.credit ? ' credit' : '');
@@ -385,8 +408,10 @@
     ticker.setItems(s.history || []);
   }
 
+  var lowRes = false;
   function applyAppSettings(a) {
     if (!a) return;
+    lowRes = !!a.lowResource; document.documentElement.classList.toggle('low-res', lowRes);
     logoUrl = a.logo ? a.logo + '?v=' + Date.now() : null;
     var img = $('idleLogo');
     if (a.logo) { img.src = a.logo + '?v=' + Date.now(); img.classList.add('has'); $('idle').classList.add('withlogo'); }
@@ -410,14 +435,15 @@
   function showTakeover(p) {
     var el = $('takeover');
     if (p.type === 'round') {
-      var m = ROUND_MSG[p.from] || ROUND_MSG[1];
+      var m = p.final ? ROUND_MSG[3] : (ROUND_MSG[p.from] || { title: 'ROUND ' + p.from + ' COMPLETE', msg: '' });
+      if (!p.final && p.from > 2) m = { title: 'ROUND ' + p.from + ' COMPLETE', msg: '' };
       el.className = 'round' + (p.final ? ' final' : '');
       $('toEyebrow').textContent = p.final ? 'GAME COMPLETE' : 'ROUND ' + p.from + ' \u00b7 ' + p.fromLabel + ' \u2713';
       $('toTitle').textContent = p.final ? "THAT'S A WRAP!" : m.title;
       $('toCard').className = 'to-card';
-      $('toSub').textContent = p.final ? 'FULL HOUSE!' : 'NEXT: ROUND ' + p.to + ' \u2014 ' + p.toLabel;
-      $('toMsg').textContent = m.msg;
-      CMBPatterns.render($('toGrid'), p.final ? CMBPatterns.examples(3)[0] : (p.pattern || CMBPatterns.examples(p.to)[0]), '');
+      $('toSub').textContent = p.final ? (p.finalLabel || roundLabel(p.from)) + '!' : 'NEXT: ROUND ' + p.to + ' \u2014 ' + p.toLabel;
+      $('toMsg').textContent = p.final ? m.msg : (p.fromLabel && p.toLabel ? p.fromLabel.charAt(0) + p.fromLabel.slice(1).toLowerCase() + ' conquered! Time for ' + p.toLabel + '!' : m.msg);
+      CMBPatterns.render($('toGrid'), p.final ? (p.finalPattern || roundExample(p.from)) : (p.pattern || roundExample(p.to)), '');
       startConfetti();
       clearTimeout(toTimer);
       toTimer = setTimeout(function () { el.classList.add('hidden'); stopConfetti(); }, (p.seconds || 9) * 1000);
@@ -432,13 +458,13 @@
       var nm = (p.names || []).map(function (n) { return String(n).toUpperCase(); });
       $('toSub').textContent = nm.length ? (nm.length === 1 ? nm[0] + ' WINS!' : nm.slice(0, -1).join(', ') + ' & ' + nm[nm.length - 1] + ' WIN!') : (p.winners > 1 ? p.winners + ' WINNERS!' : 'WE HAVE A WINNER!');
       $('toSub').classList.toggle('named', nm.length > 0);
-      $('toMsg').textContent = p.round < 3 ? 'Keep your cards — songs stay marked for the next round.' : 'Full house! Congratulations!';
-      CMBPatterns.render($('toGrid'), p.pattern || CMBPatterns.examples(p.round)[0], '');
+      $('toMsg').textContent = !p.last ? 'Keep your cards — songs stay marked for the next round.' : 'Congratulations!';
+      CMBPatterns.render($('toGrid'), p.pattern || roundExample(p.round), '');
       startConfetti();
     } else {
       $('toSub').textContent = 'KEEP PLAYING!';
       $('toMsg').textContent = "Sorry — that card doesn't have a winning pattern yet. Check the played songs below and keep listening!";
-      CMBPatterns.render($('toGrid'), CMBPatterns.examples(p.round)[0], 'pink');
+      CMBPatterns.render($('toGrid'), roundExample(p.round), 'pink');
       stopConfetti();
     }
     clearTimeout(toTimer);
@@ -448,7 +474,7 @@
     var cv = $('confetti'); var ctx = cv.getContext('2d');
     cv.width = cv.clientWidth; cv.height = cv.clientHeight;
     var colors = ['#ffffff', '#ff4fa2', '#c4b0ff', '#ffc857', '#35d68f'];
-    var parts = []; for (var i = 0; i < 180; i++) parts.push({ x: Math.random() * cv.width, y: -Math.random() * cv.height, w: 6 + Math.random() * 10, h: 8 + Math.random() * 14, vy: 2 + Math.random() * 4, vx: -1.5 + Math.random() * 3, r: Math.random() * 6, vr: -0.2 + Math.random() * 0.4, c: colors[i % colors.length] });
+    var parts = []; for (var i = 0, N = lowRes ? 50 : 180; i < N; i++) parts.push({ x: Math.random() * cv.width, y: -Math.random() * cv.height, w: 6 + Math.random() * 10, h: 8 + Math.random() * 14, vy: 2 + Math.random() * 4, vx: -1.5 + Math.random() * 3, r: Math.random() * 6, vr: -0.2 + Math.random() * 0.4, c: colors[i % colors.length] });
     stopConfetti();
     (function tick() {
       ctx.clearRect(0, 0, cv.width, cv.height);

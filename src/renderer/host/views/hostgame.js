@@ -1,3 +1,5 @@
+/* winning rules for round n of the loaded game (custom rules, v1.5) */
+const RR = (n) => (App.game && App.game.roundRules && App.game.roundRules[n]) || { label: CMBPatterns.LABELS[n], short: CMBPatterns.SHORT[n], examples: CMBPatterns.examples(n), locked: false };
 App.register('host', {
   tab: 'played',
   async render(el) {
@@ -45,7 +47,7 @@ App.register('host', {
             <div class="statusline" id="hgStatus"></div>
           </div>
           <div class="panel" style="margin-bottom:16px">
-            <h2>Rounds <span class="row" style="gap:8px"><button class="btn sm" id="rComplete">Complete round…</button><button class="btn sm" id="rPause">Pause game</button><button class="btn sm danger" id="rEndGame">End game</button></span></h2>
+            <h2>Rounds <span class="row" style="gap:8px"><button class="btn sm" id="rRules" title="Winning rules for each round">🎯 Rules…</button><button class="btn sm" id="rComplete">Complete round…</button><button class="btn sm" id="rPause">Pause game</button><button class="btn sm danger" id="rEndGame">End game</button></span></h2>
             <div id="rStatus"></div>
             <div class="round-btns" id="rBtns"></div>
             <div class="muted small" id="rRule" style="margin-top:10px"></div>
@@ -91,6 +93,7 @@ App.register('host', {
     $('#hgProg', el).onclick = (e) => { const p = g().playback; const dur = (g().current && g().current.duration) || 0; if (!dur) return; const r = e.currentTarget.getBoundingClientRect(); App.cmd('seek', { position: dur * (e.clientX - r.left) / r.width }); };
     $('#hgAud', el).onclick = () => { if (g().audienceConnected) api('audience:fullscreen'); else api('audience:open'); };
     $('#rComplete', el).onclick = () => App.completeRound();
+    $('#rRules', el).onclick = () => this.editRules();
     $('#rPause', el).onclick = () => App.cmd(g().gamePaused ? 'resumeGame' : 'pauseGame');
     $('#rEndGame', el).onclick = async () => { if (await confirmBox('End the game?', 'Playback stops and the game is saved as finished. All cards, songs played and winners are kept in Game History.', 'End game', true)) App.cmd('endGame'); };
     $$('#hgTabs button', el).forEach(b => b.onclick = () => { this.tab = b.dataset.t; this.drawTab(); });
@@ -129,7 +132,9 @@ App.register('host', {
     $('#hgLevel', el).textContent = g.settings.audio.levelling ? `Levelling to ${g.settings.audio.targetLufs} LUFS · max boost +${g.settings.audio.maxBoostDb} dB · fade in ${g.settings.audio.fadeIn}s / out ${g.settings.audio.fadeOut}s${g.settings.audio.muted ? ' · MUTED' : ''}` : (g.settings.audio.muted ? 'MUTED' : 'Levelling off — songs play at their original loudness');
     $('#hgLock', el).textContent = g.cardsLocked ? '🔒 CARDS LOCKED' : 'DRAFT CARDS'; $('#hgLock', el).className = 'badge ' + (g.cardsLocked ? 'ok' : 'warn');
     const ss = g.session;
-    $('#hgSession', el).innerHTML = ss ? `<div class="banner" style="border-color:var(--amber);background:rgba(255,200,87,.12)"><div class="grow"><h3>❄ Claims frozen</h3><div class="muted">Session ${esc(ss.id)} · ${ss.claims.length} card(s) · ${ss.claims.filter(c => c.status === 'pending').length} awaiting a decision · ${ss.snapshotCount} eligible songs frozen</div></div><button class="btn primary lg" id="hgOpenSess">Open claim session</button></div>` : '';
+    const im = g.intermission;
+    $('#hgSession', el).innerHTML = (im ? `<div class="banner" style="border-color:var(--lilac);background:rgba(196,176,255,.1)"><div class="grow"><h3>☕ Intermission</h3><div class="muted">${im.until ? 'Back at ' + new Date(im.until).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' · ' : ''}The TV shows the break screen${im.message ? ': “' + esc(im.message) + '”' : ''}. Music is paused.</div></div><button class="btn" id="hgImEnd">End intermission</button><button class="btn primary lg" id="hgImGo">▶ Start Round ${g.round.number}</button></div>` : '') + (ss ? `<div class="banner" style="border-color:var(--amber);background:rgba(255,200,87,.12)"><div class="grow"><h3>❄ Claims frozen</h3><div class="muted">Session ${esc(ss.id)} · ${ss.claims.length} card(s) · ${ss.claims.filter(c => c.status === 'pending').length} awaiting a decision · ${ss.snapshotCount} eligible songs frozen</div></div><button class="btn primary lg" id="hgOpenSess">Open claim session</button></div>` : '');
+    if ($('#hgImEnd', el)) { $('#hgImEnd', el).onclick = () => App.cmd('endIntermission'); $('#hgImGo', el).onclick = () => App.cmd('startRound', { round: g.round.number }); }
     if ($('#hgOpenSess', el)) $('#hgOpenSess', el).onclick = () => App.openChecker();
     const un = g.unavailable || [];
     $('#hgUnavail', el).innerHTML = un.length ? `<div class="banner" style="border-color:var(--red);background:var(--red-soft)"><div class="grow"><h3>⚠ ${un.length} video${un.length > 1 ? 's' : ''} unavailable</h3>${un.slice(0, 4).map(u => `<div class="row small" style="margin-top:6px"><b>${esc(u.title)}</b><span class="muted">— ${esc(u.artist)} · ${esc(u.reason)}</span><span class="grow"></span><button class="btn sm" data-relink="${u.songId}">Relink</button><button class="btn sm danger" data-credit="${u.songId}">Technical credit…</button></div>`).join('')}${un.length > 4 ? `<div class="muted small">…and ${un.length - 4} more</div>` : ''}</div></div>` : '';
@@ -171,21 +176,42 @@ App.register('host', {
     } else { $('#hgFill', el).style.width = '0'; $('#hgClipLbl', el).textContent = ''; }
   },
 
+  /** This game's winning rules; rounds already in play are locked. */
+  async editRules() {
+    const body = document.createElement('div');
+    const draw = () => {
+      const rr = App.game.roundRules; const R0 = App.game.round;
+      const minRounds = R0.number && R0.status !== 'ready' ? R0.number : Math.max(1, R0.number);
+      body.innerHTML = `${roundCountHtml(App.game.roundCount || 3, minRounds)}<p class="muted small" style="margin-top:8px">Rules for <b style="color:#fff">this game</b>. A round's rules can be changed until it starts. Cards don't change — only the winning pattern does. <b style="color:var(--amber)">If cards are already printed, tell players about any change</b> (the printed legend shows the rules from when they were printed).</p>${roundsSummaryHtml(rr)}
+        <div class="row" style="margin-top:10px;flex-wrap:wrap">${Object.keys(rr).map(Number).map(n => `<button class="btn sm" data-chg="${n}" ${rr[n].locked ? 'disabled title="Round already started"' : ''}>Change Round ${n}…</button>`).join('')}</div>`;
+      $$('[data-rc]', body).forEach(b => b.onclick = async () => { const x = await App.cmd('setRoundCount', { count: (App.game.roundCount || 3) + Number(b.dataset.rc) }); if (x && x.ok) setTimeout(draw, 150); });
+      $$('[data-chg]', body).forEach(b => b.onclick = async () => {
+        const n = Number(b.dataset.chg);
+        const r = await ruleEditor(App.game.roundRules[n].rules, { title: `Round ${n} — winning rules`, round: n });
+        if (!r) return;
+        const x = await App.cmd('setRoundRules', { round: n, rules: r });
+        if (x && x.ok) { toast(`Round ${n}: ${x.info.label}`, 'ok'); setTimeout(draw, 150); }
+      });
+    };
+    draw();
+    await modal({ title: '🎯 Winning rules — ' + esc(App.game.name), size: 'mid', body, buttons: [{ label: 'Done', kind: 'primary', value: true }] });
+  },
+
   drawRounds() {
     const g = App.game; const box = $('#rBtns', this.el); const R = g.round;
-    box.innerHTML = [1, 2, 3].map(n => {
+    box.innerHTML = Array.from({ length: g.roundCount || 3 }, (_, i) => i + 1).map(n => {
       const active = R.number === n && R.status === 'active';
       const ready = R.number === n && R.status === 'ready';
       const done = R.number > n || (R.number === n && R.status === 'ended');
       const isNext = (R.number === 0 && n === 1) || ready || (n === R.number + 1 && R.status === 'active');
-      return `<button class="round-btn ${active ? 'active' : ''} ${ready ? 'ready' : ''} ${done ? 'done' : ''}" data-r="${n}" ${isNext && g.status !== 'finished' ? '' : 'disabled'}>${patternGridHtml(CMBPatterns.examples(n)[0])}<div><b>ROUND ${n}</b><span>${CMBPatterns.LABELS[n]}</span><div class="tiny muted">${active ? 'IN PLAY' : ready ? 'READY — click to start' : done ? 'Complete' : (isNext ? 'Next' : '')}</div></div></button>`;
+      return `<button class="round-btn ${active ? 'active' : ''} ${ready ? 'ready' : ''} ${done ? 'done' : ''}" data-r="${n}" ${isNext && g.status !== 'finished' ? '' : 'disabled'}>${patternGridHtml(RR(n).examples[0])}<div><b>ROUND ${n}</b><span>${esc(RR(n).label)}</span><div class="tiny muted">${active ? 'IN PLAY' : ready ? 'READY — click to start' : done ? 'Complete' : (isNext ? 'Next' : '')}</div></div></button>`;
     }).join('');
     $$('[data-r]', box).forEach(b => b.onclick = async () => {
       const n = Number(b.dataset.r);
       if (R.status === 'active' && n === R.number + 1) {
         // manual change without the transition flow
-        if (!await confirmBox(`Skip to Round ${n}?`, `Round ${R.number} is still in play. Use <b>Complete Round & Continue</b> to finish it properly. Change to Round ${n} — <b>${CMBPatterns.LABELS[n]}</b> now anyway? Songs stay marked.`, `Change to Round ${n}`, true)) return;
-      } else if (!await confirmBox(`Start Round ${n}?`, `Start Round ${n} — <b>${CMBPatterns.LABELS[n]}</b>? The TV shows the new winning pattern and the music ${n === 1 ? 'starts' : 'resumes'}.`, `Start Round ${n}`)) return;
+        if (!await confirmBox(`Skip to Round ${n}?`, `Round ${R.number} is still in play. Use <b>Complete Round & Continue</b> to finish it properly. Change to Round ${n} — <b>${esc(RR(n).label)}</b> now anyway? Songs stay marked.`, `Change to Round ${n}`, true)) return;
+      } else if (!await confirmBox(`Start Round ${n}?`, `Start Round ${n} — <b>${esc(RR(n).label)}</b>? The TV shows the new winning pattern and the music ${n === 1 ? 'starts' : 'resumes'}.`, `Start Round ${n}`)) return;
       if (n === 1 && !g.audienceConnected) await api('audience:open');
       const r = await App.cmd('startRound', { round: n }); if (r && r.warning) toast(r.warning, 'err');
     });
@@ -197,7 +223,7 @@ App.register('host', {
       st.innerHTML = `<div class="banner" style="margin:4px 0 12px;border-color:var(--green);background:var(--green-soft)"><div class="grow"><h3>🏆 Round ${R.number} has ${R.winners} confirmed winner${R.winners > 1 ? 's' : ''}</h3><div class="muted small">Check any other claims first. When you're ready, complete the round — the TV shows the round transition and the next pattern.</div></div><button class="btn primary lg" id="rCompleteBig">${R.number === 3 ? 'Complete Game' : 'Complete Round & Continue'}</button></div>`;
       $('#rCompleteBig', st).onclick = () => App.completeRound();
     } else st.innerHTML = '';
-    $('#rRule', this.el).textContent = R.rule || 'Round 1: any full row or column. Round 2: two rows or two columns. Round 3: full house. Diagonals never count.';
+    $('#rRule', this.el).textContent = R.rule || Array.from({ length: App.game.roundCount || 3 }, (_, i) => i + 1).map(n => `Round ${n}: ${RR(n).short || RR(n).label}.`).join(' ') + (Array.from({ length: App.game.roundCount || 3 }, (_, i) => i + 1).some(n => RR(n).diagonalsCount) ? '' : ' Diagonals never count.');
   },
 
   drawUpNext() {
@@ -234,6 +260,10 @@ App.register('host', {
   drawTab() {
     const g = App.game; const box = $('#hgTab', this.el); if (!box) return;
     if (this.tab === 'crawler' && box.contains(document.activeElement) && this._drawnTab === 'crawler') return; // don't rebuild under the host's finger
+    // Only rebuild the list when its own data changed (a volume tap must not re-render 100 rows)
+    const key = this.tab + '|' + (this.tab === 'played' ? JSON.stringify(g.history) : this.tab === 'order' ? JSON.stringify(g.order) + g.playback.index : this.tab === 'crawler' ? JSON.stringify([g.settings.crawler, g.settings.overlay]) : JSON.stringify(g.log || []).length);
+    if (key === this._tabKey && this._drawnTab === this.tab && box.firstChild) return;
+    this._tabKey = key;
     this._drawnTab = this.tab;
     $$('#hgTabs button', this.el).forEach(b => b.classList.toggle('on', b.dataset.t === this.tab));
     const sc = box.querySelector('.hist-list'); const keep = sc ? sc.scrollTop : 0;

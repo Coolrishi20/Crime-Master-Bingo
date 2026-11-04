@@ -17,14 +17,15 @@
       this.applyAppearance();
       document.querySelectorAll('#nav a').forEach(a => a.addEventListener('click', () => this.show(a.dataset.view)));
       const st = await api('game:state'); this.game = st.game;
-      window.cmb.on('state', (s) => { this.game = s.game; this.updateSide(); this.emit('state'); });
+      window.cmb.on('state', (s) => { this.game = s.game; this.updateSide(); this.emit('state'); if (this._askingNext && this._askRound && (!this.game || this.game.round.number !== this._askRound || this.game.round.status === 'ready' || this.game.intermission || this.game.status === 'finished') && this._askClose) this._askClose(); });
       window.cmb.on('tick', (t) => { if (this.game) { this.game.playback.position = t.position; } this.emit('tick', t); });
       window.cmb.on('remote', (r) => { this.remote = r; this.updateSide(); this.emit('remote'); });
       window.cmb.on('audience', (a) => { this.audience.open = a.open; this.updateSide(); this.emit('audience'); });
       window.cmb.on('update', (u) => { this.update = u; this.drawUpdatePill(); if (this.drawUpdateSettings && this.view === 'settings') this.drawUpdateSettings(u); });
       this.update = await api('update:status'); this.drawUpdatePill();
       window.cmb.on('library-convert', (c) => { this.convert = c; this.emit('convert', c); });
-      window.cmb.on('library-audio', (a) => { if (App.view === 'library' && views.library) { views.library.audio = a; views.library.drawAudio(); views.library.on_library(); } });
+      // loudness progress: redraw the library at most every 1.5 s (not once per analysed song)
+      let audT = null; window.cmb.on('library-audio', (a) => { if (App.view === 'library' && views.library) { views.library.audio = a; views.library.drawAudio(); clearTimeout(audT); audT = setTimeout(() => { if (App.view === 'library') views.library.on_library(); }, 1500); } });
       window.cmb.on('backup-progress', (p) => this.emit('backup', p));
       window.cmb.on('cards-images', (p) => this.emit('cardsImages', p));
       window.cmb.on('players', (p) => { this.players = p; this.emit('players', p); });
@@ -44,7 +45,29 @@
       this.updateSide();
       this.bindKeys();
       this.show(this.game ? 'host' : 'dashboard');
-      this.startProbeQueue();
+      // media probing now happens in a separate, recycled window (main process drives it)
+      let libT = null; window.cmb.on('library-probed', () => { clearTimeout(libT); libT = setTimeout(() => this.emit('library'), 400); });
+    },
+
+    /** After a round has a winner (claim session closed): intermission or next round? */
+    async whatNext(p) {
+      if (this._askingNext) return; this._askingNext = true; this._askRound = p.round;
+      try {
+        const body = document.createElement('div');
+        body.innerHTML = p.final
+          ? `<p>Round ${p.round} has ${p.winners} winner${p.winners > 1 ? 's' : ''}. That was the <b style="color:#fff">last round</b>.</p>`
+          : `<p>Round ${p.round} has ${p.winners} winner${p.winners > 1 ? 's' : ''}. What's next?</p>
+             <div class="row" style="gap:10px;align-items:center"><span class="muted small">Intermission length</span><select id="wnMin">${[5, 10, 15, 20, 30, 0].map(m => `<option value="${m}" ${m === (p.minutes || 10) ? 'selected' : ''}>${m ? m + ' minutes' : 'no countdown'}</option>`).join('')}</select></div>
+             <label class="field" style="margin-top:10px">Message on the TV (optional)<input type="text" id="wnMsg" maxlength="140" placeholder="e.g. Grab a drink — Round ${p.nextRound} starts soon!"></label>`;
+        const buttons = p.final
+          ? [{ label: 'Not yet', value: null }, { label: '🏁 Finish the game', kind: 'primary', value: 'finish' }]
+          : [{ label: 'Not yet — keep checking', value: null }, { label: '☕ Intermission', value: (b) => ({ go: 'break', minutes: Number(b.querySelector('#wnMin').value), message: b.querySelector('#wnMsg').value.trim() }) }, { label: `▶ Start Round ${p.nextRound}${p.nextLabel ? ' — ' + p.nextLabel : ''}`, kind: 'primary', value: 'next' }];
+        const r = await modal({ title: `🏆 Round ${p.round} won!`, body, buttons, dismissValue: null, onMount: (b, close) => { this._askClose = () => close(null); } });
+        if (!r) return;
+        if (r === 'finish') { await this.cmd('completeRound', { fromRound: p.round }); return; }
+        if (r === 'next') { const x = await this.cmd('completeRound', { fromRound: p.round }); if (x && x.ok !== false) await this.cmd('startRound', { round: p.nextRound }); return; }
+        if (r.go === 'break') { const x = await this.cmd('startIntermission', { minutes: r.minutes, message: r.message }); if (x && x.ok) toast('Intermission — the TV shows the break screen', 'ok'); }
+      } finally { this._askingNext = false; this._askClose = null; this._askRound = null; }
     },
 
     listeners: {},
@@ -65,6 +88,7 @@
 
     applyAppearance() {
       const a = this.settings.appearance;
+      document.documentElement.classList.toggle('low-res', !!(this.settings.performance && this.settings.performance.lowResource));
       document.documentElement.style.setProperty('--ui-scale', a.scale || 1);
       const img = document.getElementById('sideLogo');
       if (a.logo) { img.src = fileUrl(a.logo) + '?v=' + Date.now(); img.classList.add('has'); } else { img.removeAttribute('src'); img.classList.remove('has'); }
@@ -153,9 +177,9 @@
     /** Complete the current round (transition) — pending claims must be resolved first. */
     async completeRound() {
       const g = this.game; if (!g) return; const R = g.round;
-      const final = R.number === 3;
+      const final = R.number >= (App.game.roundCount || 3);
       const msg = (R.winners ? `Round ${R.number} has ${R.winners} confirmed winner${R.winners > 1 ? 's' : ''}.` : `<b style="color:var(--amber)">No winner has been confirmed in Round ${R.number}.</b>`) +
-        (final ? ' This ends the game with the “That\'s a wrap!” screen.' : ` The TV shows the round transition and the <b>${esc(CMBPatterns.LABELS[R.number + 1])}</b> pattern. Music stays paused until you start Round ${R.number + 1}. All marks are kept.`);
+        (final ? ' This ends the game with the “That\'s a wrap!” screen.' : ` The TV shows the round transition and the <b>${esc(App.game.roundRules ? App.game.roundRules[R.number + 1].label : CMBPatterns.LABELS[R.number + 1])}</b> pattern. Music stays paused until you start Round ${R.number + 1}. All marks are kept.`);
       if (!await confirmBox(final ? 'Complete the game?' : `Complete Round ${R.number}?`, msg, final ? 'Complete Game' : 'Complete Round & Continue')) return;
       const r = await this.cmd('completeRound', { fromRound: R.number });
       if (r && r.needsDecision) { toast(r.message, 'err', 6000); this.openChecker(); return; }
@@ -295,5 +319,7 @@
   function toggleHtml(id, label, checked) { return `<label class="toggle"><input type="checkbox" id="${id}" ${checked ? 'checked' : ''}><span class="sw"></span>${esc(label)}</label>`; }
   function patternGridHtml(cells, cls = 'pink') { return `<div class="pgrid ${cls}">${cells.map(c => `<i class="${c ? 'on' : ''}"></i>`).join('')}</div>`; }
 
-  Object.assign(window, { closeTopModal, App, $, $$, esc, api, apiQuiet, fileUrl, fmtTime, pad3, toast, modal, confirmBox, promptBox, toggleHtml, cleanErr, patternGridHtml, probeVideo });
+  /** Show a saved file in File Explorer (clear message if it was moved or its drive is gone). */
+  async function showInFolder(p) { const r = await api('shell:showItem', p); if (r && r.ok === false) toast(r.message || 'Could not open the folder', 'err', 6000); return r; }
+  Object.assign(window, { showInFolder, closeTopModal, App, $, $$, esc, api, apiQuiet, fileUrl, fmtTime, pad3, toast, modal, confirmBox, promptBox, toggleHtml, cleanErr, patternGridHtml, probeVideo });
 })();

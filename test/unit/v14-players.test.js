@@ -145,8 +145,11 @@ test('TV "one song away" count: issued cards only, current round, winners exclud
   const unissued = game.cards.filter(c => !c.printed).length;
   assert.ok(unissued > 0);
   const n = eng.audienceState().oneAway;
-  assert.ok(n >= 2, 'both phone cards counted');
-  assert.strictEqual(n, game.cards.filter(c => c.printed).length >= n ? n : -1);
+  // independent count: issued cards needing exactly one more played song for Round 1
+  const R = require('../../src/core/rules'); const set = new Set(game.played.map(p => p.songId));
+  const expect = game.cards.filter(c => c.printed && R.bestProgress(c.cells, set, 1).missing === 1).length;
+  assert.strictEqual(n, expect);
+  assert.ok(n >= 1, 'at least one phone card is one away');
   assert.ok(!/"no"|cells|cardNo/.test(JSON.stringify(eng.audienceState())), 'count only, no card details');
   eng.dispatch('setTvScreens', { closeCount: false });
   assert.strictEqual(eng.audienceState().oneAway, null);

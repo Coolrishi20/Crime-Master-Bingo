@@ -40,3 +40,10 @@ button, input, select, textarea { font-family: inherit; }
 .pgrid i.on { background: var(--lilac); box-shadow: 0 0 8px rgba(196, 176, 255, .45); }
 .pgrid.pink i.on { background: var(--pink); box-shadow: 0 0 8px rgba(255, 79, 162, .5); }
 .pgrid i.bad { background: var(--red); }
+
+/* ---------- Low Resource Mode (Settings → Performance): same information, cheaper drawing.
+   No decorative animation, blur, glow or masks; nothing is hidden that players or the host need. */
+html.low-res *, html.low-res *::before, html.low-res *::after { animation: none !important; transition: none !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; text-shadow: none !important; box-shadow: none !important; }
+html.low-res .es-glow { display: none !important; }
+html.low-res #crawlViewport, html.low-res .es-viewport { -webkit-mask-image: none !important; mask-image: none !important; }
+html.low-res .es-thanks { filter: none !important; -webkit-text-fill-color: #fff !important; background: none !important; }

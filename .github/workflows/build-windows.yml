@@ -53,6 +53,9 @@ jobs:
         run: |
           v="v$(node -p "require('./package.json').version")"
           echo "tag=$v" >> "$GITHUB_OUTPUT"
+          # versions like 1.5.0-rc.1 are release candidates: published as a GitHub pre-release,
+          # which installed copies do NOT auto-update to (testers download it manually)
+          case "$v" in *-*) echo "pre=true" >> "$GITHUB_OUTPUT";; *) echo "pre=false" >> "$GITHUB_OUTPUT";; esac
           if gh release view "$v" --repo "${{ github.repository }}" >/dev/null 2>&1; then echo "exists=true" >> "$GITHUB_OUTPUT"; else echo "exists=false" >> "$GITHUB_OUTPUT"; fi
 
       - name: Publish a new release (push to main, new version only)
@@ -63,7 +66,8 @@ jobs:
           target_commitish: ${{ github.sha }}
           name: Crime Master Bingo ${{ steps.ver.outputs.tag }}
           body_path: docs/RELEASE_NOTES.md
-          make_latest: true
+          prerelease: ${{ steps.ver.outputs.pre == 'true' }}
+          make_latest: ${{ steps.ver.outputs.pre == 'true' && 'false' || 'true' }}
           # latest.yml + blockmaps let installed copies update themselves
           files: |
             dist/*.exe

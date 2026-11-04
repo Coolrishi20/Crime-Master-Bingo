@@ -149,13 +149,56 @@ and the laptop always keeps working on its own if the phone disconnects.
 | 2 — TWO PARALLEL LINES | two rows, **or** two columns (a row + a column does not count) |
 | 3 — FULL HOUSE | all 25 songs |
 
-Diagonals never count. Players keep the same card for all three rounds and songs stay
-marked.
+These are the **standard rules**. With them, diagonals never count. You can choose other
+winning patterns (see **Winning rules** below). Players keep the same card for all three
+rounds and songs stay marked.
+
+**Number of rounds and winning rules.** You decide **how many rounds** a game has (1–10;
+the last round ends the game) and **which patterns win each round**. Each round can use one
+or more of these patterns. If you tick several for a round, **any one of them** wins:
+
+| Pattern | To win |
+|---|---|
+| One Line | any full row or column |
+| Two Parallel Lines | two rows, or two columns |
+| Full House | all 25 songs |
+| **L Shape** | an outer row + an outer column that meet at a corner (9 squares, any of the 4 corners) |
+| **T Shape** | an outer row or column + the centre line running from it to the opposite edge (9 squares, 4 directions) |
+| **Diagonal** | either 5-square diagonal (diagonals only count when this is ticked) |
+| **Fast 5** | *any* 5 songs on the card, or a set pattern of 5 squares you choose |
+| **Custom** | your own 5×5 pattern (e.g. Four Corners, Plus Sign) |
+
+- **Defaults for new games:** Settings → 🎯 Bingo Rules. Use **− / ＋** to set the number of
+  rounds, then **Change Round N…** to tick its patterns. You can also save presets (rounds
+  and patterns together), design custom patterns and restore the standard 3 rounds there.
+- **This game:** Host Game → Rounds → **🎯 Rules…**. Add or remove rounds and change a
+  round's patterns until that round starts (rounds already under way can't be removed).
+- The TV, the phone remote, players' phone cards and the printed legend all show the
+  chosen patterns. Cards printed earlier show the rules from when they were printed, so
+  tell players about any change.
+- **The same card can win more than one round** (once per round). The check shows if a card
+  already won an earlier round.
+- Every BINGO check (laptop or phone) uses the same rules and the same frozen list of
+  songs (Claim Freeze). For simultaneous claims, the result shows **which song** each card
+  qualified on, so you can see who got there first.
 
 Start Round 1 from the laptop (**Rounds** panel) or the phone (**Rounds** tab). Rounds
 always go in order: 1 → 2 → 3.
 
-**Moving to the next round.** As soon as you confirm a winner, a green banner appears on
+**After a winner: intermission or next round.** When you close the claim session for a round
+that now has a winner, the laptop and your phone ask **what's next**:
+- **☕ Intermission:** choose the length (5–30 min or no countdown) and an optional message.
+  The round is completed, the music pauses, and the TV shows **INTERMISSION** with a countdown,
+  your message and the next round's pattern. The crawler keeps running, and players' phones
+  show the break. Press **▶ Start Round N** (laptop banner or phone) when everyone is back.
+- **▶ Start the next round** straight away.
+- **Not yet:** keep checking claims; you can still use *Complete round* later.
+- In the **last round** it offers **🏁 Finish the game**.
+
+To skip the question and always take a break, choose Settings → Gameplay → *After a round is
+won: Go to intermission automatically* and set the default length.
+
+**Moving to the next round (manually).** As soon as you confirm a winner, a green banner appears on
 the laptop and phone: *"Round 1 has 1 confirmed winner"*.
 1. Check any other claims first.
 2. Press **Complete Round & Continue**. It refuses while a valid claim is still
@@ -386,6 +429,27 @@ security warning, and they can't control the game: only you, the host, can.
 
 ---
 
+## 9b. Low-end laptops — Low Resource Mode
+
+Crime Master Bingo is designed to run a full night on a **4 GB Windows laptop with
+integrated graphics**. With 4 GB or less, the Dashboard suggests turning on **Low Resource
+Mode** (Settings → ⚡ Performance). It keeps **every game feature**: TV video, title overlay,
+winning patterns, crawler, phone remote, BINGO checks and saving. It reduces:
+- animations, glows, blur and shadows on the laptop and the TV, and lighter confetti;
+- background work while a game is live. Loudness analysis, video conversion and checks of
+  newly imported videos wait until the game ends (the TV video always comes first);
+- how often the laptop screen refreshes the progress bar and re-checks video files.
+
+**Smaller copies of big videos.** 1080p and 4K videos are the hardest thing for a slow
+laptop. Settings → ⚡ Performance → **Make 720p copies** creates a 720p copy of every video
+above 720p in the app's data folder. Your original files are never changed, and a song's
+**Edit** window has *Use the original file again*.
+
+Tips for 4 GB laptops:
+- Close the web browser and other apps before the night.
+- Plug the laptop in and use Windows' **Best performance** power mode.
+- MP4 with H.264 video plays most smoothly. Most laptops decode it in hardware.
+
 ## 10. Phone tips — including Galaxy Fold
 The remote fits any phone. On a **Galaxy Fold's cover screen** it switches to a compact
 layout. **Unfolded**, it uses two columns: playback beside Up Next, and the BINGO keypad
@@ -399,5 +463,7 @@ beside the card result. Add it to your home screen for an app-style icon.
 | No sound on the TV | Settings → Video & TV → Audio output → choose the HDMI/TV device, or set it as Windows' default. |
 | TV shows nothing | Open the audience window (Host Game) and press F; check Win + P is set to **Extend**. |
 | Video won't play | Convert to MP4 (H.264/AAC) with HandBrake, then Relink; or grant Technical Credit for tonight. |
+| Video stutters on an older laptop | Turn on Low Resource Mode, make 720p copies (Settings → ⚡ Performance), close other apps, plug in the charger. |
+| Where is this video file? | Music Library → 📂 next to the song (or Edit → 📂 Show in folder). File Explorer opens with the video highlighted. If it was moved or its drive is unplugged, you're told and offered **Relink**. |
 | Card text too small | Set a shorter **Printed title** for long songs **before locking**, or raise the card text size. |
 | QR scan on the phone | The phone takes a photo of the QR code (works on any connection). Typing the number always works too. |

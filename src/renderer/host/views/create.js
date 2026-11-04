@@ -153,7 +153,8 @@ App.register('create', {
     b.innerHTML = `<div style="text-align:center;padding:30px 10px">
       <div class="eyebrow">Everything is ready</div><div class="display" style="font-size:48px;margin:8px 0">${esc(g ? g.name : '')}</div>
       <p class="muted">${g ? `${g.totals.songs} songs · ${g.totals.cards} cards · ${g.settings.clipMode === 'full' ? 'full songs' : g.settings.clipMode + '-second clips'}` : ''}</p>
-      <div style="display:flex;justify-content:center;gap:24px;margin:20px 0">${[1, 2, 3].map(n => `<div style="width:120px"><div style="width:70px;margin:0 auto 8px">${patternGridHtml(CMBPatterns.examples(n)[0])}</div><b class="small">Round ${n}</b><div class="tiny muted">${CMBPatterns.LABELS[n]}</div></div>`).join('')}</div>
+      <div style="display:flex;justify-content:center;gap:24px;margin:20px 0">${Array.from({ length: (g && g.roundCount) || 3 }, (_, i) => i + 1).map(n => { const r = (g && g.roundRules && g.roundRules[n]) || { label: CMBPatterns.LABELS[n], examples: CMBPatterns.examples(n) }; return `<div style="width:130px"><div style="width:70px;margin:0 auto 8px">${patternGridHtml(r.examples[0])}</div><b class="small">Round ${n}</b><div class="tiny muted">${esc(r.label)}</div></div>`; }).join('')}</div>
+      <p class="muted small">Winning rules can be changed in Host Game → 🎯 Rules until each round starts.</p>
       <button class="btn primary xl" id="go">▶ START ROUND 1</button>
       <p class="muted small" style="margin-top:14px">Round 1 can also be started from your phone.</p></div>`;
     $('#cNext', this.el).style.display = 'none';

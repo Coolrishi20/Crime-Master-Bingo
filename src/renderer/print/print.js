@@ -77,19 +77,24 @@
     });
     c.appendChild(grid);
     var foot = el('div', 'foot');
-    var legend = el('div', 'legend');
+    var legend = el('div', 'legend' + (job.rounds.length > 3 ? ' many' : ''));
     legend.appendChild(el('div', 'lg-title', 'WINNING PATTERNS'));
     var names = { 1: 'One Line', 2: 'Two Parallel Lines', 3: 'Full House' };
     var sub = { 1: 'any row or column', 2: '2 rows or 2 columns', 3: 'all 25 songs' };
+    var std = { 1: 'ONE LINE', 2: 'TWO PARALLEL LINES', 3: 'FULL HOUSE' };
     job.rounds.forEach(function (r) {
       var b = el('div', 'lg-round');
-      b.innerHTML = patternSvg(r.pattern) + '<div><b>Round ' + r.n + ': ' + names[r.n] + '</b><span>' + sub[r.n] + '</span></div>';
+      var custom = r.label && r.label !== std[r.n];
+      var title = custom ? r.label.charAt(0) + r.label.slice(1).toLowerCase() : names[r.n];
+      b.innerHTML = patternSvg(r.pattern) + '<div><b></b><span></span></div>';
+      b.querySelector('b').textContent = 'Round ' + r.n + ': ' + title;
+      b.querySelector('span').textContent = custom ? (r.short || '') : sub[r.n];
       legend.appendChild(b);
     });
-    legend.appendChild(el('div', 'lg-nodiag', 'No diagonal lines.'));
+    if (!job.rounds.some(function (r) { return r.diagonals; })) legend.appendChild(el('div', 'lg-nodiag', 'No diagonal lines.'));
     foot.appendChild(legend);
     var small = el('div', 'small');
-    small.appendChild(el('div', null, 'Same card for all 3 rounds · songs stay marked · shout BINGO! and show this card'));
+    small.appendChild(el('div', null, 'Same card for all ' + job.rounds.length + ' round' + (job.rounds.length === 1 ? '' : 's') + ' · songs stay marked · shout BINGO! and show this card'));
     var right = el('div'); right.innerHTML = 'Card <b>' + pad(card.no) + '</b> · Batch ' + (card.batch || 1) + ' · Game ' + job.game.id;
     small.appendChild(right);
     foot.appendChild(small);
