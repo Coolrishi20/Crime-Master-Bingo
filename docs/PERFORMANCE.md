@@ -139,6 +139,45 @@ How to read the table:
 - The phone is a mobile browser on the same machine (local network), not a real phone on
   Wi-Fi. Wi-Fi loss was simulated with the browser's offline mode.
 
+## v1.6.0-rc.1: Rules Checklist Mode vs Round-Based (same conditions)
+
+Rules Checklist Mode adds a checklist to the TV, the host screen and the phones. To check that
+it costs nothing extra, the integrated benchmark was run twice, back to back, on the same
+machine: once as a **Round-Based** game and once as a **Rules Checklist** game (5 rules). Both
+runs used Low Resource Mode, 2 pinned cores, 1080p video, the phone remote and 75 songs, with
+claims checked and awarded from the phone (`GAME=rounds|checklist`).
+
+| Metric | Round-Based | Rules Checklist |
+|---|---|---|
+| Playback RAM, TV only (T1a avg) | 903 MB | 902 MB |
+| Full system with phone (T1b avg) | 948 MB | 949 MB |
+| Peak RAM (extended session) | 1190 MB | 1187 MB |
+| CPU, full system (T1b avg) | 46% | 48% |
+| CPU, extended session (T4 avg) | 49% | 48% |
+| Dropped frames, extended session (T4) | 203/22997 (0.9%) | 193/22690 (0.9%) |
+| TV stalls > 50 ms, extended session (T4) | 52 | 46 |
+| Unexpected video reloads | 0 | 0 |
+| Data to the phone while idle (T1b) | 264 KB/min | 314 KB/min |
+| Data to the phone during commands (T2) | 395 KB/min | 456 KB/min |
+| Integrated checks | 10/10 passed | 14/14 passed |
+
+- **The checklist mode costs the same RAM, CPU and frame rate as Round-Based.**
+- Phone traffic is about 15–20% higher in checklist mode, because the phone receives the
+  checklist with its winners. That's about 1 KB/s more, with no measurable effect on the TV.
+- **These two runs are not comparable with the 1.5 table above.** On the same day the
+  machine was slower: CPU for the *unchanged* Round-Based mode was 46% instead of 31%, and
+  video import took about 4× longer. Only compare the two columns of this table with each
+  other.
+- The "one song away" count is now recalculated only when a song is played or a winner
+  changes. Building the TV state costs about 0.1 ms per update in either mode (measured with
+  100 cards issued).
+
+**Field report (4 Nov 2026):** the host ran 1.6.0-rc.1 on a real **Windows laptop with 32 GB
+of RAM**: smooth playback, no stuttering. That's encouraging, but it says nothing about the
+4 GB target. The real-hardware checks below are still needed. A 4 GB / 2-core limit can be
+simulated on a bigger laptop with *msconfig → Boot → Advanced options*. That's useful, but it
+doesn't reproduce a slow processor or graphics.
+
 ## Still to test on real hardware (release gate for 1.5.0 final)
 
 1. A 4 GB Windows 10/11 laptop with integrated graphics, Low Resource Mode on: the full
