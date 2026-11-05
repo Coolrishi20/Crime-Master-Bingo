@@ -15,6 +15,7 @@ const waitFor = async (fn, ms = 20000) => { const t = Date.now(); while (Date.no
   // a private copy of the sample videos (this test moves and renames some)
   const MEDIA = fs.mkdtempSync(path.join(os.tmpdir(), 'as-v24m-')); const SRC = process.argv[2];
   fs.readdirSync(SRC).filter(f => /\.mp4$/i.test(f)).forEach(f => fs.copyFileSync(path.join(SRC, f), path.join(MEDIA, f)));
+  require('child_process').execFileSync('ffmpeg', ['-v', 'error', '-y', '-f', 'lavfi', '-i', 'testsrc2=size=640x360:rate=25', '-f', 'lavfi', '-i', 'sine=frequency=330', '-t', '45', '-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-shortest', path.join(MEDIA, 'Long Artist - Long Song.mp4')]);
   const app = await electron.launch({ executablePath: require('electron'), args: [ROOT, '--no-sandbox'],
     env: Object.assign({}, process.env, { CMB_TEST: '1', CMB_SHOW: '1', CMB_DATA_DIR: DATA, CMB_NO_SANDBOX: '1', CMB_NO_REMOTE: '1', CMB_ONBOARD: '1' }) });
   const host = await app.firstWindow(); await host.waitForFunction(() => window.App && window.App.settings);
@@ -66,14 +67,15 @@ const waitFor = async (fn, ms = 20000) => { const t = Date.now(); while (Date.no
   ok(after.find(s => s.id === sA.id).status !== 'missing' && after.find(s => s.id === sB.id).status === 'missing', 'Only the ticked match was relinked; song IDs kept');
 
   /* ---- clip editor */
-  await host.evaluate((s) => { setTimeout(() => window.editSong(s), 0); }, after[3]); await host.waitForSelector('#eTabs');
+  const longSong = after.find(s => s.title === 'Long Song');
+  await host.evaluate((s) => { setTimeout(() => window.editSong(s), 0); }, longSong); await host.waitForSelector('#eTabs');
   await host.click('#eTabs [data-t=clip]'); await host.waitForSelector('#clTl canvas');
   await host.click('#clLen [data-l="20"]');
   const se = await host.evaluate(() => [document.getElementById('eS').value, document.getElementById('eE').value]);
   ok(se[0] !== '' && Math.abs(Number(se[1]) - Number(se[0]) - 20) < 0.6, 'Clip tab: timeline, 20 s preset sets start/end', JSON.stringify(se));
   await host.screenshot({ path: path.join(OUT, 'v24-clip.png') });
   await host.click('.modal-foot .btn.primary'); await sleep(500);
-  const clipSong = (await inv('library:list')).songs.find(s => s.id === after[3].id);
+  const clipSong = (await inv('library:list')).songs.find(s => s.id === longSong.id);
   ok(clipSong.clipStart != null && clipSong.clipEnd - clipSong.clipStart === 20, 'Saved through the normal Save button');
 
   /* ---- presets + pacing estimate */

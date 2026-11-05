@@ -49,7 +49,7 @@
       box.querySelector('#clRead').innerHTML = `Start <b>${fmt(s)}</b> · End <b>${fmt(e)}</b> · ${Math.round(e - s)} s${eS.value === '' && eE.value === '' ? ' <span class="muted">(game default)</span>' : ''}`;
       box.querySelectorAll('#clLen button').forEach(b => b.classList.toggle('on', b.dataset.l === 'full' ? Math.abs(e - dur) < 0.6 && s < 0.6 : Math.abs((e - s) - Number(b.dataset.l)) < 0.6));
     };
-    const set = (s, e) => { s = Math.max(0, Math.min(r2(s), dur ? dur - 1 : s)); e = r2(e); if (dur) e = Math.min(e, dur); if (e <= s + 1) e = Math.min(dur || s + 5, s + 5); eS.value = s; eE.value = e; place(); };
+    const set = (s, e) => { s = Math.max(0, Math.min(r2(s), dur ? dur - 1 : s)); e = r2(e); if (dur) e = Math.min(e, Math.floor(dur * 10) / 10); if (e <= s + 1) e = Math.min(dur || s + 5, s + 5); eS.value = s; eE.value = e; place(); };
     // dragging the markers (or the whole selection)
     let drag = null;
     tl.addEventListener('pointerdown', (ev) => {
