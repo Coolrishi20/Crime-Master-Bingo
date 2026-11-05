@@ -41,6 +41,7 @@ App.register('host', {
             </div>
             <div class="row" style="margin-top:14px"><span class="muted small" style="font-weight:700">CLIP</span><div class="seg" id="cClip">${[20, 30, 40, 60, 'full'].map(m => `<button data-m="${m}">${m === 'full' ? 'Full' : m + 's'}</button>`).join('')}</div>
               <label class="toggle small">${'<input type="checkbox" id="cAuto"><span class="sw"></span>'}Auto-play next</label>
+              <span class="muted small" style="font-weight:700">GAP</span><div class="seg" id="cGap" title="Pause between songs (the TV holds the last picture)">${[0, 3, 5, 10].map(n => `<button data-g="${n}">${n ? n + ' s' : 'None'}</button>`).join('')}<button data-g="custom">…</button></div>
               <label class="toggle small"><input type="checkbox" id="cLev"><span class="sw"></span>Auto volume levelling</label>
               <label class="toggle small" title="Start each clip where the music begins"><input type="checkbox" id="cIntro"><span class="sw"></span>Skip quiet intros</label>
               <button class="btn sm" id="cMute">🔇 Mute</button></div>
@@ -78,6 +79,11 @@ App.register('host', {
   bind() {
     const el = this.el;
     const g = () => App.game;
+    $$('#cGap button', el).forEach(b => b.onclick = async () => {
+      let v = b.dataset.g;
+      if (v === 'custom') { v = await promptBox('Gap between songs', 'Seconds of pause between songs (0–30)', String(App.game.settings.autoAdvanceGap || 0)); if (v == null || v === '') return; }
+      App.cmd('setGameSettings', { autoAdvanceGap: Math.max(0, Math.min(30, Number(v) || 0)) });
+    });
     $('#cPlay', el).onclick = () => App.cmd('togglePlay');
     $('#cStop', el).onclick = () => App.cmd('stop');
     $('#cNext', el).onclick = () => App.next();
@@ -137,6 +143,7 @@ App.register('host', {
     $('#cPlay', el).textContent = playing || pb.status === 'between' ? '❚❚' : '▶';
     $('#cVol', el).value = g.settings.volume; $('#cVolV', el).textContent = g.settings.volume;
     $$('#cClip button', el).forEach(b => b.classList.toggle('on', String(b.dataset.m) === String(g.settings.clipMode)));
+    $$('#cGap button', el).forEach(b => { const v = Number(g.settings.autoAdvanceGap) || 0; b.classList.toggle('on', b.dataset.g === 'custom' ? ![0, 3, 5, 10].includes(v) : Number(b.dataset.g) === v); if (b.dataset.g === 'custom') b.textContent = ![0, 3, 5, 10].includes(v) ? v + ' s' : '…'; });
     $('#cAuto', el).checked = g.settings.autoAdvance; $('#cLev', el).checked = g.settings.audio.levelling; $('#cIntro', el).checked = g.settings.skipIntros !== false;
     $('#cMute', el).textContent = g.settings.audio.muted ? '🔊 Unmute' : '🔇 Mute'; $('#cMute', el).className = 'btn sm' + (g.settings.audio.muted ? ' primary' : '');
     $('#hgLevel', el).textContent = g.settings.audio.levelling ? `Levelling to ${g.settings.audio.targetLufs} LUFS · max boost +${g.settings.audio.maxBoostDb} dB · fade in ${g.settings.audio.fadeIn}s / out ${g.settings.audio.fadeOut}s${g.settings.audio.muted ? ' · MUTED' : ''}` : (g.settings.audio.muted ? 'MUTED' : 'Levelling off — songs play at their original loudness');

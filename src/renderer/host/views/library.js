@@ -1,5 +1,19 @@
 App.register('library', {
   filter: 'all', q: '', selected: new Set(),
+  /** Relink wizard (2.2): scan a folder, exact matches pre-ticked, everything else reviewed. */
+  async findMissing() {
+    const n = await relinkWizard({ title: 'Find missing videos',
+      scan: () => api('library:relinkScan'),
+      apply: (picked) => api('library:relinkConfirm', { items: picked.map(p => ({ id: p.key, path: p.path })) }) });
+    if (n != null) toast(`${n} video${n === 1 ? '' : 's'} relinked`, 'ok');
+    this.load();
+  },
+  async drawMissing() {
+    const box = $('#lMissing', this.el); if (!box) return;
+    const m = await api('library:missingInfo');
+    box.innerHTML = m.count ? `<div class="banner"><div class="grow"><h3>${m.count} video${m.count === 1 ? '' : 's'} can't be found</h3><div class="muted">${m.folder ? `They were in <b>${esc(m.folder)}</b>${m.root && !m.rootThere ? ` — <b>${esc(m.root)}</b> isn't connected. Plug the drive in and press Check files, or search another folder.` : '.'}` : ''}</div></div><button class="btn primary" id="lFindMissing">Find missing videos…</button></div>` : '';
+    const b = $('#lFindMissing', box); if (b) b.onclick = () => this.findMissing();
+  },
   async render(el) {
     this.el = el;
     el.classList.add('dropzone');
@@ -11,11 +25,12 @@ App.register('library', {
         <select id="lTag" title="Filter by decade or tag"><option value="">All decades &amp; tags</option></select>
         <div class="seg" id="lFilter">${[['all', 'All'], ['issues', 'Needs attention'], ['flagged', 'Flagged'], ['dupes', 'Duplicates'], ['ok', 'Ready']].map(([k, l]) => `<button data-f="${k}" class="${this.filter === k ? 'on' : ''}">${l}</button>`).join('')}</div>
         <span class="grow"></span>
-        <button class="btn sm" id="lCheck">Check files</button><button class="btn sm" id="lRelinkF">Relink folder…</button>
+        <button class="btn sm" id="lCheck">Check files</button><button class="btn sm" id="lMedia" title="Codec, resolution, frame rate, bitrate, keyframes and clip points">Media check…</button><button class="btn sm" id="lRelinkF">Find missing videos…</button>
       </div>
       <div class="row" id="lSelBar" style="margin-top:12px;display:none"><span id="lSelN" class="badge pink"></span>
         <select id="lPl"></select><button class="btn sm primary" id="lAdd">Add to playlist</button><button class="btn sm" id="lTagB">Tag selected…</button><button class="btn sm danger" id="lDel">Remove from library</button><button class="btn sm ghost" id="lClr">Clear selection</button></div>
       </div>
+      <div id="lMissing"></div>
       <div class="row" style="margin:0 4px 8px"><div id="lSummary" class="muted small grow"></div><span id="lAudio" class="muted small"></span><button class="btn sm ghost" id="lAudioPause">Pause analysis</button></div>
       <div class="panel" style="padding:8px 12px"><table class="list"><thead><tr><th style="width:30px"><input type="checkbox" id="lAll"></th><th style="width:76px"></th><th>Song</th><th>Duration</th><th title="Automatic volume levelling">Loudness</th><th>Clip</th><th>Status</th><th style="width:220px"></th></tr></thead><tbody id="lBody"></tbody></table></div>`;
     $('#lYT', el).onclick = async () => {
@@ -33,19 +48,8 @@ App.register('library', {
     $('#lFolderPl', el).onclick = async () => { const r = await api('library:pickFolderPlaylists'); if (r) { folderPlaylistReport(r); this.load(); } };
     $('#lAudioPause', el).onclick = async () => { const st = await api('audio:status'); this.audio = await api(st.paused ? 'audio:resume' : 'audio:pause'); this.drawAudio(); };
     $('#lCheck', el).onclick = async () => { const n = await api('library:checkFiles'); toast(n ? `${n} file(s) missing — use Relink` : 'All files found', n ? 'err' : 'ok'); this.load(); };
-    $('#lRelinkF', el).onclick = async () => {
-      const r = await api('library:relinkFolder'); if (r == null) return;
-      toast(`${r.fixed} identical file${r.fixed === 1 ? '' : 's'} relinked · ${r.scanned} files searched`, 'ok');
-      if (r.needsConfirm.length) {
-        const pick = await modal({ title: 'Check these matches', size: 'wide',
-          body: `<p class="muted">These files have the same name or the same title and artist, but they are not provably the same video. Tick only the ones you know are right. Song details, playlists, clip points and printed cards are kept.</p>
-            <div class="rl-list">${r.needsConfirm.map((m, i) => `<label class="check-row"><input type="checkbox" data-i="${i}"><div class="grow"><b>${esc(m.title)}</b> — ${esc(m.artist)}<div class="muted small">${esc(m.path)}</div><div class="small"><span class="badge warn">${m.match === 'filename' ? 'SAME NAME?' : 'SAME SONG?'}</span> ${esc(m.detail)}</div></div></label>`).join('')}</div>`,
-          buttons: [{ label: 'Skip', value: null }, { label: 'Relink ticked', kind: 'primary', value: (b) => Array.from(b.querySelectorAll('input[data-i]:checked')).map(x => r.needsConfirm[+x.dataset.i]) }] });
-        if (pick && pick.length) { const n = await api('library:relinkConfirm', { items: pick.map(m => ({ id: m.id, path: m.path })) }); toast(`${n} more relinked`, 'ok'); }
-      }
-      if (r.unmatched) toast(`${r.unmatched} video${r.unmatched === 1 ? '' : 's'} still missing`, 'warn');
-      this.load();
-    };
+    $('#lRelinkF', el).onclick = () => this.findMissing();
+    $('#lMedia', el).onclick = () => mediaCheck({});
     $('#lSearch', el).oninput = (e) => { this.q = e.target.value; this.draw(); };
     $('#lTag', el).onchange = (e) => { this.tagF = e.target.value; this.draw(); };
     $('#lTagB', el).onclick = async () => {
@@ -114,7 +118,7 @@ App.register('library', {
   async load() {
     const [lib, pls] = await Promise.all([api('library:list'), api('playlists:list')]);
     if (App.view !== 'library' || !$('#lBody', this.el)) return; // the host moved to another page meanwhile
-    this.songs = lib.songs; this.pls = pls; this.audio = null; this.drawAudio();
+    this.songs = lib.songs; this.pls = pls; this.audio = null; this.drawAudio(); this.drawMissing();
     const sel = $('#lPl', this.el);
     if (sel) sel.innerHTML = pls.map(p => `<option value="${p.id}">${esc(p.name)} (${p.songIds.length})</option>`).join('') + '<option value="__new">＋ New playlist…</option>';
     const tf = $('#lTag', this.el);
@@ -186,7 +190,16 @@ async function editSong(s, after) {
   const body = document.createElement('div');
   body.innerHTML = `
     ${s.source === 'youtube' ? `<div class="row" style="gap:14px;margin-bottom:10px">${s.thumb ? `<img src="${fileUrl(s.thumb)}" style="width:240px;border-radius:10px">` : ''}<div><span class="badge">YOUTUBE · BETA</span><p class="small">This song plays from YouTube on the TV. Open it in the browser to find a good clip start.</p><button class="btn sm" id="eYT">Open on YouTube</button></div></div><video hidden></video>` : `<video class="preview-video" controls preload="metadata" src="${fileUrl(s.path)}"></video>`}
-    <div class="row" style="margin:8px 0 14px"><button class="btn sm" id="eSetS">Set clip start = now</button><button class="btn sm" id="eSetE">Set clip end = now</button><button class="btn sm ghost" id="eClr">Use default clip</button><span class="muted small grow" style="text-align:right">${s.duration ? 'Length ' + fmtTime(s.duration) : ''}</span></div>
+    <div class="seg" id="eTabs" style="margin:10px 0 12px"><button data-t="details" class="on">Details</button><button data-t="clip">Clip</button></div>
+    <div id="eTabClip" hidden>
+      ${s.source === 'youtube' ? '' : '<div id="eClip"></div>'}
+      <div class="form-grid" style="margin-top:10px">
+        <label class="field">Clip start (seconds)<input type="number" min="0" step="0.5" id="eS" value="${s.clipStart != null ? s.clipStart : ''}" placeholder="default"></label>
+        <label class="field">Clip end (seconds)<input type="number" min="0" step="0.5" id="eE" value="${s.clipEnd != null ? s.clipEnd : ''}" placeholder="start + clip length"></label>
+      </div>
+      <p class="muted small" style="margin:0">Empty = the game's clip length from the game's start point. ${s.duration ? 'Video length ' + fmtTime(s.duration) + '.' : ''}</p>
+    </div>
+    <div id="eTabDetails">
     <div class="form-grid">
       <label class="field">Song title *<input type="text" id="eT" value="${esc(s.title)}"></label>
       <label class="field">Artist *<input type="text" id="eA" value="${esc(s.artist)}"></label>
@@ -194,19 +207,21 @@ async function editSong(s, after) {
       <label class="field">Printed title (optional)<input type="text" id="eP" value="${esc(s.printTitle)}" placeholder="Shorter title for the cards"></label>
       <label class="field">Year<input type="number" min="1900" max="2100" id="eY" value="${s.year || ''}" placeholder="e.g. 1985 — for decade playlists"></label>
       <label class="field">Tags (comma-separated)<input type="text" id="eG" value="${esc((s.tags || []).join(', '))}" placeholder="e.g. Bollywood, Dance, 80s Party"></label>
-      <label class="field">Clip start (seconds)<input type="number" min="0" step="0.5" id="eS" value="${s.clipStart != null ? s.clipStart : ''}" placeholder="default"></label>
-      <label class="field">Clip end (seconds)<input type="number" min="0" step="0.5" id="eE" value="${s.clipEnd != null ? s.clipEnd : ''}" placeholder="start + clip length"></label>
     </div>
     ${s.audio && s.audio.introEnd > 0 ? `<p class="small" style="margin:0 0 8px"><span class="badge">INTRO ${fmtTime(s.audio.introEnd)}</span> The music starts at about <b>${fmtTime(s.audio.introEnd)}</b>. With <i>Skip quiet intros</i> on, clips start there unless you set a clip start.</p>` : ''}
-    <p class="muted small">Leave clip end empty to use the game's clip length (20/30/40/60 s) from the clip start. File: ${esc(s.path)} <button class="btn sm ghost" id="eReveal">📂 Show in folder</button>${s.converted && s.converted.optimised ? ' <button class="btn sm ghost" id="eOrig">Use the original file again</button>' : ''}</p>`;
+    <p class="muted small">File: ${esc(s.path)} <button class="btn sm ghost" id="eReveal">📂 Show in folder</button>${s.converted && s.converted.optimised ? ' <button class="btn sm ghost" id="eOrig">Use the original file again</button>' : ''}</p>
+    </div>`;
   body.querySelector('#eReveal').onclick = () => revealSong(s.id, after);
   if (body.querySelector('#eYT')) body.querySelector('#eYT').onclick = () => api('library:showInFolder', { id: s.id });
   if (body.querySelector('#eOrig')) body.querySelector('#eOrig').onclick = async () => { if (await api('library:restoreOriginal', { id: s.id })) { toast('Using the original file again', 'ok'); closeTopModal(); if (after) after(); } };
   const v = body.querySelector('video');
   v.addEventListener('loadedmetadata', () => { if (s.clipStart) v.currentTime = s.clipStart; });
-  body.querySelector('#eSetS').onclick = () => { body.querySelector('#eS').value = Math.round(v.currentTime * 2) / 2; };
-  body.querySelector('#eSetE').onclick = () => { body.querySelector('#eE').value = Math.round(v.currentTime * 2) / 2; };
-  body.querySelector('#eClr').onclick = () => { body.querySelector('#eS').value = ''; body.querySelector('#eE').value = ''; };
+  let clipUi = null;
+  body.querySelectorAll('#eTabs button').forEach(b => b.onclick = async () => {
+    body.querySelectorAll('#eTabs button').forEach(x => x.classList.toggle('on', x === b));
+    body.querySelector('#eTabClip').hidden = b.dataset.t !== 'clip'; body.querySelector('#eTabDetails').hidden = b.dataset.t === 'clip';
+    if (b.dataset.t === 'clip' && body.querySelector('#eClip')) { if (!clipUi) clipUi = await mountClipEditor(body.querySelector('#eClip'), s, v, body.querySelector('#eS'), body.querySelector('#eE')); else clipUi.redraw(); }
+  });
   const r = await modal({ title: 'Edit song', size: 'mid', body, buttons: [{ label: 'Cancel', value: null }, { label: 'Save', kind: 'primary', value: (b) => ({ title: b.querySelector('#eT').value, artist: b.querySelector('#eA').value, displayTitle: b.querySelector('#eD').value, printTitle: b.querySelector('#eP').value, year: b.querySelector('#eY').value || null, tags: b.querySelector('#eG').value, clipStart: b.querySelector('#eS').value, clipEnd: b.querySelector('#eE').value }) }] });
   v.pause(); v.removeAttribute('src');
   if (!r) return;

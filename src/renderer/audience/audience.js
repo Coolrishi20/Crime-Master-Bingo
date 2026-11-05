@@ -186,7 +186,7 @@
       case 'volume': cur.volume = cmd.volume; if (YTP.active) YTP.setVolume(effectiveVolume(YTP.time())); else setGain(effectiveVolume(video.currentTime || 0)); break;
       case 'audio': if (cmd.token == null || cmd.token === cur.token || cmd.token === -1 || cur.token == null) { audio = Object.assign(audio, { gainDb: cmd.gainDb || 0, fadeIn: cmd.fadeIn != null ? cmd.fadeIn : audio.fadeIn, fadeOut: cmd.fadeOut != null ? cmd.fadeOut : audio.fadeOut, muted: !!cmd.muted }); setGain(effectiveVolume(video.currentTime || 0)); } break;
       case 'clip': if (cmd.token === cur.token) { cur.clipStart = cmd.clipStart; cur.clipEnd = cmd.clipEnd; } break;
-      case 'clear': clearTimeout(pendingLoad); if (YTP.active) { YTP.clear(); document.body.classList.remove('yt-mode'); } clear(); break;
+      case 'clear': clearTimeout(pendingLoad); if (cmd.hold && !YTP.active) { setGain(0, 0.05); cur.token = null; cur.ended = true; video.pause(); break; } if (YTP.active) { YTP.clear(); document.body.classList.remove('yt-mode'); } clear(); break;
     }
   });
 

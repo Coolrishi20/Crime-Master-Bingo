@@ -170,6 +170,8 @@
     $('nowArtist').textContent = cur ? cur.artist : (g.round.number ? '' : (CK ? 'Go to Rules → Start game' : 'Go to Rounds → Start Round 1'));
     $('sSong').textContent = cur ? cur.number : '–';
     $('sPlayed').textContent = g.totals.played; $('sLeft').textContent = g.totals.remaining;
+    var gapNow = pb.status === 'between';
+    var nb = $('nextBtn'); if (nb) { nb.querySelector('small').textContent = gapNow ? 'Skip gap' : 'Next'; nb.classList.toggle('gap', gapNow); }
     $('playIco').textContent = playing || pb.status === 'between' ? '❚❚' : '▶';
     $('playTxt').textContent = playing || pb.status === 'between' ? 'Pause' : (pb.status === 'paused' ? 'Resume' : 'Play');
     if (document.activeElement !== $('vol')) { $('vol').value = g.settings.volume; $('volV').textContent = g.settings.volume; }

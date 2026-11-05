@@ -189,6 +189,28 @@ class Library {
     return s;
   }
 
+  /** Look for missing videos in a folder without changing anything (for the relink wizard). */
+  scanRelink(folder) {
+    const missing = this.data.songs.filter(s => s.status === 'missing');
+    const r = require('./relink').findMatches(missing.map(s => ({ id: s.id, key: s.id, fileName: s.fileName || path.basename(s.path || ''), size: s.size, fingerprint: s.fingerprint, title: s.title, artist: s.artist })), folder, { fingerprint });
+    r.results.forEach(x => { delete x.size; delete x.fingerprint; });
+    return r;
+  }
+
+  /** Where the missing videos used to be: their common folder, and whether its drive is there. */
+  missingInfo() {
+    const miss = this.data.songs.filter(s => s.status === 'missing' && s.path);
+    if (!miss.length) return { count: 0 };
+    const parts = miss.map(s => path.dirname(s.path).split(/[\\/]/));
+    let common = parts[0];
+    parts.forEach(p => { let i = 0; while (i < common.length && i < p.length && common[i].toLowerCase() === p[i].toLowerCase()) i++; common = common.slice(0, i); });
+    const sep = miss[0].path.includes('\\') ? '\\' : '/';
+    const folder = common.join(sep) || null;
+    const root = /^[A-Za-z]:/.test(miss[0].path) ? miss[0].path.slice(0, 3) : (folder ? folder.split(sep).slice(0, 3).join(sep) || '/' : null);
+    let rootThere = true; try { rootThere = !!root && fs.existsSync(root); } catch (e) { rootThere = false; }
+    return { count: miss.length, folder, root, rootThere };
+  }
+
   /**
    * Search a folder for missing videos. Only provably identical files (fingerprint, or name +
    * exact size when no fingerprint is known) are relinked straight away; a same-name or

@@ -117,18 +117,11 @@ App.register('backup', {
     $('#rlGame', box).onchange = (e) => { this.relinkId = e.target.value; this.drawRelink(); };
     if (!$('#rlScan', box)) return;
     $('#rlScan', box).onclick = async () => {
-      const r = await api('games:relinkScan', { id: gid }); if (!r) return;
-      const out = $('#rlOut', box);
-      out.innerHTML = `<div class="muted small" style="margin-bottom:8px">Scanned ${r.scanned} videos: ${r.autoMatched} exact match(es), ${r.needsConfirm} need confirmation, ${r.unmatched} not found.</div>
-        ${r.results.map((x, i) => `<div class="check-row"><span class="ic ${x.candidate ? (x.candidate.auto ? 'ok' : 'warn') : 'bad'}">${x.candidate ? (x.candidate.auto ? '✓' : '?') : '×'}</span><div class="grow"><b>${esc(x.title)}</b> <span class="muted">— ${esc(x.artist)}</span>
-          <div class="small muted">${x.candidate ? `${esc(x.candidate.detail)}<br>${esc(x.candidate.path)}` : 'No matching file found'}</div></div>${x.candidate ? `<label class="toggle small"><input type="checkbox" data-i="${i}" ${x.candidate.auto ? 'checked' : ''}><span class="sw"></span>Use</label>` : ''}</div>`).join('')}
-        <button class="btn primary" id="rlApply" style="margin-top:10px">Relink selected</button>`;
-      $('#rlApply', out).onclick = async () => {
-        const matches = $$('input[data-i]', out).filter(c => c.checked).map(c => { const x = r.results[Number(c.dataset.i)]; return { songId: x.songId, path: x.candidate.path, match: x.candidate.auto ? x.candidate.match : 'host-confirmed' }; });
-        const res = await api('games:relinkApply', { id: gid, matches });
-        toast(`${res.applied} video(s) relinked · ${res.missing} still missing`, res.missing ? '' : 'ok', 5000);
-        this.drawRelink();
-      };
+      const res = await relinkWizard({ title: 'Relink videos for this game',
+        scan: () => api('games:relinkScan', { id: gid }),
+        apply: (picked) => api('games:relinkApply', { id: gid, matches: picked.map(p => ({ songId: p.key, path: p.path, match: p.match })) }) });
+      if (res) toast(`${res.applied} video(s) relinked · ${res.missing} still missing`, res.missing ? '' : 'ok', 5000);
+      this.drawRelink();
     };
   }
 });

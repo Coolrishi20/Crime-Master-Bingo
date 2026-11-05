@@ -97,6 +97,7 @@ App.register('settings', {
           <div class="form-grid" style="margin-top:12px">
             <label class="field">Loudness target (LUFS)<select id="aT">${[-12, -14, -16, -18, -20, -23].map(v => `<option value="${v}" ${Number(gd.audio.targetLufs) === v ? 'selected' : ''}>${v} LUFS${v === -16 ? ' (recommended)' : v === -14 ? ' (louder)' : v === -20 ? ' (quieter)' : ''}</option>`).join('')}</select></label>
             <label class="field">Maximum amplification (dB)<input type="number" id="aB" min="0" max="20" value="${gd.audio.maxBoostDb}"></label>
+            <label class="field">Peak ceiling (dBTP)<select id="aC">${[0, -0.5, -1, -1.5, -2, -3].map(v => `<option value="${v}" ${Number(gd.audio.ceilingDbtp) === v ? 'selected' : ''}>${v} dBTP${v === -1 ? ' (recommended)' : v === 0 ? ' (no headroom)' : v <= -2 ? ' (cheap speakers / PA)' : ''}</option>`).join('')}</select></label>
             <label class="field">Fade in (seconds, 0 = off)<input type="number" id="aFi" min="0" max="5" step="0.1" value="${gd.audio.fadeIn}"></label>
             <label class="field">Fade out (seconds, 0 = off)<input type="number" id="aFo" min="0" max="8" step="0.1" value="${gd.audio.fadeOut}"></label></div>
           <p class="muted small">Every video's loudness is measured once in the background (EBU R128). Playback is then turned up or down so every song sounds equally loud — without touching the original files and never above ${gd.audio.ceilingDbtp} dBTP, so nothing clips. Very quiet videos are boosted by at most the maximum amplification.</p></div>
@@ -173,7 +174,7 @@ App.register('settings', {
           overlay: { position: v('#oPos'), titleSize: n('#oT'), artistSize: n('#oA'), opacity: n('#oO') / 100, duration: n('#oD'), revealDelay: n('#oR'), enabled: c('#oOn') },
           crawler: { speed: Math.max(1, Math.min(10, n('#cS'))), fontSize: n('#cF'), height: n('#cH'), separator: v('#cSep') },
           screens: Object.assign({}, gd.screens || {}, { welcome: c('#gWel'), end: c('#gEnd') }),
-          audio: { levelling: c('#aLev'), targetLufs: n('#aT'), maxBoostDb: n('#aB'), fadeIn: n('#aFi'), fadeOut: n('#aFo'), ceilingDbtp: gd.audio.ceilingDbtp, muted: false } }
+          audio: { levelling: c('#aLev'), targetLufs: n('#aT'), maxBoostDb: n('#aB'), fadeIn: n('#aFi'), fadeOut: n('#aFo'), ceilingDbtp: n('#aC'), muted: false } }
       };
       App.settings = await api('settings:update', patch);
       App.applyAppearance();

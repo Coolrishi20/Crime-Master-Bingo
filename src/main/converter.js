@@ -16,7 +16,8 @@ function buildArgs(src, out, opts = {}) {
   return ['-hide_banner', '-nostdin', '-y', '-i', src,
     '-map', '0:v:0', '-map', '0:a:0?',
     '-c:v', 'libx264', '-preset', 'veryfast', '-crf', opts.maxHeight ? '23' : '20', '-pix_fmt', 'yuv420p',
-    ...(opts.maxHeight ? ['-profile:v', 'high', '-level', '4.0'] : []),
+    ...(opts.maxHeight ? ['-profile:v', 'high', '-level', '4.0', '-g', '48'] : []), // optimised copies: a keyframe every ~2 s for quick seeking
+    ...(opts.fps ? ['-r', String(opts.fps)] : []),
     '-vf', vf,
     '-c:a', 'aac', '-b:a', '192k', '-ac', '2',
     '-movflags', '+faststart', '-f', 'mp4', '-progress', 'pipe:1', '-nostats', out];
@@ -58,10 +59,18 @@ class Converter {
     this.library.save(); this.onChange(); this.pump();
   }
 
-  /** Make smaller 720p copies of high-resolution videos for low-end laptops. Originals untouched. */
-  optimise(ids, maxHeight = 720) {
+  /** Make smaller 720p copies of high-resolution videos for low-end laptops. Originals untouched.
+   *  opts.force (media check "Optimise all flagged"): also re-encode flagged videos that are not
+   *  too tall (high frame rate, bitrate, picture format or keyframe spacing) at their own size. */
+  optimise(ids, maxHeight = 720, opts = {}) {
     let n = 0;
-    ids.forEach(id => { const s = this.library.get(id); if (s && s.status === 'ok' && (s.height || 0) > maxHeight && !(s.converted && s.converted.optimised)) { s.optimise = { state: 'queued', maxHeight }; n++; } });
+    ids.forEach(id => {
+      const s = this.library.get(id); if (!s || s.status !== 'ok' || (s.converted && s.converted.optimised)) return;
+      const tall = (s.height || 0) > maxHeight;
+      if (!tall && !opts.force) return;
+      const fps = s.media && s.media.fps > 31 ? 30 : null;
+      s.optimise = { state: 'queued', maxHeight: tall ? maxHeight : (s.height || maxHeight), fps }; n++;
+    });
     this.library.save(); this.onChange(); this.pump(); return n;
   }
   /** Go back to the original file of an optimised (or converted) song. */
@@ -110,7 +119,7 @@ class Converter {
     else { s.status = 'converting'; s.statusNote = 'Converting to MP4…'; }
     s.conversion = { state: 'running', percent: 0 };
     this.library.save();
-    const proc = spawn(this.ffmpeg, buildArgs(src, partial, opt ? { maxHeight: opt.maxHeight } : {}), { windowsHide: true });
+    const proc = spawn(this.ffmpeg, buildArgs(src, partial, opt ? { maxHeight: opt.maxHeight, fps: opt.fps || null } : {}), { windowsHide: true });
     try { os.setPriority(proc.pid, 10); } catch (e) { /* */ }
     const cur = this.current = { songId: s.id, proc, percent: 0 };
     let errTail = '';

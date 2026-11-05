@@ -235,3 +235,27 @@ html[data-theme] .tvp-cap { margin-top: 6px; font-size: 12px; color: var(--lav);
 .nb-opts { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; }
 
 .controls .ctl:disabled { opacity: .35; cursor: not-allowed; }
+
+/* ---- Media check + relink wizard (2.2) ---- */
+.mc-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin-bottom: 12px; }
+.mc-tile { border-radius: 12px; padding: 12px 14px; background: var(--panel-2); display: flex; flex-direction: column; gap: 2px; border: 1px solid var(--border-soft); }
+.mc-tile b { font-family: var(--display); font-size: 28px; font-weight: 800; color: var(--text); }
+.mc-tile span { font-size: 12px; font-weight: 700; color: var(--lav); }
+.mc-tile.bad { border-color: var(--red); } .mc-tile.warn { border-color: #FF5B32; } .mc-tile.ok { border-color: var(--green); }
+.mc-group { border: 1px solid var(--border-soft); border-radius: 12px; padding: 8px 12px; margin-bottom: 10px; }
+.mc-group summary { cursor: pointer; font-weight: 800; padding: 4px 0; }
+.rl-table td { vertical-align: top; }
+.rl-table tr.rl-why td { padding-top: 0; border-top: 0; }
+
+/* ---- clip editor (2.2) ---- */
+.clip-tl { position: relative; height: 84px; border-radius: 10px; background: var(--panel-2); border: 1px solid var(--border-soft); overflow: hidden; cursor: pointer; touch-action: none; }
+.clip-tl canvas { display: block; width: 100%; height: 84px; }
+.clip-sel { position: absolute; top: 0; bottom: 0; background: rgba(255, 91, 50, .22); border-left: 2px solid #FF5B32; border-right: 2px solid #FF5B32; cursor: grab; }
+.clip-sel .h { position: absolute; top: 0; bottom: 0; width: 14px; cursor: ew-resize; }
+.clip-sel .h::after { content: ''; position: absolute; top: 28px; width: 8px; height: 28px; border-radius: 4px; background: #FF5B32; left: 3px; }
+.clip-sel .h.s { left: -8px; } .clip-sel .h.e { right: -8px; }
+.clip-ph { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--text); opacity: .8; pointer-events: none; left: 0; }
+.clip-ticks { position: relative; height: 16px; font-size: 10px; color: var(--lav); }
+.clip-ticks span { position: absolute; transform: translateX(-50%); top: 2px; }
+.clip-ticks span:first-child { transform: none; }
+.clip-read { font-size: 13px; }

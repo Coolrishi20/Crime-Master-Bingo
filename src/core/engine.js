@@ -373,7 +373,9 @@ class GameEngine {
     if (id && g.round.number > 0) this.addPlayed(id, false);
     pb.status = 'idle';
     pb.position = pb.clipEnd || pb.position;
-    this.player({ cmd: 'clear' });
+    // the TV holds the last frame (silently) during the gap when another song follows
+    const hold = !!(this.settings.autoAdvance && this.nextUnplayedIndex(pb.index) >= 0 && !this.activeSession() && !(g.night && g.night.phase === 'quiz'));
+    this.player(hold ? { cmd: 'clear', hold: true } : { cmd: 'clear' });
     this.scheduleAdvance();
     this.touch('state');
   }

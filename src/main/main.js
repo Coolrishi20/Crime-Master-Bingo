@@ -224,6 +224,33 @@ const TOTAL_RAM_GB = Math.round(os.totalmem() / 1073741824 * 10) / 10;
 const LOW_RAM = os.totalmem() <= 4.6 * 1073741824; // "4 GB" laptops report a little under 4 GB
 function lowRes() { return !!(settings && settings.performance && settings.performance.lowResource); }
 /** Keep the TV video first: background media work yields while a game is live. */
+/* Media check (2.2): read codec, bitrate, frame rate and keyframe spacing of every library video
+   once (ffmpeg -i plus the MP4 index — nothing decoded), one file at a time, never while a
+   game is live. Results are kept on the song (s.media) with the file fingerprint they belong to. */
+const mediainfo = require('./mediainfo');
+let mediaBusy = false;
+function mediaNeeds(s) { return s.source !== 'youtube' && s.path && !['missing', 'unchecked'].includes(s.status) && (!s.media || s.media.fp !== s.fingerprint || s.media.path !== s.path); }
+async function pumpMediaInfo() {
+  if (mediaBusy || !library || !converter || !converter.ffmpeg) return;
+  if (engine && engine.game.status === 'live' && (lowRes() || ['playing', 'loading'].includes(engine.game.playback.status))) return;
+  const s = library.songs().find(mediaNeeds); if (!s) return;
+  mediaBusy = true;
+  try {
+    const info = await mediainfo.probe(converter.ffmpeg, s.path);
+    const cur = library.get(s.id);
+    if (cur && cur.path === s.path) { cur.media = Object.assign(info, { fp: cur.fingerprint, path: cur.path, at: new Date().toISOString() }); library.save(); sendHost('library-media', { id: cur.id }); }
+  } catch (e) { /* try again later */ } finally { mediaBusy = false; }
+  setImmediate(pumpMediaInfo);
+}
+setInterval(() => { try { pumpMediaInfo(); } catch (e) { /* */ } }, 3000);
+function mediaReport(ids) {
+  const set = ids ? new Set(ids) : null;
+  const songs = library.songs().filter(s => !set || set.has(s.id));
+  const rows = songs.map(s => { const c = mediainfo.classify(s, { lowRes: lowRes() }); const m = s.media || {}; return { id: s.id, title: s.title, artist: s.artist, status: c.status, reasons: c.reasons, fixable: !!c.fixable, clipIssue: !!c.clipIssue, optimising: !!s.optimise, optimised: !!(s.converted && s.converted.optimised), media: s.media ? { vcodec: m.vcodec, acodec: m.acodec, width: m.width, height: m.height, fps: m.fps, bitrate: m.vbitrate || m.bitrate, keyGap: m.keyGap, container: m.container } : null }; });
+  const count = (k) => rows.filter(r => r.status === k).length;
+  return { lowRes: lowRes(), total: rows.length, ready: count('ready'), optimise: count('optimise'), unsupported: count('unsupported'), missing: count('missing'), pending: count('pending'), fixable: rows.filter(r => r.fixable && !r.optimising && !r.optimised).length, rows };
+}
+
 function updateBackgroundWork() {
   const live = !!(engine && engine.game.status === 'live');
   if (analyser && analyser.setScope) {
@@ -539,6 +566,11 @@ function getGameObj(id) { if (engine && engine.game.id === id) return engine.gam
 const handlers = {
   'app:info': () => ({ version: app.getVersion(), dataDir: DATA_DIR, recovery: recoveryInfo, platform: process.platform, isTest: IS_TEST, totalRamGB: TOTAL_RAM_GB, recommendLowResource: LOW_RAM && !settings.performance.lowResource && !settings.performance.decided }),
   'library:optimise': ({ ids, maxHeight }) => ({ queued: converter.optimise(ids && ids.length ? ids : library.songs().map(s => s.id), Number(maxHeight) || 720) }),
+  /** Media check: Ready / Needs optimisation / Unsupported / Missing for the library or a playlist. */
+  'media:report': ({ ids, playlistId } = {}) => { const pl = playlistId ? library.playlists().find(p => p.id === playlistId) : null; return mediaReport(pl ? pl.songIds : ids); },
+  /** "Optimise all flagged": smaller / simpler copies of every fixable flagged video (originals untouched). */
+  'media:optimiseFlagged': ({ ids } = {}) => { const r = mediaReport(ids); const fix = r.rows.filter(x => x.fixable && !x.optimising && !x.optimised).map(x => x.id); return { queued: converter.optimise(fix, lowRes() ? 720 : 1080, { force: true }) }; },
+  'media:recheck': ({ ids } = {}) => { library.songs().forEach(s => { if (!ids || ids.includes(s.id)) delete s.media; }); library.save(); pumpMediaInfo(); return true; },
   'library:restoreOriginal': ({ id }) => converter.restoreOriginal(id),
   'perf:status': () => perfStatus(),
   'settings:get': () => settings,
@@ -666,6 +698,15 @@ const handlers = {
     library.songs().forEach(s => relinkInGames(s));
     return res;
   },
+  /** Relink wizard: scan only (nothing changes until the host confirms). */
+  /** Clip editor: loudness bars and a loud-section suggestion from the cached analysis (nothing decoded). */
+  'audio:envelope': ({ id }) => { const s = library.get(id); const prof = s && analyser ? analyser.profileFor(s.fingerprint) : null; return prof ? require('./cliptools').envelope(prof, 240) : null; },
+  'audio:loudSection': ({ id, secs }) => { const s = library.get(id); const prof = s && analyser ? analyser.profileFor(s.fingerprint) : null; return prof ? require('./cliptools').loudSection(prof, Math.max(5, Math.min(120, Number(secs) || 30))) : null; },
+  'library:relinkScan': async ({ folder } = {}) => {
+    if (!folder) { const r = await dialog.showOpenDialog(hostWin, { title: 'Folder containing the moved videos', properties: ['openDirectory'] }); if (r.canceled) return null; folder = r.filePaths[0]; }
+    return library.scanRelink(folder);
+  },
+  'library:missingInfo': () => library.missingInfo(),
   /** The host ticked these weaker matches in the relink window. */
   'library:relinkConfirm': ({ items }) => {
     let n = 0;
@@ -888,7 +929,7 @@ const handlers = {
   'games:relinkScan': async ({ id, folder }) => {
     const g = getGameObj(id);
     if (!folder) { const r = await dialog.showOpenDialog(hostWin, { title: 'Folder containing the music videos', properties: ['openDirectory'] }); if (r.canceled) return null; folder = r.filePaths[0]; }
-    return backup.scanForMatches(g, folder);
+    const r = backup.scanForMatches(g, folder); r.results.forEach(x => { x.key = x.songId; }); return r;
   },
   'games:relinkApply': ({ id, matches }) => {
     const g = getGameObj(id);
