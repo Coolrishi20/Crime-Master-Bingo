@@ -277,7 +277,7 @@ html.low-res .pt-ck.done .pgrid i.on { box-shadow: none; }
 #audioCard .ac-eq i:nth-child(5) { animation-delay: -.2s; } #audioCard .ac-eq i:nth-child(6) { animation-delay: -.6s; } #audioCard .ac-eq i:nth-child(7) { animation-delay: -.3s; }
 @keyframes aceq { from { height: 18%; } to { height: 100%; } }
 #audioCard .ac-ey { font-weight: 800; letter-spacing: .18em; text-transform: uppercase; color: #FF5B32; font-size: calc(28px * var(--s, 1)); }
-#audioCard .ac-big { font-family: 'Montserrat', 'Segoe UI', sans-serif; font-weight: 800; font-size: calc(96px * var(--s, 1)); }
+#audioCard .ac-big { font-family: "Montserrat", "Segoe UI", sans-serif; font-weight: 800; font-size: calc(72px * var(--s, 1)); }
 /* Low Resource Mode and reduced motion: still bars, no animation cost */
 .low-res #audioCard .ac-eq i { animation: none; height: 60%; }
 .low-res #audioCard .ac-eq i:nth-child(odd) { height: 35%; }

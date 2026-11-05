@@ -42,8 +42,8 @@ const waitFor = async (fn, ms = 20000) => { const t = Date.now(); while (Date.no
   const tv = await waitFor(async () => { for (const p of app.windows()) { if (/audience/.test(await p.url())) return p; } return null; });
   await tv.waitForLoadState('domcontentloaded'); await waitFor(async () => (await inv('audience:status')).ready, 10000);
   await inv('game:cmd', { action: 'startRound', args: { round: 1 } });
-  const playing = await waitFor(async () => tv.evaluate(() => { const v = document.getElementById('video'); const c = document.getElementById('audioCard'); return !v.paused && v.currentTime > 1 && c && c.classList.contains('on') && /Song 1 · listen and mark/.test(c.textContent); }), 20000);
-  ok(!!playing, 'The MP3 plays on the TV behind a music card (“Song 1 · listen and mark”)');
+  const playing = await waitFor(async () => tv.evaluate(() => { const v = document.getElementById('video'); const c = document.getElementById('audioCard'); return !v.paused && v.currentTime > 1 && c && c.classList.contains('on') && /Song 1/.test(c.textContent) && /Listen and mark your card/.test(c.textContent); }), 20000);
+  ok(!!playing, 'The MP3 plays on the TV behind a music card (“Song 1 · Listen and mark your card”)');
   ok(!(await tv.evaluate(() => document.getElementById('audioCard').textContent.includes('Moonlight'))), 'The music card never shows the title (reveal stays as before)');
   await tv.screenshot({ path: path.join(OUT, 'v26-tv-audio.png') });
 

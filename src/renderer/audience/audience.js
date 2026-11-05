@@ -221,10 +221,10 @@
     if (!cmd) { if (el) el.classList.remove('on'); document.body.classList.remove('audio-mode'); return; }
     if (!el) {
       el = document.createElement('div'); el.id = 'audioCard';
-      el.innerHTML = '<div class="ac-eq" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="ac-ey" id="acEy"></div><div class="ac-big">Name that tune</div>';
+      el.innerHTML = '<div class="ac-eq" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="ac-ey" id="acEy"></div><div class="ac-big">Listen and mark your card</div>';
       var stage = video.parentNode; stage.insertBefore(el, video.nextSibling);
     }
-    document.getElementById('acEy').textContent = cmd.test ? 'Test · listen' : ('Song ' + (cmd.number || '') + ' · listen and mark');
+    document.getElementById('acEy').textContent = cmd.test ? 'Test · listen' : ('Song ' + (cmd.number || ''));
     el.classList.add('on'); document.body.classList.add('audio-mode');
   }
 

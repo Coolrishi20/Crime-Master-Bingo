@@ -6,7 +6,7 @@
 - **Play on:** **+30 s** or **Full song** lets the song that's playing run on, on the phone or
   laptop. Other songs keep their normal clip length.
 - **MP3 and other audio files:** MP3, M4A, AAC, FLAC, WAV, OGG and Opus songs now import and play.
-  The TV shows a music card instead of a picture, with the title hidden until the reveal. Tags
+  The TV shows a music card instead of a picture; the title appears just as it does for videos. Tags
   from MP3 files fill in the title and artist.
 - **Cards handed out tonight:** checking a card number that wasn't handed out shows a warning, so a
   misheard number is caught before you announce a winner. Uses your printed cards, or your own

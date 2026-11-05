@@ -79,8 +79,9 @@ Songs don't have to be videos. **MP3, M4A, AAC, FLAC, WAV, OGG and Opus** files 
 drag them in, add them to playlists, set their clips and print them on cards. The title and artist
 come from the file's tags (or its name).
 
-On the TV an audio song shows a music card: “Song 14 · listen and mark” with moving level bars.
-The title stays hidden until the reveal, exactly as with videos. Volume levelling, clip start and
+On the TV an audio song shows a music card: “Song 14 — Listen and mark your card” with moving
+level bars. The title appears exactly as it does for videos (straight away, or later if you use
+the delayed title reveal). Volume levelling, clip start and
 end, quiet-intro skipping and the played-songs crawler all work the same. In Low Resource Mode the
 bars stand still.
 
