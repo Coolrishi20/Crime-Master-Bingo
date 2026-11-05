@@ -1,3 +1,25 @@
+## Anthem Square 2.6.0 — Talkover, Play on, MP3 songs and a Venue Check
+
+- **Talkover:** hold **🎙 Hold to talk** on the phone or Host Game (or hold `T`) and the music
+  glides down while you speak, then comes back. It lets go by itself after 30 seconds or if the
+  phone drops. Set how far it drops in *Settings → Sound*.
+- **Play on:** **+30 s** or **Full song** lets the song that's playing run on, on the phone or
+  laptop. Other songs keep their normal clip length.
+- **MP3 and other audio files:** MP3, M4A, AAC, FLAC, WAV, OGG and Opus songs now import and play.
+  The TV shows a music card instead of a picture, with the title hidden until the reveal. Tags
+  from MP3 files fill in the title and artist.
+- **Cards handed out tonight:** checking a card number that wasn't handed out shows a warning, so a
+  misheard number is caught before you announce a winner. Uses your printed cards, or your own
+  list.
+- **Venue Check:** a two-minute check when you arrive: TV picture (including cropped edges), sound,
+  your phone reaching the laptop over the venue Wi-Fi, and smooth video.
+- **Help & Guide:** the full host guide inside the app, searchable and offline. Press **F1** on
+  any screen.
+- **Fixed:** opening *Bingo Cards & Printing* straight after creating a game could say “Create a
+  game first”, because the new game hadn't reached the disk yet. A game deleted within a moment of
+  a change could also be saved again.
+- Updates now come from the public **anthem-square-releases** page (the source code is private).
+
 ## Anthem Square 2.5.3 — polish and a diagnostics button
 
 - **Save diagnostics** (*Settings → Updates & about → Help*): one file to send when something

@@ -97,3 +97,20 @@ jobs:
             dist/latest.yml
             dist/*.blockmap
             dist/release-signature.*
+
+      # 2.6: the source repo is private; installed copies look for updates in the public
+      # releases-only repo. Needs the RELEASES_TOKEN secret (fine-grained token, Contents: write
+      # on Coolrishi20/anthem-square-releases). Skipped with a warning when it isn't set.
+      - name: Publish to the public releases repo
+        if: github.ref == 'refs/heads/main'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+          TAG: ${{ steps.ver.outputs.tag }}
+          PRE: ${{ steps.ver.outputs.pre }}
+        run: |
+          R=Coolrishi20/anthem-square-releases
+          if [ -z "$GH_TOKEN" ]; then echo "::warning::RELEASES_TOKEN is not set — this version was not copied to $R, so installed copies won't see it."; exit 0; fi
+          if gh release view "$TAG" --repo "$R" >/dev/null 2>&1; then echo "$TAG is already in $R"; exit 0; fi
+          flags="--latest"; [ "$PRE" = "true" ] && flags="--prerelease --latest=false"
+          gh release create "$TAG" dist/*.exe dist/latest.yml dist/*.blockmap dist/release-signature.* --repo "$R" --title "Anthem Square $TAG" --notes-file docs/RELEASE_NOTES.md $flags

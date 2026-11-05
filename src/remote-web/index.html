@@ -67,6 +67,11 @@
       <button class="btn" id="skipBtn">Skip song</button>
       <button class="btn" id="markBtn">✓ Mark played</button>
     </div>
+    <button class="talk" id="talkBtn" type="button" aria-label="Hold to talk: lowers the music while you hold"><b>🎙 HOLD TO TALK</b><small id="talkSub">Music drops while you hold</small></button>
+    <div class="ctl-row small">
+      <button class="btn playon" id="on30">+30 s<small>this song only</small></button>
+      <button class="btn playon" id="onFull">Full song<small>this song only</small></button>
+    </div>
    </div>
    <div class="col">
     <div id="unavail"></div>
@@ -119,6 +124,7 @@
   <div id="ckEntry">
     <div id="ckDisplay" class="ck-display">___</div>
     <div class="keypad" id="keypad"></div>
+    <div class="muted small center" id="ckHo" style="margin:6px 0 10px"></div>
     <div class="ctl-row small"><button class="btn" id="ckScan">📷 Scan QR</button><button class="btn primary" id="ckGo">ADD &amp; CHECK</button></div>
     <input type="file" id="ckFile" accept="image/*" capture="environment" hidden>
     <div id="ckScanBox" class="hidden"><video id="ckVid" playsinline muted></video><div class="muted small center">Point at the QR code on the card</div></div>

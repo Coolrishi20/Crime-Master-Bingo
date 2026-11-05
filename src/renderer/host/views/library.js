@@ -274,7 +274,7 @@ function m3uReport(list) {
     if (r.error) return `<div class="check-row"><span class="ic bad">✕</span><div class="grow"><b>${esc(r.name)}</b><div class="small" style="color:var(--red)">${esc(r.error)}</div></div></div>`;
     const skipped = [];
     if (r.missing.length) skipped.push(`<div class="small" style="margin-top:6px"><b>${r.missing.length} file(s) not found</b> — moved, renamed or on a drive that isn't connected:<ul class="small" style="margin:4px 0 0 18px">${lineList(r.missing, 8)}</ul></div>`);
-    if (r.audio.length) skipped.push(`<div class="small muted" style="margin-top:4px">${r.audio.length} audio-only file(s) skipped — Anthem Square needs music <b>videos</b>.</div>`);
+    if (r.audio.length) skipped.push(`<div class="small muted" style="margin-top:4px">${r.audio.length} audio file(s) skipped — WMA and AIFF can't play; convert them to MP3.</div>`);
     if (r.streams.length) skipped.push(`<div class="small muted" style="margin-top:4px">${r.streams.length} online stream(s) skipped — only files on this laptop or a connected drive can be played.</div>`);
     if (r.notVideo.length) skipped.push(`<div class="small muted" style="margin-top:4px">${r.notVideo.length} other file(s) skipped (not a video).</div>`);
     if (r.rejected.length) skipped.push(`<div class="small muted" style="margin-top:4px">${r.rejected.length} duplicate song(s) not added twice: ${r.rejected.slice(0, 4).map(x => esc(x.title || '')).join(', ')}${r.rejected.length > 4 ? '…' : ''}</div>`);

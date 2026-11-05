@@ -14,7 +14,11 @@
  *   nothing ever interrupts a game.
  */
 const REPO = { owner: 'Coolrishi20', repo: 'Crime-Master-Bingo' };
-const RELEASES_URL = `https://github.com/${REPO.owner}/${REPO.repo}/releases/latest`;
+/* 2.6: releases are published to a public releases-only repo (the source code is private);
+   the original repo stays as a fallback. The newest version found in either wins. */
+const RELEASES_REPO = { owner: 'Coolrishi20', repo: 'anthem-square-releases' };
+const REPOS = [RELEASES_REPO, REPO];
+const RELEASES_URL = 'https://github.com/Coolrishi20/anthem-square-releases/releases/latest';
 const CHECK_EVERY_MS = 4 * 60 * 60 * 1000;
 
 /** Compare dotted versions: 1 if a > b, -1 if a < b, 0 if equal. "v" prefixes and pre-release tags handled. */
@@ -89,6 +93,7 @@ class UpdateManager {
     if (['downloading', 'downloaded', 'checking'].includes(this.status.state)) return this.status;
     try {
       if (this.mode === 'installer') {
+        if (this.o.beforeCheck) { try { await this.o.beforeCheck(); } catch (e) { /* keep the current feed */ } }
         await this.o.autoUpdater.checkForUpdates();
       } else {
         this.set({ state: 'checking' });
@@ -147,4 +152,4 @@ function friendly(e) {
   return 'Could not check for updates right now.';
 }
 
-module.exports = { UpdateManager, compareVersions, RELEASES_URL, REPO };
+module.exports = { UpdateManager, compareVersions, RELEASES_URL, REPO, REPOS, RELEASES_REPO };

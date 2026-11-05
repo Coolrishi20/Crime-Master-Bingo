@@ -12,6 +12,16 @@
   var ticker = new CMBTicker.Ticker($('crawlViewport'), {});
   var cur = { token: null, clipStart: 0, clipEnd: null, volume: 85, ended: false, test: false };
   var audio = { gainDb: 0, fadeIn: 0.5, fadeOut: 1, muted: false };
+  /* 2.6 Talkover: music glides down to `target` in about 0.3 s while the host speaks, then back up. */
+  var duck = { target: 1, value: 1, last: 0 };
+  window.__anthemDuck = function () { return duck.value; }; // read by the end-to-end test
+  function duckLevel() {
+    var now = performance.now(); var dt = duck.last ? Math.min(0.1, (now - duck.last) / 1000) : 0; duck.last = now;
+    var step = dt / 0.3;
+    if (duck.value < duck.target) duck.value = Math.min(duck.target, duck.value + step);
+    else if (duck.value > duck.target) duck.value = Math.max(duck.target, duck.value - step);
+    return duck.value;
+  }
   var sinkId = 'default';
 
   /* Single Web Audio chain: <video> → gain → speakers. Levelling, fades, volume and
@@ -63,7 +73,7 @@
   /** Volume × levelling gain × fade (only inside the selected clip) × mute. */
   function effectiveVolume(t) {
     if (audio.muted) return 0;
-    var v = Math.max(0, Math.min(1, cur.volume / 100)) * Math.pow(10, (audio.gainDb || 0) / 20);
+    var v = Math.max(0, Math.min(1, cur.volume / 100)) * Math.pow(10, (audio.gainDb || 0) / 20) * duckLevel();
     if (cur.clipEnd != null && audio.fadeOut > 0) {
       var left = cur.clipEnd - t;
       if (left < audio.fadeOut) v *= Math.max(0, left / audio.fadeOut);
@@ -101,6 +111,7 @@
       return;
     }
     if (YTP.active) { YTP.clear(); document.body.classList.remove('yt-mode'); }
+    audioCard(cmd.audioOnly ? cmd : null);
     video.src = cmd.href || fileHref(cmd.src);
     video.load();
     if (cmd.test) { showOverlay({ title: cmd.title, artist: cmd.artist, key: 'test' }); }
@@ -137,6 +148,41 @@
 
   function stopTest() { clear(); renderOverlay(); }
 
+  /* 2.6 Venue Check: a full-screen test card (edges show whether the TV crops the picture)
+     and three rising tones plus a chord through the same speakers the songs use. */
+  var vtTimer = null;
+  function venueTest(cmd) {
+    var el = document.getElementById('venueTest');
+    if (!el) {
+      el = document.createElement('div'); el.id = 'venueTest';
+      el.innerHTML = '<div class="vt-edge"></div><div class="vt-mid"><div class="vt-ey">ANTHEM SQUARE · VENUE CHECK</div><div class="vt-big">Can you see this?</div>' +
+        '<div class="vt-sub">If any of the orange frame is cut off, set the TV picture size to “Just scan”, “Screen fit” or “16:9 original”.</div>' +
+        '<div class="vt-bars"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="vt-sub" id="vtSnd"></div></div>';
+      document.body.appendChild(el);
+    }
+    clearTimeout(vtTimer);
+    if (cmd.on === false) { el.classList.remove('on'); return; }
+    el.classList.add('on');
+    vtTimer = setTimeout(function () { el.classList.remove('on'); }, (cmd.seconds || 60) * 1000);
+    if (cmd.sound && !MIRROR) {
+      document.getElementById('vtSnd').textContent = '🔊 Playing the test sound…';
+      try {
+        ensureAudio();
+        var ctx = actx || new (window.AudioContext || window.webkitAudioContext)();
+        if (ctx.state === 'suspended') ctx.resume();
+        var t0 = ctx.currentTime + 0.1; var vol = Math.max(0.05, Math.min(1, (cmd.volume != null ? cmd.volume : cur.volume) / 100)) * 0.5;
+        var tone = function (f, at, len) {
+          var o = ctx.createOscillator(), g = ctx.createGain(); o.type = 'triangle'; o.frequency.value = f;
+          g.gain.setValueAtTime(0, at); g.gain.linearRampToValueAtTime(vol, at + 0.03); g.gain.setValueAtTime(vol, at + len - 0.08); g.gain.linearRampToValueAtTime(0, at + len);
+          o.connect(g); g.connect(ctx.destination); o.start(at); o.stop(at + len + 0.05);
+        };
+        tone(523.25, t0, 0.35); tone(659.25, t0 + 0.5, 0.35); tone(783.99, t0 + 1.0, 0.35);
+        [523.25, 659.25, 783.99, 1046.5].forEach(function (f) { tone(f, t0 + 1.6, 1.2); });
+        setTimeout(function () { var s = document.getElementById('vtSnd'); if (s) s.textContent = 'Test sound finished.'; }, 3200);
+      } catch (e) { document.getElementById('vtSnd').textContent = 'The test sound could not play: ' + e.message; window.cmb.invoke('player:error', { token: -2, message: 'venue test sound: ' + e.message }); }
+    }
+  }
+
   function report(ch, data) { if (!MIRROR) window.cmb.invoke(ch, data); }
   YTP.on('started', function () { if (!cur.test && !MIRROR) window.cmb.invoke('player:started', { token: cur.token }); });
   YTP.on('ended', function () { finish(); });
@@ -168,7 +214,22 @@
   }
   requestAnimationFrame(watch);
 
+  /* 2.6 Audio-only songs (MP3…): a calm music card instead of a picture. The title stays
+     hidden until the normal reveal, exactly as with videos. */
+  function audioCard(cmd) {
+    var el = document.getElementById('audioCard');
+    if (!cmd) { if (el) el.classList.remove('on'); document.body.classList.remove('audio-mode'); return; }
+    if (!el) {
+      el = document.createElement('div'); el.id = 'audioCard';
+      el.innerHTML = '<div class="ac-eq" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="ac-ey" id="acEy"></div><div class="ac-big">Name that tune</div>';
+      var stage = video.parentNode; stage.insertBefore(el, video.nextSibling);
+    }
+    document.getElementById('acEy').textContent = cmd.test ? 'Test · listen' : ('Song ' + (cmd.number || '') + ' · listen and mark');
+    el.classList.add('on'); document.body.classList.add('audio-mode');
+  }
+
   function clear() {
+    audioCard(null);
     setGain(0, 0.01);
     cur.token = null; cur.ended = true;
     video.pause();
@@ -187,6 +248,8 @@
       case 'seek': if (YTP.active) { YTP.seek(cmd.position); cur.ended = false; break; } try { video.currentTime = cmd.position; cur.ended = false; } catch (e) { /* */ } break;
       case 'volume': cur.volume = cmd.volume; if (YTP.active) YTP.setVolume(effectiveVolume(YTP.time())); else setGain(effectiveVolume(video.currentTime || 0)); break;
       case 'audio': if (cmd.token == null || cmd.token === cur.token || cmd.token === -1 || cur.token == null) { audio = Object.assign(audio, { gainDb: cmd.gainDb || 0, fadeIn: cmd.fadeIn != null ? cmd.fadeIn : audio.fadeIn, fadeOut: cmd.fadeOut != null ? cmd.fadeOut : audio.fadeOut, muted: !!cmd.muted }); setGain(effectiveVolume(video.currentTime || 0)); } break;
+      case 'venueTest': venueTest(cmd); break;
+      case 'duck': duck.target = cmd.on ? Math.pow(10, (Number(cmd.db) || -14) / 20) : 1; duck.last = performance.now(); break;
       case 'clip': if (cmd.token === cur.token) { cur.clipStart = cmd.clipStart; cur.clipEnd = cmd.clipEnd; } break;
       case 'clear': clearTimeout(pendingLoad); if (cmd.hold && !YTP.active) { setGain(0, 0.05); cur.token = null; cur.ended = true; video.pause(); break; } if (YTP.active) { YTP.clear(); document.body.classList.remove('yt-mode'); } clear(); break;
     }

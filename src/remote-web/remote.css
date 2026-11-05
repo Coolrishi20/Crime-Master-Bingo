@@ -208,3 +208,12 @@ input { font-family: inherit; }
 .ck-opt.on { border-color: var(--green); background: rgba(53,214,143,.14); }
 .ck-opt input { width: 22px; height: 22px; accent-color: var(--green); }
 .btn.mini { display: inline-block; width: auto; padding: 3px 12px; font-size: 12px; min-height: 0; margin-left: 6px; vertical-align: middle; }
+
+/* 2.6 Talkover + Play on */
+.talk { display: flex; flex-direction: column; align-items: center; gap: 2px; width: 100%; margin-bottom: 12px; padding: 18px 12px; border-radius: 18px; border: 0; background: #FFF2CF; color: #102542; font-family: inherit; touch-action: none; -webkit-touch-callout: none; transition: background .15s, transform .1s; }
+.talk b { font-size: 18px; font-weight: 800; letter-spacing: .04em; }
+.talk small { font-size: 12px; font-weight: 600; color: #4E5B6B; }
+.talk.on { background: #FF5B32; color: #171717; transform: scale(.98); }
+.talk.on small { color: #171717; }
+.btn.playon { display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 10px 8px; }
+.btn.playon small { font-size: 11px; font-weight: 600; opacity: .7; }

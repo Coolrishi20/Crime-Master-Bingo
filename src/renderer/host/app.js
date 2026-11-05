@@ -268,16 +268,22 @@
     },
 
     bindKeys() {
+      // 2.6 Talkover: hold T. Letting go of T, or the window losing focus, brings the music back.
+      const talkUp = () => { if (this._talkKey) { this._talkKey = false; this.cmd('talkover', { on: false }); } };
+      document.addEventListener('keyup', (e) => { if (e.key === 't' || e.key === 'T') talkUp(); });
+      window.addEventListener('blur', talkUp);
       document.addEventListener('keydown', (e) => {
         const t = e.target;
         const typing = t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable);
         if (e.key === 'Escape') { if (closeTopModal()) { e.preventDefault(); return; } return; }
+        if (e.key === 'F1') { e.preventDefault(); if (this.view !== 'help') App.helpFor(this.view); return; }
         if (typing || e.ctrlKey || e.metaKey || e.altKey) return;
         if (document.querySelector('.modal-back') && e.key !== 'Escape') return;
         if (!this.game) return;
         if (e.code === 'Space') { e.preventDefault(); this.cmd('togglePlay'); }
         else if (e.key === 'ArrowRight') { e.preventDefault(); this.next(); }
         else if (e.key === 'ArrowLeft') { e.preventDefault(); this.cmd('replay', { expectIndex: this.game.playback.index }); }
+        else if ((e.key === 't' || e.key === 'T') && !e.repeat) { e.preventDefault(); this._talkKey = true; this.cmd('talkover', { on: true }); }
         else if (e.key === 'b' || e.key === 'B') { e.preventDefault(); App.openChecker(); }
         else if (e.key === 'f' || e.key === 'F') { e.preventDefault(); api('audience:fullscreen'); }
         else if ((e.key === 'q' || e.key === 'Q') && this.game.night && this.game.status !== 'finished') { e.preventDefault(); this.cmd(this.game.night.phase === 'quiz' ? 'startBreak' : 'returnToQuiz'); }

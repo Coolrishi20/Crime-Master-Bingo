@@ -4,6 +4,9 @@ Anthem Square (formerly Crime Master Bingo) runs music-video bingo nights from a
 plays every video and all the sound; the TV or projector shows the audience screen;
 your phone is a remote control. No internet connection or account is needed.
 
+**Help inside the app:** this guide is also in the app under **Help & Guide**. Press **F1** on any
+screen to jump to the part of the guide for that screen, and use the search box to find anything.
+
 ---
 
 ## 1. Before the night (about 15 minutes)
@@ -70,6 +73,18 @@ video stands out.
 - Moved your videos? **Relink folder…** finds them, even if they were renamed. Files that are
   only *probably* the same (same name or same title and artist) are listed for you to tick;
   nothing uncertain is relinked without you.
+
+### Audio-only songs (MP3 and more)
+Songs don't have to be videos. **MP3, M4A, AAC, FLAC, WAV, OGG and Opus** files import like videos:
+drag them in, add them to playlists, set their clips and print them on cards. The title and artist
+come from the file's tags (or its name).
+
+On the TV an audio song shows a music card: “Song 14 · listen and mark” with moving level bars.
+The title stays hidden until the reveal, exactly as with videos. Volume levelling, clip start and
+end, quiet-intro skipping and the played-songs crawler all work the same. In Low Resource Mode the
+bars stand still.
+
+WMA and AIFF files can't play on Windows laptops; convert them to MP3 first.
 
 ### YouTube songs (Beta) — *Music Library → ＋ YouTube…*
 Paste YouTube links, one per line (watch, youtu.be, shorts and music.youtube links all
@@ -272,6 +287,21 @@ For quizzes where the bingo is played in breaks between quiz rounds.
   still holding screen*) and whether a break *waits for Play* or *plays straight away*.
 - Play, Next and Replay are switched off during quiz time so nothing plays by accident.
 
+### Venue Check — *Venue Check* (about 2 minutes)
+Run this when you arrive, before doors open. No game and no internet needed.
+
+1. **TV picture:** choose the TV screen and press **Show test card**. Check you can see the whole
+   orange frame. If the edges are cut off, set the TV's picture size to *Just scan*, *Screen fit*
+   or *16:9 original*. Answering *Yes* remembers that screen as the TV.
+2. **Sound:** pick the speakers and press **Play test sound**: three notes and a chord through the
+   same speakers the songs use. Set the room volume on the TV or amplifier now.
+3. **Your phone:** scan the QR code. The check passes as soon as your phone connects. If it can't,
+   the venue Wi-Fi probably stops devices talking to each other (common on guest networks): use
+   your phone's hotspot for the laptop, or a small travel router.
+4. **Smooth video:** plays 5 seconds of one of your videos off-screen and counts dropped frames.
+
+Press **Save results** to keep a record of when the venue was last checked.
+
 ### Connect your phone — *Mobile Host Connection*
 1. Put the phone on the **same Wi-Fi** as the laptop. No internet is needed; a phone
    hotspot or a travel router works.
@@ -431,7 +461,21 @@ count twice; skipped songs don't count and come back at the end. The **Play orde
 lets you play any song now.
 
 **Keyboard:** `Space` play/pause · `→` next · `←` replay · `B` bingo check · `F` TV
-fullscreen · `Esc` close dialog. Shortcuts are ignored while you type.
+fullscreen · hold `T` talkover · `F1` help · `Esc` close dialog. Shortcuts are ignored while you type.
+
+### Talkover — talk over the music
+Hold **🎙 Hold to talk** on the phone (or on Host Game, or hold `T` on the laptop) to announce a
+winner or a quiz notice. The music glides down while you hold and comes back up when you let go.
+It never pauses the song, so the clip carries on and nothing is lost.
+
+- How far the music drops: *Settings → Sound → Talkover* (default about three-quarters).
+- It always lets go by itself after 30 seconds, and if your phone loses the connection.
+- It doesn't change the volume setting, and the TV shows nothing.
+
+### Play on — let a song run longer
+When the room is singing along, press **+30 s** or **Full song** (phone or Host Game). Only the song
+that is playing runs on; every other song keeps the normal clip length. The clip-length row on
+Host Game is now labelled **Clip for all songs** because it changes the whole game.
 
 ---
 
@@ -463,6 +507,15 @@ If the laptop shuts down during a check, the frozen session is restored exactly 
 you reopen the game.
 
 ---
+
+### Cards handed out tonight
+On Host Game (under Check Bingo) and on the phone's check screen you'll see **Handed out tonight**,
+for example *001–048*. By default these are the cards you've printed (and any phone cards). Press
+**change** to type your own list, for example `1-48, 52`.
+
+If someone claims with a card that wasn't handed out (a misheard number, or a card from another
+night), the check result says **“Card 057 wasn't handed out tonight”**. It's only a warning: the
+check still runs, so ask to see the card before you announce a winner.
 
 ## 4. TV winner & "Not a Bingo" screens
 

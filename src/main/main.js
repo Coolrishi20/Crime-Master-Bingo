@@ -17,7 +17,7 @@ const locking = require('../core/locking');
 const { AudioAnalyser } = require('./audio');
 const { Converter } = require('./converter');
 const backup = require('./backup');
-const { UpdateManager, RELEASES_URL, REPO } = require('./updater');
+const { UpdateManager, RELEASES_URL, REPO, REPOS, compareVersions } = require('./updater');
 
 const ROOT = path.join(__dirname, '..', '..');
 const RENDERER = path.join(__dirname, '..', 'renderer');
@@ -590,6 +590,8 @@ function getGameObj(id) { if (engine && engine.game.id === id) return engine.gam
 
 /* ======================================================================= IPC */
 const handlers = {
+  /* 2.6 Help & Guide: the Host Guide ships with the app (offline) */
+  'help:guide': () => { try { return fs.readFileSync(path.join(ROOT, 'docs', 'USER_GUIDE.md'), 'utf8'); } catch (e) { return null; } },
   'app:info': () => ({ onboarding: { autoOpen: !(settings.onboarding && (settings.onboarding.dismissed || settings.onboarding.done)) && (!IS_TEST || !!process.env.CMB_ONBOARD) }, version: app.getVersion(), dataDir: DATA_DIR, recovery: recoveryInfo, platform: process.platform, isTest: IS_TEST, totalRamGB: TOTAL_RAM_GB, recommendLowResource: LOW_RAM && !settings.performance.lowResource && !settings.performance.decided }),
   'library:optimise': ({ ids, maxHeight }) => ({ queued: converter.optimise(ids && ids.length ? ids : library.songs().map(s => s.id), Number(maxHeight) || 720) }),
   /** Media check: Ready / Needs optimisation / Unsupported / Missing for the library or a playlist. */
@@ -657,7 +659,7 @@ const handlers = {
   'library:list': () => ({ songs: library.songs() }),
   'library:nextUnchecked': () => library.nextUnchecked(),
   'library:pickFiles': async () => {
-    const r = await dialog.showOpenDialog(hostWin, { title: 'Import music videos or M3U playlists', properties: ['openFile', 'multiSelections'], filters: [{ name: 'Music videos and playlists', extensions: ['mp4', 'm4v', 'mov', 'webm', 'mkv', 'ogv', 'avi', 'wmv', 'flv', 'mpg', 'mpeg', 'm3u', 'm3u8'] }, { name: 'M3U playlists', extensions: ['m3u', 'm3u8'] }, { name: 'All files', extensions: ['*'] }] });
+    const r = await dialog.showOpenDialog(hostWin, { title: 'Import music videos or M3U playlists', properties: ['openFile', 'multiSelections'], filters: [{ name: 'Music videos, audio and playlists', extensions: ['mp4', 'm4v', 'mp3', 'm4a', 'aac', 'flac', 'wav', 'ogg', 'oga', 'opus', 'mov', 'webm', 'mkv', 'ogv', 'avi', 'wmv', 'flv', 'mpg', 'mpeg', 'm3u', 'm3u8'] }, { name: 'M3U playlists', extensions: ['m3u', 'm3u8'] }, { name: 'All files', extensions: ['*'] }] });
     return r.canceled ? null : importAny(r.filePaths);
   },
   'library:pickFolder': async () => {
@@ -1036,6 +1038,31 @@ const handlers = {
     if (audienceReady) send(); else ipcMain.once('audience:ready-once', send);
     return { title: s.title, artist: s.artist };
   },
+  /* 2.6 Venue Check: test card + test sound on the chosen screen, without needing a game */
+  'venue:tv': ({ displayId, sound, off } = {}) => {
+    if (off) { sendAudience('player', { cmd: 'venueTest', on: false }); return { ok: true }; }
+    if (engine && ['playing', 'loading'].includes(engine.game.playback.status)) throw new Error('A song is playing. Pause it before running the venue check.');
+    if (tvHiddenForQuiz) throw new Error('It’s quiz time and the TV is hidden. Start the bingo break first, or run the check before the quiz.');
+    const d = displayId ? screen.getAllDisplays().find(x => String(x.id) === String(displayId)) : null;
+    if (audienceWin && !audienceWin.isDestroyed() && d) {
+      const cur = screen.getDisplayMatching(audienceWin.getBounds());
+      if (cur.id !== d.id) {
+        const wasFull = audienceWin.isFullScreen(); if (wasFull) audienceWin.setFullScreen(false);
+        const external = d.id !== screen.getPrimaryDisplay().id; const b = d.bounds;
+        audienceWin.setBounds(external ? b : { x: b.x + Math.round(b.width * 0.1), y: b.y + Math.round(b.height * 0.1), width: Math.round(b.width * 0.6), height: Math.round(b.width * 0.6 * 9 / 16) });
+        if (external && settings.video.fullscreen && !IS_TEST) audienceWin.setFullScreen(true);
+      }
+    }
+    if (!audienceWin || audienceWin.isDestroyed()) openAudienceWindow({ displayId: d ? d.id : null }); else audienceWin.showInactive();
+    const volume = engine ? engine.settings.volume : 85;
+    const send = () => sendAudience('player', { cmd: 'venueTest', on: true, sound: !!sound, volume, seconds: 90 });
+    if (audienceReady) send(); else ipcMain.once('audience:ready-once', send);
+    const on = audienceWin && !audienceWin.isDestroyed() ? screen.getDisplayMatching(audienceWin.getBounds()) : null;
+    return { ok: true, displayId: on ? on.id : null, audioDeviceId: settings.video.audioDeviceId || 'default' };
+  },
+  'venue:useDisplay': ({ displayId }) => { settings.video.displayId = displayId || null; saveSettings(); return true; },
+  'venue:save': (r) => { settings.venueCheck = { at: new Date().toISOString(), results: (r && r.results) || {}, notes: (r && r.notes) || [] }; saveSettings(); return settings.venueCheck; },
+  'venue:last': () => settings.venueCheck || null,
   'displays:list': () => screen.getAllDisplays().map(d => ({ id: d.id, label: d.label || `Display ${d.id}`, width: d.size.width, height: d.size.height, primary: d.id === screen.getPrimaryDisplay().id })),
 
   /* app updates */
@@ -1277,6 +1304,7 @@ function createRemote() {
     flush: () => { if (flushQueued) flushEngineChanges(); },
     getState: () => remoteState(),
     dispatch: (action, args, source) => dispatch(action, args, source),
+    onDisconnect: (source) => { if (engine) engine.releaseTalkover(source); },
     devices: { list: () => settings.remote.devices, save: (list) => { settings.remote.devices = list; saveSettings(); } },
     onChange: async () => { await refreshJoin(); sendHost('remote', await remoteInfo()); }
   });
@@ -1288,7 +1316,7 @@ let lastDecodeTest = null;
 async function decodeTest() {
   if (engine && ['playing', 'loading'].includes(engine.game.playback.status)) throw new Error('Pause the game first — the test plays a video on this laptop.');
   const g = engine && engine.game; const songs = g ? Object.values(g.songs) : library.songs();
-  const pick = songs.filter(s => s.source !== 'youtube' && s.path && fs.existsSync(s.path)).sort((a, b) => ((library.get(b.id) || b).height || 0) - ((library.get(a.id) || a).height || 0))[0];
+  const pick = songs.filter(s => s.source !== 'youtube' && s.path && ((library.get(s.id) || s).height || 0) > 0 && fs.existsSync(s.path)).sort((a, b) => ((library.get(b.id) || b).height || 0) - ((library.get(a.id) || a).height || 0))[0];
   if (!pick) throw new Error('No video available to test.');
   const html = path.join(DATA_DIR, 'decode-test.html');
   fs.writeFileSync(html, '<!doctype html><meta charset="utf-8"><body style="margin:0;background:#000"><video id="v" muted playsinline style="width:100vw;height:100vh"></video>');
@@ -1531,12 +1559,45 @@ function cleanupUpdateLeftovers() {
   try { const left = path.join(path.dirname(portableExe()), '.anthem-square-update.exe'); if (fs.existsSync(left) && Date.now() - fs.statSync(left).mtimeMs > 10 * 60000) fs.unlinkSync(left); } catch (e) { /* */ }
 }
 
+const ghRelease = (j) => ({ version: j.tag_name, url: j.html_url, assets: (j.assets || []).map(a => ({ name: a.name, url: a.browser_download_url, size: a.size, digest: a.digest || null })) });
+/* 2.6: the repo the newest release came from (releases repo first, then the original). */
+let updateRepo = null;
+function repoOrder() { return updateRepo ? [updateRepo].concat(REPOS.filter(r => r !== updateRepo)) : REPOS; }
 async function fetchRelease(tag) {
-  const base = (IS_TEST && process.env.CMB_UPDATE_API) ? process.env.CMB_UPDATE_API.replace(/\/latest$/, '/tags/') : `https://api.github.com/repos/${REPO.owner}/${REPO.repo}/releases/tags/`;
-  const r = await net.fetch(base + encodeURIComponent(tag), { headers: { 'User-Agent': 'Anthem-Square-Updater', Accept: 'application/vnd.github+json' } });
-  if (!r.ok) throw new Error('Version ' + tag + ' could not be found (' + r.status + ').');
-  const j = await r.json();
-  return { version: j.tag_name, url: j.html_url, assets: (j.assets || []).map(a => ({ name: a.name, url: a.browser_download_url, size: a.size, digest: a.digest || null })) };
+  if (IS_TEST && process.env.CMB_UPDATE_API) {
+    const r = await net.fetch(process.env.CMB_UPDATE_API.replace(/\/latest$/, '/tags/') + encodeURIComponent(tag), { headers: { 'User-Agent': 'Anthem-Square-Updater', Accept: 'application/vnd.github+json' } });
+    if (!r.ok) throw new Error('Version ' + tag + ' could not be found (' + r.status + ').');
+    return ghRelease(await r.json());
+  }
+  let last = 0;
+  for (const rp of repoOrder()) {
+    try {
+      const r = await net.fetch(`https://api.github.com/repos/${rp.owner}/${rp.repo}/releases/tags/` + encodeURIComponent(tag), { headers: { 'User-Agent': 'Anthem-Square-Updater', Accept: 'application/vnd.github+json' } });
+      if (r.ok) return ghRelease(await r.json());
+      last = r.status;
+    } catch (e) { last = e.message; }
+  }
+  throw new Error('Version ' + tag + ' could not be found (' + last + ').');
+}
+/** Newest release across the repos (a repo that is private or doesn't exist yet is skipped). */
+async function fetchLatestAnyRepo() {
+  if (IS_TEST && process.env.CMB_UPDATE_API) {
+    const r = await net.fetch(process.env.CMB_UPDATE_API, { headers: { 'User-Agent': 'Anthem-Square-Updater', Accept: 'application/vnd.github+json' } });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return ghRelease(await r.json());
+  }
+  let best = null, bestRepo = null, err = null;
+  for (const rp of REPOS) {
+    try {
+      const r = await net.fetch(`https://api.github.com/repos/${rp.owner}/${rp.repo}/releases/latest`, { headers: { 'User-Agent': 'Anthem-Square-Updater', Accept: 'application/vnd.github+json' } });
+      if (!r.ok) { err = 'HTTP ' + r.status; continue; }
+      const rel = ghRelease(await r.json());
+      if (!best || compareVersions(rel.version, best.version) > 0) { best = rel; bestRepo = rp; }
+    } catch (e) { err = e.message; }
+  }
+  if (!best) throw new Error(err || 'No releases found');
+  updateRepo = bestRepo;
+  return best;
 }
 /* Rollback: go back to the version before the last update. Portable keeps the previous EXE;
    the installer build downloads that version's signed installer. Never during a game. */
@@ -1571,14 +1632,9 @@ function createUpdater() {
   if (mode === 'installer') { try { autoUpdater = require('electron-updater').autoUpdater; } catch (e) { mode = 'disabled'; } }
   const u = new UpdateManager({
     currentVersion: app.getVersion(), mode, autoUpdater,
-    fetchLatest: async () => {
-      const { net } = require('electron');
-      const api = (IS_TEST && process.env.CMB_UPDATE_API) || `https://api.github.com/repos/${REPO.owner}/${REPO.repo}/releases/latest`;
-      const r = await net.fetch(api, { headers: { 'User-Agent': 'Anthem-Square-Updater', Accept: 'application/vnd.github+json' } });
-      if (!r.ok) throw new Error('HTTP ' + r.status);
-      const j = await r.json();
-      return { version: j.tag_name, url: j.html_url, assets: (j.assets || []).map(a => ({ name: a.name, url: a.browser_download_url, size: a.size, digest: a.digest || null })) };
-    },
+    fetchLatest: () => fetchLatestAnyRepo(),
+    // installer copies: point electron-updater at whichever repo has the newest release
+    beforeCheck: async () => { if (!autoUpdater || IS_TEST) return; await fetchLatestAnyRepo(); if (updateRepo) autoUpdater.setFeedURL({ provider: 'github', owner: updateRepo.owner, repo: updateRepo.repo, releaseType: 'release' }); },
     canSelfUpdate: () => { try { fs.accessSync(path.dirname(portableExe()), fs.constants.W_OK); return true; } catch (e) { return false; } },
     downloadPortable: (asset, onProgress, release) => downloadPortableUpdate(asset, onProgress, release),
     requireSigned: true,

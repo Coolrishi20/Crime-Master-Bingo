@@ -21,6 +21,10 @@ class Store {
   file(name) { return path.join(this.dir, name.endsWith('.json') ? name : name + '.json'); }
 
   read(name, fallback) {
+    // A write still waiting to be saved is the newest copy (2.6: a game created a moment ago
+    // used to be missing from lists until its delayed write reached the disk).
+    const key = name.replace(/\.json$/, '');
+    if (this.pending.has(key)) return JSON.parse(JSON.stringify(this.pending.get(key).data));
     const f = this.file(name);
     for (const candidate of [f, f + '.bak']) {
       try {
@@ -69,13 +73,14 @@ class Store {
 
   listGames() {
     const dir = path.join(this.dir, 'games');
-    return fs.readdirSync(dir).filter(f => f.endsWith('.json')).map(f => {
-      const g = this.read('games/' + f.replace(/\.json$/, ''), null);
-      return g;
-    }).filter(Boolean);
+    const ids = new Set(fs.readdirSync(dir).filter(f => f.endsWith('.json')).map(f => f.replace(/\.json$/, '')));
+    for (const k of this.pending.keys()) if (k.startsWith('games/')) ids.add(k.slice(6));
+    return Array.from(ids).map(id => this.read('games/' + id, null)).filter(Boolean);
   }
 
   deleteGame(id) {
+    const p = this.pending.get('games/' + id);
+    if (p) { clearTimeout(p.timer); this.pending.delete('games/' + id); }
     ['', '.bak', '.tmp'].forEach(sfx => { const f = this.file('games/' + id) + sfx; if (fs.existsSync(f)) fs.unlinkSync(f); });
   }
 }

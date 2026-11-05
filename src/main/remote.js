@@ -15,7 +15,7 @@ const { WebSocketServer } = require('ws');
 const MIME = { '.woff2': 'font/woff2', '.html': 'text/html; charset=utf-8', '.js': 'application/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.png': 'image/png', '.mp4': 'video/mp4', '.svg': 'image/svg+xml', '.json': 'application/json', '.webmanifest': 'application/manifest+json' };
 
 const REMOTE_ACTIONS = new Set([
-  'play', 'pause', 'togglePlay', 'stop', 'next', 'skip', 'previous', 'replay', 'seek', 'setVolume', 'markPlayed',
+  'play', 'pause', 'togglePlay', 'stop', 'next', 'skip', 'previous', 'replay', 'seek', 'setVolume', 'markPlayed', 'talkover', 'playOn', 'setHandedOut',
   'startRound', 'endRound', 'pauseGame', 'resumeGame', 'endGame', 'setCrawler',
   'openChecker', 'closeChecker', 'checkClaim', 'confirmClaim', 'dismissClaim', 'revokeWinner', 'setClipMode',
   'freezeClaims', 'addClaim', 'viewClaim', 'removeClaim', 'closeSession', 'grantCredit', 'reverseCredit', 'setAudio', 'showTvScreen', 'setTvScreens', 'completeRound', 'queueSong', 'unqueueSong', 'skipNext', 'resetQueue', 'jumpTo', 'startIntermission', 'endIntermission', 'changeAward', 'closeChecklist',
@@ -156,7 +156,12 @@ class RemoteServer {
       let msg; try { msg = JSON.parse(String(raw)); } catch (e) { return; }
       this.handleMsg(c, msg);
     });
-    ws.on('close', () => { this.clients.delete(c); if (c.authed || c.playerId) this.changed(); });
+    ws.on('close', () => {
+      this.clients.delete(c);
+      // 2.6: a host phone that drops while holding Talkover must not leave the music down
+      if (c.authed && this.opts.onDisconnect) { try { this.opts.onDisconnect(`phone:${c.deviceName || 'phone'}`); } catch (e) { /* */ } }
+      if (c.authed || c.playerId) this.changed();
+    });
     ws.on('error', () => { /* handled by close */ });
     this.send(c, { type: 'hello', app: 'Anthem Square', needAuth: true });
   }

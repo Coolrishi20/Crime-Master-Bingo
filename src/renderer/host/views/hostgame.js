@@ -36,10 +36,13 @@ App.register('host', {
               <button class="ctl" id="cStop" title="Stop">■</button>
               <button class="ctl" id="cNext" title="Next / skip (→)">⏭</button>
               <button class="btn" id="cMark" title="Count this song as played now">✓ Mark played</button>
+              <button class="btn talkbtn" id="cTalk" title="Hold to lower the music while you speak (hold T)">🎙 Hold to talk <span class="muted">(T)</span></button>
+              <button class="btn" id="cOn30" title="Let this song play 30 seconds longer (this song only)">+30 s</button>
+              <button class="btn" id="cOnFull" title="Let this song play to the end (this song only)">Full song</button>
               <span class="grow"></span>
               <div style="display:flex;align-items:center;gap:8px"><span class="muted">🔊</span><input type="range" id="cVol" min="0" max="100" style="width:130px"><span id="cVolV" class="muted small" style="width:32px"></span></div>
             </div>
-            <div class="row" style="margin-top:14px"><span class="muted small" style="font-weight:700">CLIP</span><div class="seg" id="cClip">${[20, 30, 40, 60, 'full'].map(m => `<button data-m="${m}">${m === 'full' ? 'Full' : m + 's'}</button>`).join('')}</div>
+            <div class="row" style="margin-top:14px"><span class="muted small" style="font-weight:700" title="Clip length for every song in this game. To let just the song that's playing run on, use +30 s or Full song above.">CLIP FOR ALL SONGS</span><div class="seg" id="cClip">${[20, 30, 40, 60, 'full'].map(m => `<button data-m="${m}">${m === 'full' ? 'Full' : m + 's'}</button>`).join('')}</div>
               <label class="toggle small">${'<input type="checkbox" id="cAuto"><span class="sw"></span>'}Auto-play next</label>
               <span class="muted small" style="font-weight:700">GAP</span><div class="seg" id="cGap" title="Pause between songs (the TV holds the last picture)">${[0, 3, 5, 10].map(n => `<button data-g="${n}">${n ? n + ' s' : 'None'}</button>`).join('')}<button data-g="custom">…</button></div>
               <label class="toggle small"><input type="checkbox" id="cLev"><span class="sw"></span>Auto volume levelling</label>
@@ -64,6 +67,7 @@ App.register('host', {
             <h2>CHECK BINGO / FREEZE CLAIMS <span class="kbd">B</span></h2>
             <div class="check-box"><input type="text" inputmode="numeric" id="bNo" placeholder="Card no." maxlength="3"><button class="btn primary lg" id="bGo">CHECK</button></div>
             <div class="row" style="margin-top:10px"><button class="btn primary" id="bFreeze">❄ Freeze claims</button><button class="btn sm" id="bScan">📷 Scan QR</button></div>
+            <div class="small" id="hoLine" style="margin-top:10px"></div>
             <div class="muted tiny" style="margin-top:8px">Freezing pauses the music and locks the list of songs that count, so several cards can be checked fairly against the same moment.</div>
           </div>
           <div class="panel" style="margin-bottom:16px" id="hgUpNext"></div>
@@ -93,6 +97,14 @@ App.register('host', {
     $('#cReplay', el).onclick = () => App.cmd('replay', { expectIndex: g().playback.index });
     $('#cMark', el).onclick = async () => { const c = g().current; if (!c) return; if (await confirmBox('Mark as played?', `Add “${esc(c.title)}” to the official played list now? It will appear in the TV crawler and count on cards.`, 'Mark played')) App.cmd('markPlayed', { songId: c.songId }); };
     let vt; $('#cVol', el).oninput = (e) => { $('#cVolV', el).textContent = e.target.value; clearTimeout(vt); vt = setTimeout(() => App.cmd('setVolume', { volume: Number(e.target.value) }), 80); };
+    // 2.6 Talkover (hold) and Play on (this song only)
+    const talk = $('#cTalk', el); let talkDown = false;
+    const setTalk = (on) => { if (on === talkDown) return; talkDown = on; talk.classList.toggle('primary', on); App.cmd('talkover', { on }); };
+    talk.addEventListener('pointerdown', (e) => { e.preventDefault(); try { talk.setPointerCapture(e.pointerId); } catch (x) { /* */ } setTalk(true); });
+    ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(ev => talk.addEventListener(ev, () => setTalk(false)));
+    const playOn = async (by) => { const r = await App.cmd('playOn', { by }); if (r && r.ok) toast(r.already ? 'This song already plays to the end' : (by === 'full' ? 'Playing the full song' : 'Playing on for 30 more seconds'), 'ok'); };
+    $('#cOn30', el).onclick = () => playOn(30);
+    $('#cOnFull', el).onclick = () => playOn('full');
     $$('#cClip button', el).forEach(b => b.onclick = () => App.cmd('setClipMode', { clipMode: b.dataset.m === 'full' ? 'full' : Number(b.dataset.m) }));
     $('#cAuto', el).onchange = (e) => App.cmd('setGameSettings', { autoAdvance: e.target.checked });
     $('#cLev', el).onchange = (e) => App.cmd('setAudio', { levelling: e.target.checked });
@@ -118,6 +130,15 @@ App.register('host', {
     const go = () => { const v = $('#bNo', el).value.trim(); if (!v) return $('#bNo', el).focus(); App.openChecker(v); $('#bNo', el).value = ''; };
     $('#bGo', el).onclick = go;
     $('#bNo', el).onkeydown = (e) => { if (e.key === 'Enter') go(); };
+    // 2.6 Cards handed out tonight: used only to warn during a check, never to block
+    el.addEventListener('click', async (e) => {
+      if (!e.target.closest('#hoEdit')) return;
+      const h = (App.game && App.game.handedOut) || {};
+      const v = await promptBox('Cards handed out tonight', 'Card numbers and ranges, e.g. 1-48, 52. Leave empty to use the printed cards.', h.source === 'host' ? h.spec : '');
+      if (v == null) return;
+      const r = await App.cmd('setHandedOut', { spec: v });
+      if (r && r.ok) toast(r.cleared ? 'Using the printed cards' : `${r.count} cards handed out` + (r.notInGame ? ` (${r.notInGame} not in this game)` : ''), 'ok');
+    });
     $('#bScan', el).onclick = () => App.openChecker(null, { scan: true });
   },
 
@@ -144,6 +165,9 @@ App.register('host', {
     $('#hgArt', el).classList.toggle('paused', !playing);
     $('#cPlay', el).textContent = playing || pb.status === 'between' ? '❚❚' : '▶';
     $('#cVol', el).value = g.settings.volume; $('#cVolV', el).textContent = g.settings.volume;
+    { const canOn = !!cur && ['playing', 'paused', 'loading'].includes(pb.status) && pb.clipEnd != null; $('#cOn30', el).disabled = !canOn; $('#cOnFull', el).disabled = !canOn; }
+    $('#cTalk', el).classList.toggle('primary', !!pb.talkover);
+    { const h = g.handedOut || {}; $('#hoLine', el).innerHTML = h.source ? `<b>Handed out tonight:</b> ${esc(h.spec)} <span class="muted">(${h.source === 'host' ? 'your list' : 'printed'}, ${h.count})</span> <a href="#" id="hoEdit">change</a>` : `<span class="muted">No cards printed yet.</span> <a href="#" id="hoEdit">Set cards handed out</a>`; }
     $$('#cClip button', el).forEach(b => b.classList.toggle('on', String(b.dataset.m) === String(g.settings.clipMode)));
     $$('#cGap button', el).forEach(b => { const v = Number(g.settings.autoAdvanceGap) || 0; b.classList.toggle('on', b.dataset.g === 'custom' ? ![0, 3, 5, 10].includes(v) : Number(b.dataset.g) === v); if (b.dataset.g === 'custom') b.textContent = ![0, 3, 5, 10].includes(v) ? v + ' s' : '…'; });
     $('#cAuto', el).checked = g.settings.autoAdvance; $('#cLev', el).checked = g.settings.audio.levelling; $('#cIntro', el).checked = g.settings.skipIntros !== false;

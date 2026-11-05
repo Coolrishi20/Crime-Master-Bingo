@@ -177,6 +177,10 @@
     if (document.activeElement !== $('vol')) { $('vol').value = g.settings.volume; $('volV').textContent = g.settings.volume; }
     renderUpNext();
     $('markBtn').disabled = !cur || cur.played;
+    var canOn = !!cur && ['playing', 'paused', 'loading'].indexOf(pb.status) >= 0 && pb.clipEnd != null;
+    $('on30').disabled = !canOn; $('onFull').disabled = !canOn;
+    if (pb.talkover && !$('talkBtn').classList.contains('on')) $('talkSub').textContent = 'Music is down (talkover on the laptop)';
+    else if (!pb.talkover && !$('talkBtn').classList.contains('on')) $('talkSub').textContent = 'Music drops while you hold';
     renderProgress(); renderRounds(); renderHistory();
     renderSession();
     renderAudio();
@@ -306,7 +310,19 @@
   }
 
   var SL = { pending: ['VALID · decide', 'warn'], confirmed: ['WINNER', 'ok'], invalid: ['NOT VALID', 'bad'], rejected: ['REJECTED', 'bad'], dismissed: ['DISMISSED', ''], duplicate: ['ALREADY WON', 'warn'] };
+  function renderHandedOut() {
+    var el = $('ckHo'); if (!el || !state) return; var h = state.handedOut || {};
+    el.innerHTML = h.source ? 'Handed out tonight: <b>' + esc(h.spec) + '</b> <a href="#" id="ckHoEdit">change</a>' : 'No cards printed yet · <a href="#" id="ckHoEdit">set cards handed out</a>';
+  }
+  document.addEventListener('click', function (e) {
+    if (!e.target || e.target.id !== 'ckHoEdit') return; e.preventDefault();
+    var h = (state && state.handedOut) || {};
+    var v = window.prompt('Cards handed out tonight (e.g. 1-48, 52). Leave empty to use the printed cards.', h.source === 'host' ? h.spec : '');
+    if (v == null) return;
+    safe(cmd('setHandedOut', { spec: v })).then(function (r) { if (r && r.ok) toast(r.cleared ? 'Using the printed cards' : r.count + ' cards handed out', 'ok'); });
+  });
   function renderSession() {
+    renderHandedOut();
     var s = state.session;
     if (!s) { if (ckOpen) { ckOpen = false; stopScan(); $('checker').classList.add('hidden'); } $('bingoFab').textContent = 'CHECK BINGO'; return; }
     $('bingoFab').textContent = 'CLAIMS FROZEN (' + s.claims.length + ')';
@@ -388,6 +404,29 @@
   Array.prototype.forEach.call(document.querySelectorAll('[data-cmd]'), function (b) {
     b.onclick = function () { vibrate(15); var a = b.getAttribute('data-cmd'); safe(cmd(a, a === 'replay' ? { expectIndex: state && state.playback.index } : {})); };
   });
+  /* 2.6 Talkover: hold to lower the music. Lets go on release, on leaving the button, when the
+     phone locks or the page is hidden, and the laptop also lets go by itself after 30 s. */
+  (function () {
+    var tb = $('talkBtn'), down = false;
+    function set(on) {
+      if (on === down) return; down = on; tb.classList.toggle('on', on);
+      $('talkSub').textContent = on ? 'Talking — music is down' : 'Music drops while you hold';
+      if (on) vibrate(20);
+      safe(cmd('talkover', { on: on }));
+    }
+    tb.addEventListener('pointerdown', function (e) { e.preventDefault(); try { tb.setPointerCapture(e.pointerId); } catch (x) { /* */ } set(true); });
+    ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(function (ev) { tb.addEventListener(ev, function () { set(false); }); });
+    tb.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+    document.addEventListener('visibilitychange', function () { if (document.hidden) set(false); });
+    window.addEventListener('blur', function () { set(false); });
+  })();
+  function playOn(by) {
+    if (!state || !state.current) return;
+    vibrate(15);
+    safe(cmd('playOn', { by: by })).then(function (r) { if (r && r.ok) toast(r.already ? 'This song already plays to the end' : (by === 'full' ? 'Playing the full song' : 'Playing on for 30 more seconds'), 'ok'); });
+  }
+  $('on30').onclick = function () { playOn(30); };
+  $('onFull').onclick = function () { playOn('full'); };
   $('markBtn').onclick = function () { if (!state || !state.current) return; confirmIt('Mark as played?', 'Add “' + esc(state.current.title) + '” to the played list now? It appears in the TV crawler and counts on cards.', 'Mark played').then(function (ok) { if (ok) safe(cmd('markPlayed', { songId: state.current.songId })); }); };
   var volT; $('vol').oninput = function (e) { $('volV').textContent = e.target.value; clearTimeout(volT); volT = setTimeout(function () { safe(cmd('setVolume', { volume: Number(e.target.value) })); }, 120); };
   function completeRound() {
@@ -482,7 +521,7 @@
     var dup = r.alreadyWinner && r.status !== 'confirmed'; var cls = r.status === 'confirmed' ? 'valid' : dup ? 'dup' : (r.valid ? 'valid' : 'invalid');
     var ck = r.mode === 'checklist' ? r.checklist : null; var pick = ck && ck.qualifying.length === 1 ? ck.qualifying[0].itemId : null;
     vibrate(r.valid && !dup ? [60, 40, 60] : 250);
-    var h = (r.duplicateEntry ? '<div class="banner">Card already entered in this session — same result shown.</div>' : '') + '<div class="verdict ' + cls + '">' + (r.owner ? '<div class="rs" style="margin:0 0 4px;color:#fff;font-weight:800">📱 ' + esc(r.owner) + ' · card ' + r.cardLabel + '</div>' : '') + '<div class="vt">' + (r.status === 'confirmed' ? (ck && ck.awarded ? 'WINNER — ' + esc(ck.awarded.label) : 'WINNER CONFIRMED') : ck && !r.valid ? (ck.onlyCompleted ? 'RULE ALREADY COMPLETED' : 'NOT A VALID BINGO') : dup ? 'ALREADY WON' : r.valid ? 'VALID BINGO!' : 'NOT VALID') + '</div><div class="hl">' + esc(r.explanation || ('Card ' + r.cardLabel + ' — ' + r.headline)) + '</div>' + (r.completingSong ? '<div class="rs">🎵 Won on song #' + r.completingSong.n + ': <b style="color:#fff">' + esc(r.completingSong.title) + '</b> — ' + esc(r.completingSong.artist) + '</div>' : '') + (r.best ? '<div class="rs">Closest: <b style="color:#fff">' + esc(r.best.description) + '</b> — ' + r.best.missing + ' more needed (dashed squares)</div>' : '') + (r.otherRoundWins && r.otherRoundWins.length ? '<div class="rs" style="color:var(--green)">🏆 This card also won Round ' + r.otherRoundWins.join(' & ') + ' — a card can win more than one round</div>' : '') + (r.otherRuleWins && r.otherRuleWins.length ? '<div class="rs" style="color:var(--green)">🏆 This card also won ' + r.otherRuleWins.map(esc).join(' & ') + '</div>' : '') + (ck && !r.valid ? '<div class="rs">Open rules: <b style="color:#fff">' + (ck.available.map(function (a) { return esc(a.label); }).join(', ') || 'none') + '</b>' + (ck.alreadyCompleted.length ? ' · already completed: ' + ck.alreadyCompleted.map(function (a) { return esc(a.label); }).join(', ') : '') + '</div>' : '') + '<div class="rs">' + (ck ? 'Rules checklist' : 'Round ' + r.round + ' · ' + esc(r.roundLabel)) + (r.qualifiedAtSong ? ' · qualified at song #' + r.qualifiedAtSong : '') + (r.printed ? '' : ' · ⚠ card not marked printed') + '</div></div>';
+    var h = (r.duplicateEntry ? '<div class="banner">Card already entered in this session — same result shown.</div>' : '') + '<div class="verdict ' + cls + '">' + (r.owner ? '<div class="rs" style="margin:0 0 4px;color:#fff;font-weight:800">📱 ' + esc(r.owner) + ' · card ' + r.cardLabel + '</div>' : '') + '<div class="vt">' + (r.status === 'confirmed' ? (ck && ck.awarded ? 'WINNER — ' + esc(ck.awarded.label) : 'WINNER CONFIRMED') : ck && !r.valid ? (ck.onlyCompleted ? 'RULE ALREADY COMPLETED' : 'NOT A VALID BINGO') : dup ? 'ALREADY WON' : r.valid ? 'VALID BINGO!' : 'NOT VALID') + '</div><div class="hl">' + esc(r.explanation || ('Card ' + r.cardLabel + ' — ' + r.headline)) + '</div>' + (r.completingSong ? '<div class="rs">🎵 Won on song #' + r.completingSong.n + ': <b style="color:#fff">' + esc(r.completingSong.title) + '</b> — ' + esc(r.completingSong.artist) + '</div>' : '') + (r.best ? '<div class="rs">Closest: <b style="color:#fff">' + esc(r.best.description) + '</b> — ' + r.best.missing + ' more needed (dashed squares)</div>' : '') + (r.otherRoundWins && r.otherRoundWins.length ? '<div class="rs" style="color:var(--green)">🏆 This card also won Round ' + r.otherRoundWins.join(' & ') + ' — a card can win more than one round</div>' : '') + (r.otherRuleWins && r.otherRuleWins.length ? '<div class="rs" style="color:var(--green)">🏆 This card also won ' + r.otherRuleWins.map(esc).join(' & ') + '</div>' : '') + (ck && !r.valid ? '<div class="rs">Open rules: <b style="color:#fff">' + (ck.available.map(function (a) { return esc(a.label); }).join(', ') || 'none') + '</b>' + (ck.alreadyCompleted.length ? ' · already completed: ' + ck.alreadyCompleted.map(function (a) { return esc(a.label); }).join(', ') : '') + '</div>' : '') + '<div class="rs">' + (ck ? 'Rules checklist' : 'Round ' + r.round + ' · ' + esc(r.roundLabel)) + (r.qualifiedAtSong ? ' · qualified at song #' + r.qualifiedAtSong : '') + '</div>' + (r.handedOut === false ? '<div class="rs" style="color:var(--amber);font-weight:800">⚠ Card ' + r.cardLabel + ' wasn\'t handed out tonight (handed out: ' + esc(r.handedOutSpec) + '). Ask to see the card before announcing.</div>' : '') + '</div>';
     h += '<div class="mini">' + r.grid.map(function (c) { return '<div class="' + (c.winning ? 'w' : c.played ? 'p' : '') + (c.needed ? ' nd' : '') + (c.inBest && !c.winning ? ' bs' : '') + (c.completing ? ' cm' : '') + '">' + (c.credit ? '<span style="color:var(--amber)">TC</span>' : '') + '<b>' + esc(c.title) + '</b><span>' + esc(c.artist) + '</span></div>'; }).join('') + '</div>';
     if (r.status === 'pending' && ck) h += '<div class="eyebrow" style="margin-top:10px">Valid for' + (ck.qualifying.length > 1 ? ' — choose ONE rule to award' : '') + '</div><div id="ckPicks">' + ck.qualifying.map(function (q) { return '<label class="ck-opt' + (pick === q.itemId ? ' on' : '') + '"><input type="radio" name="ckPick" value="' + q.itemId + '"' + (pick === q.itemId ? ' checked' : '') + '><b>' + esc(q.label) + '</b></label>'; }).join('') + '</div>';
     if (r.status === 'pending') h += '<button class="btn success big" style="width:100%" id="ckConfirm">✓ CONFIRM WINNER</button><button class="btn danger wide" id="ckDismiss">Reject claim</button>';

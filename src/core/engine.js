@@ -13,14 +13,27 @@
  */
 const crypto = require('crypto');
 const rules = require('./rules');
-const { shuffle, spreadShuffle, artistKey, parseQrPayload, formatCardNo, generateCards } = require('./cards');
+const { shuffle, spreadShuffle, artistKey, parseQrPayload, formatCardNo, generateCards, parseRange } = require('./cards');
 const locking = require('./locking');
 
 const CLIP_MODES = [20, 30, 40, 60, 'full'];
 const CREDIT_REASONS = ['File missing or moved', 'Storage device disconnected', 'Video corrupted', 'Codec not supported', 'Playback failed during the event', 'Other'];
 
+/** 2.6: a song with no picture (MP3 etc.); older games don't store `kind`, so the file name decides. */
+function isAudioSong(s) { return !!s && s.source !== 'youtube' && (s.kind === 'audio' || /\.(mp3|m4a|aac|flac|wav|ogg|oga|opus)$/i.test(String(s.path || ''))); }
+
+/** [1,2,3,5,7,8] → "001–003, 005, 007–008" */
+function rangeText(nums) {
+  const a = Array.from(new Set(nums)).sort((x, y) => x - y); const out = [];
+  for (let i = 0; i < a.length; i++) {
+    let j = i; while (j + 1 < a.length && a[j + 1] === a[j] + 1) j++;
+    out.push(j > i ? `${formatCardNo(a[i])}-${formatCardNo(a[j])}` : formatCardNo(a[i])); i = j;
+  }
+  return out.join(', ');
+}
+
 function defaultAudio() {
-  return { levelling: true, targetLufs: -16, ceilingDbtp: -1, maxBoostDb: 9, fadeIn: 0.5, fadeOut: 1.0, muted: false };
+  return { levelling: true, targetLufs: -16, ceilingDbtp: -1, maxBoostDb: 9, fadeIn: 0.5, fadeOut: 1.0, muted: false, talkoverDb: -14 };
 }
 
 function defaultGameSettings() {
@@ -311,7 +324,10 @@ class GameEngine {
   loadCmd(index, position, autoplay) {
     const song = this.song(this.game.order[index]);
     const clip = this.clipFor(song);
-    return { cmd: 'load', token: this.loadToken, index, src: song.path, youtube: song.source === 'youtube' ? song.youtubeId : undefined, start: position != null ? position : clip.start, clipStart: clip.start, clipEnd: clip.end, autoplay, volume: this.settings.volume, audio: this.audioFor(song, clip) };
+    // 2.6 Play on: an extended clip survives a TV reconnect
+    const pb = this.game.playback;
+    if (index === pb.index && pb.clipEndOverride !== undefined) clip.end = pb.clipEndOverride;
+    return { cmd: 'load', token: this.loadToken, index, number: index + 1, audioOnly: isAudioSong(song), src: song.path, youtube: song.source === 'youtube' ? song.youtubeId : undefined, start: position != null ? position : clip.start, clipStart: clip.start, clipEnd: clip.end, autoplay, volume: this.settings.volume, audio: this.audioFor(song, clip) };
   }
 
   loadIndex(index, { autoplay = true, position = null } = {}) {
@@ -328,6 +344,7 @@ class GameEngine {
     g.playback.position = position != null ? position : clip.start;
     g.playback.clipStart = clip.start;
     g.playback.clipEnd = clip.end;
+    delete g.playback.clipEndOverride;
     g.playback.recovered = false;
     g.playback.startedAt = this.nowIso();
     this.lastError = null;
@@ -347,6 +364,7 @@ class GameEngine {
       this.player({ cmd: 'clear' });
     }
     this.player({ cmd: 'volume', volume: this.settings.volume });
+    if (this.talkoverOn) this.player({ cmd: 'duck', on: true, db: Math.max(-30, Math.min(-6, Number((this.settings.audio || {}).talkoverDb) || -14)) });
     if (this.hooks.changed) this.hooks.changed('audience');
   }
 
@@ -433,7 +451,7 @@ class GameEngine {
   dispatch(action, args = {}, source = 'desktop') {
     const fn = this.actions[action];
     if (!fn) throw new Error(`Unknown action: ${action}`);
-    const allowedWhenFinished = ['closeChecklist', 'endIntermission', 'startBreak', 'setNight', 'playerRemove', 'playerRename', 'setPlayersOpen', 'setScreens', 'showTvScreen', 'setTvScreens', 'openChecker', 'closeChecker', 'checkClaim', 'freezeClaims', 'addClaim', 'closeSession', 'confirmClaim', 'dismissClaim', 'removeClaim', 'viewClaim', 'setCrawler', 'setOverlay', 'reopenGame', 'setVolume', 'setAudio', 'reverseCredit'];
+    const allowedWhenFinished = ['closeChecklist', 'endIntermission', 'startBreak', 'setNight', 'playerRemove', 'playerRename', 'setPlayersOpen', 'setScreens', 'showTvScreen', 'setTvScreens', 'openChecker', 'closeChecker', 'checkClaim', 'freezeClaims', 'addClaim', 'closeSession', 'confirmClaim', 'dismissClaim', 'removeClaim', 'viewClaim', 'setCrawler', 'setOverlay', 'reopenGame', 'setVolume', 'setAudio', 'reverseCredit', 'talkover', 'setHandedOut'];
     if (this.game.status === 'finished' && !allowedWhenFinished.includes(action)) {
       throw new Error('This game has ended. Re-open it from Game History to continue.');
     }
@@ -448,7 +466,8 @@ class GameEngine {
       play: this.aPlay, pause: this.aPause, togglePlay: this.aToggle, stop: this.aStop,
       next: this.aNext, skip: (a, s) => this.aNext(Object.assign({ mode: a.mode || 'skip' }, a), s),
       previous: this.aPrevious, replay: this.aReplay, seek: this.aSeek, setVolume: this.aVolume,
-      setClipMode: this.aClipMode, jumpTo: this.aJumpTo, markPlayed: this.aMarkPlayed, unmarkPlayed: this.aUnmarkPlayed,
+      setHandedOut: this.aSetHandedOut,
+      setClipMode: this.aClipMode, playOn: this.aPlayOn, talkover: this.aTalkover, jumpTo: this.aJumpTo, markPlayed: this.aMarkPlayed, unmarkPlayed: this.aUnmarkPlayed,
       startRound: this.aStartRound, endRound: this.aEndRound, pauseGame: this.aPauseGame, resumeGame: this.aResumeGame,
       endGame: this.aEndGame, reopenGame: this.aReopenGame, reshuffle: this.aReshuffle,
       setCrawler: this.aSetCrawler, setOverlay: this.aSetOverlay, setGameSettings: this.aSetGameSettings, setAudio: this.aSetAudio,
@@ -612,6 +631,7 @@ class GameEngine {
     if (args.ceilingDbtp != null) a.ceilingDbtp = Math.max(-6, Math.min(0, Number(args.ceilingDbtp)));
     if (args.fadeIn != null) a.fadeIn = Math.max(0, Math.min(5, Number(args.fadeIn)));
     if (args.fadeOut != null) a.fadeOut = Math.max(0, Math.min(8, Number(args.fadeOut)));
+    if (args.talkoverDb != null) a.talkoverDb = Math.max(-30, Math.min(-6, Number(args.talkoverDb)));
     const id = this.currentSongId();
     if (id) { const s = this.song(id); this.player(Object.assign({ cmd: 'audio', token: this.loadToken }, this.audioFor(s, this.clipFor(s)))); }
     else this.player({ cmd: 'audio', token: this.loadToken, gainDb: 0, muted: a.muted, fadeIn: a.fadeIn, fadeOut: a.fadeOut });
@@ -633,6 +653,55 @@ class GameEngine {
     }
     this.touch('state');
     return { ok: true };
+  }
+
+  /**
+   * 2.6 Play on: let the song that is playing run on (+30 s, or to the end) without
+   * changing the clip length for any other song.
+   */
+  aPlayOn(args) {
+    const g = this.game; const pb = g.playback;
+    const id = this.currentSongId();
+    if (!id || !['playing', 'paused', 'loading'].includes(pb.status)) throw new Error('Nothing is playing to extend.');
+    const s = this.song(id); const dur = Number(s.duration) || 0;
+    if (pb.clipEnd == null || (dur && pb.clipEnd >= dur - 0.5)) return { ok: true, end: null, already: true };
+    let end;
+    if (args.by === 'full') end = dur || null;
+    else {
+      const by = Math.max(5, Math.min(120, Number(args.by) || 30));
+      // extend from whichever is later: the current end, or where the song is now (a clip that is fading out)
+      end = Math.max(pb.clipEnd, Number(pb.position) || 0) + by;
+      if (dur) end = Math.min(end, dur);
+    }
+    pb.clipEnd = end; pb.clipEndOverride = end;
+    this.player({ cmd: 'clip', token: this.loadToken, clipStart: pb.clipStart, clipEnd: end });
+    this.log(`Play on: "${s.title}" now ${end == null ? 'plays to the end' : 'ends at ' + Math.round(end) + ' s'}`);
+    this.touch('state');
+    return { ok: true, end };
+  }
+
+  /**
+   * 2.6 Talkover: lower the music while the host speaks. Runtime only (never saved), and
+   * always lets go by itself after `talkoverMaxSec` so a dropped phone can't leave it down.
+   */
+  aTalkover(args, source) {
+    const on = !!args.on;
+    if (this.talkoverTimer) { this._clearTimeout(this.talkoverTimer); this.talkoverTimer = null; }
+    const a = this.settings.audio || {};
+    const db = Math.max(-30, Math.min(-6, Number(a.talkoverDb) || -14));
+    if (on) {
+      const max = Math.max(5, Math.min(120, Number(a.talkoverMaxSec) || 30));
+      this.talkoverTimer = this._setTimeout(() => { this.talkoverTimer = null; if (this.talkoverOn) { this.talkoverOn = null; this.player({ cmd: 'duck', on: false }); if (this.hooks.changed) this.hooks.changed('state'); } }, max * 1000);
+      this.talkoverOn = { source: source || 'desktop', since: this.nowIso() };
+    } else this.talkoverOn = null;
+    this.player({ cmd: 'duck', on, db });
+    if (this.hooks.changed) this.hooks.changed('state');
+    return { ok: true, on, db };
+  }
+
+  /** A phone that was holding Talkover disconnected: let the music back up. */
+  releaseTalkover(source) {
+    if (this.talkoverOn && (!source || this.talkoverOn.source === source)) this.aTalkover({ on: false }, source);
   }
 
   aJumpTo(args) {
@@ -1057,6 +1126,7 @@ class GameEngine {
       best: res.best ? { description: res.best.description, missing: res.best.missing, missingCells: res.best.missingCells, cells: res.best.cells } : null,
       roundRule: ck ? 'Any open rule, in any order' : this.info(claim.round).rule, playedCount: ids.length,
       printed: !!card.printed, review: claim.review || null,
+      handedOut: this.isHandedOut(claim.cardNo), handedOutSpec: this.handedOutInfo().spec,
       grid: res.grid, winningCells: res.winningCells, lines: res.lines
     };
   }
@@ -1695,6 +1765,37 @@ class GameEngine {
     return n;
   }
 
+  /**
+   * 2.6 Cards handed out tonight. The host's own list wins; otherwise printed cards and
+   * cards on players' phones count as handed out. null = we can't tell (nothing printed yet).
+   */
+  handedOutInfo() {
+    const g = this.game;
+    if (g.handedOut && g.handedOut.spec) {
+      let nums = [];
+      try { nums = parseRange(g.handedOut.spec); } catch (e) { nums = []; }
+      return { source: 'host', spec: g.handedOut.spec, set: new Set(nums), count: nums.length };
+    }
+    const nums = g.cards.filter(c => c.printed || c.owner).map(c => c.no);
+    if (!nums.length) return { source: null, spec: '', set: null, count: 0 };
+    return { source: 'printed', spec: rangeText(nums), set: new Set(nums), count: nums.length };
+  }
+  isHandedOut(no) { const h = this.handedOutInfo(); return h.set ? h.set.has(no) : null; }
+
+  aSetHandedOut(args) {
+    const g = this.game;
+    const spec = String(args.spec || '').trim();
+    if (!spec) { delete g.handedOut; this.touch('state'); return { ok: true, cleared: true }; }
+    let nums;
+    try { nums = parseRange(spec); } catch (e) { throw new Error('Use card numbers and ranges, for example 1-48, 52, 60-65.'); }
+    if (!nums.length) throw new Error('No card numbers found.');
+    const missing = nums.filter(n => !this.findCard(n));
+    g.handedOut = { spec: rangeText(nums), at: this.nowIso() };
+    this.log(`Cards handed out tonight: ${g.handedOut.spec}`);
+    this.touch('state');
+    return { ok: true, spec: g.handedOut.spec, count: nums.length, notInGame: missing.length };
+  }
+
   ownerOf(no) { const c = this.findCard(no); return (c && c.owner) || null; }
 
   winners() {
@@ -1782,8 +1883,9 @@ class GameEngine {
     return {
       gameId: g.id, name: g.name, venue: g.venue, date: g.date, status: g.status, gamePaused: !!g.gamePaused, rehearsal: !!g.rehearsal,
       version: g.version, cardsLocked: !!g.cardsLocked, lockedAt: g.lockedAt || null,
-      playback: { status: pb.status, index: pb.index, position: pb.position, clipStart: pb.clipStart, clipEnd: pb.clipEnd, pausedForClaim: !!pb.pausedForClaim, recovered: !!pb.recovered, nextAt: pb.nextAt || null },
+      playback: { status: pb.status, index: pb.index, position: pb.position, clipStart: pb.clipStart, clipEnd: pb.clipEnd, playedOn: pb.clipEndOverride !== undefined, talkover: !!this.talkoverOn, pausedForClaim: !!pb.pausedForClaim, recovered: !!pb.recovered, nextAt: pb.nextAt || null },
       current: this.currentView(),
+      handedOut: (() => { const h = this.handedOutInfo(); return { source: h.source, spec: h.spec, count: h.count }; })(),
       next: next ? { title: next.displayTitle || next.title, artist: next.artist, number: nextIdx + 1 } : null, // (compat)
       totals: { songs: total, played: g.played.filter(p => p.kind !== 'credit').length, credited: g.played.filter(p => p.kind === 'credit').length, eligible: g.played.length, remaining, skipped: g.skipped.length, cards: g.cards.length, printed: g.cards.filter(c => c.printed).length },
       mode: this.isChecklist() ? 'checklist' : 'rounds',
@@ -1827,7 +1929,7 @@ function createGame({ name, date, venue, logo, songs, playlistId, playlistName, 
   if (ids.length < MIN_SONGS) throw new Error(`A game needs at least ${MIN_SONGS} unique songs — add ${MIN_SONGS - ids.length} more.`);
   const map = {};
   songs.forEach(s => {
-    map[s.id] = { id: s.id, source: s.source || undefined, youtubeId: s.youtubeId || undefined, title: s.title, artist: s.artist, displayTitle: s.displayTitle || '', printTitle: s.printTitle || '', path: s.path, fileName: s.fileName || '', size: s.size || 0, fingerprint: s.fingerprint || '', duration: s.duration || 0, clipStart: s.clipStart != null ? s.clipStart : null, clipEnd: s.clipEnd != null ? s.clipEnd : null };
+    map[s.id] = { id: s.id, source: s.source || undefined, youtubeId: s.youtubeId || undefined, title: s.title, artist: s.artist, displayTitle: s.displayTitle || '', printTitle: s.printTitle || '', path: s.path, kind: s.kind || undefined, fileName: s.fileName || '', size: s.size || 0, fingerprint: s.fingerprint || '', duration: s.duration || 0, clipStart: s.clipStart != null ? s.clipStart : null, clipEnd: s.clipEnd != null ? s.clipEnd : null };
   });
   const st = Object.assign(defaultGameSettings(), settings || {});
   st.audio = Object.assign(defaultAudio(), (settings && settings.audio) || {});

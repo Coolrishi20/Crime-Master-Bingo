@@ -107,7 +107,7 @@ function probe(ffmpeg, file, timeoutMs = 20000) {
 }
 
 const PLAYABLE_VIDEO = ['h264', 'vp8', 'vp9', 'av1'];
-const PLAYABLE_AUDIO = ['aac', 'mp3', 'opus', 'vorbis', 'flac', 'pcm_s16le'];
+const PLAYABLE_AUDIO = ['aac', 'mp3', 'opus', 'vorbis', 'flac', 'pcm_s16le', 'pcm_s24le', 'pcm_f32le'];
 /**
  * Verdict for one library song. opts.lowRes: stricter limits for low-end laptops.
  * Returns { status: 'ready'|'optimise'|'unsupported'|'missing'|'pending', reasons: [] }.
@@ -119,7 +119,13 @@ function classify(s, opts = {}) {
   if (s.status === 'unsupported' || s.status === 'needs-conversion') return { status: 'unsupported', reasons: [s.statusNote || 'This video cannot be played as it is — convert it to MP4'] };
   const m = s.media;
   if (!m) return { status: s.status === 'ok' ? 'pending' : 'pending', reasons: ['Not checked yet'] };
-  if (!m.readable || !m.video) return { status: 'unsupported', reasons: [!m.readable ? 'The file is damaged or not a video' : 'No video track'] };
+  if (!m.readable) return { status: 'unsupported', reasons: ['The file is damaged or can\'t be read'] };
+  if (!m.video) {
+    // 2.6 audio songs: fine as long as the sound plays
+    if (!m.audio) return { status: 'unsupported', reasons: ['No video or sound track'] };
+    if (m.acodec && !PLAYABLE_AUDIO.includes(m.acodec)) return { status: 'unsupported', reasons: [`Audio codec ${m.acodec.toUpperCase()} may not play — convert to MP3`] };
+    return { status: 'ready', reasons: ['Audio only: the TV shows a music card'], audioOnly: true };
+  }
   if (m.vcodec && !PLAYABLE_VIDEO.includes(m.vcodec)) reasons.push({ k: 'unsupported', t: `Video codec ${m.vcodec.toUpperCase()} may not play on Windows laptops — convert to H.264` });
   if (m.audio && m.acodec && !PLAYABLE_AUDIO.includes(m.acodec)) reasons.push({ k: 'unsupported', t: `Audio codec ${m.acodec.toUpperCase()} may not play — convert to AAC` });
   if (!m.audio) reasons.push({ k: 'warn', t: 'No sound track' });

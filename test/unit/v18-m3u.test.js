@@ -46,7 +46,7 @@ test('importM3U: playlist in M3U order, EXTINF titles, report of missing/audio/s
   const dir = tmp(); const lib = new Library(new Store(path.join(dir, 'data')));
   const V = path.join(dir, 'Party');
   ['Queen_rhapsody.mp4', 'abba.mp4', 'Prince - Purple Rain.mp4', 'sub/oasis.mp4'].forEach((f, i) => fakeVideo(path.join(V, f), i));
-  fs.writeFileSync(path.join(V, 'song.mp3'), 'mp3');
+  fs.writeFileSync(path.join(V, 'song.mp3'), 'mp3'); fs.writeFileSync(path.join(V, 'old.wma'), 'wma');
   const list = path.join(V, 'Friday Hits.m3u8');
   fs.writeFileSync(list, ['#EXTM3U', '#PLAYLIST:Friday Night Hits',
     '#EXTINF:354,Queen - Bohemian Rhapsody', 'Queen_rhapsody.mp4',
@@ -54,19 +54,21 @@ test('importM3U: playlist in M3U order, EXTINF titles, report of missing/audio/s
     '#EXTINF:180,ABBA - Dancing Queen', 'file://' + encodeURI(path.join(V, 'abba.mp4').split(path.sep).join('/')),
     '#EXTINF:0,Should Not Win - Guess', 'Prince - Purple Rain.mp4',
     'Queen_rhapsody.mp4',
-    '#EXTINF:200,Lost - Song', 'missing.mp4', 'song.mp3', 'http://radio.example/stream'].join('\r\n'));
+    '#EXTINF:200,Lost - Song', 'missing.mp4', 'song.mp3', 'old.wma', 'http://radio.example/stream'].join('\r\n'));
   const r = await lib.importM3U(list);
   assert.strictEqual(r.name, 'Friday Night Hits'); assert.ok(r.created);
-  assert.strictEqual(r.newToLibrary, 4); assert.strictEqual(r.addedToPlaylist, 4);
+  // 2.6: MP3s are songs now (audio only); WMA still can't play and is reported
+  assert.strictEqual(r.newToLibrary, 5); assert.strictEqual(r.addedToPlaylist, 5);
   assert.strictEqual(r.missing.length, 1); assert.strictEqual(r.missing[0].label, 'Lost - Song');
   assert.strictEqual(r.audio.length, 1); assert.strictEqual(r.streams.length, 1);
   const pl = lib.playlist(r.playlistId);
-  const titles = pl.songIds.map(id => lib.get(id)).map(s => s.artist + ' - ' + s.title);
+  assert.strictEqual(lib.get(pl.songIds[4]).kind, 'audio');
+  const titles = pl.songIds.slice(0, 4).map(id => lib.get(id)).map(s => s.artist + ' - ' + s.title);
   assert.deepStrictEqual(titles, ['Queen - Bohemian Rhapsody', 'Oasis - Wonderwall', 'ABBA - Dancing Queen', 'Prince - Purple Rain'], 'M3U order; EXTINF titles fill in names the file name lacks; a clean "Artist - Title" file name is kept');
   // re-import: nothing new, nothing doubled
   const r2 = await lib.importM3U(list);
-  assert.ok(!r2.created); assert.strictEqual(r2.newToLibrary, 0); assert.strictEqual(r2.addedToPlaylist, 0); assert.strictEqual(r2.alreadyInPlaylist, 4);
-  assert.strictEqual(lib.playlist(r.playlistId).songIds.length, 4);
+  assert.ok(!r2.created); assert.strictEqual(r2.newToLibrary, 0); assert.strictEqual(r2.addedToPlaylist, 0); assert.strictEqual(r2.alreadyInPlaylist, 5);
+  assert.strictEqual(lib.playlist(r.playlistId).songIds.length, 5);
   // your own edits win over the M3U on a later import
   lib.update(pl.songIds[0], { title: 'Bohemian Rhapsody (Live Aid)' });
   await lib.importM3U(list);

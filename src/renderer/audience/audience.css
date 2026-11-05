@@ -252,3 +252,33 @@ html.low-res .pt-ck.done .pgrid i.on { box-shadow: none; }
 .wl-rounds.many .wl-round { padding: calc(10px * var(--s)) calc(16px * var(--s)); gap: calc(10px * var(--s)); }
 .wl-rounds.many .wl-round .pgrid { width: calc(52px * var(--s)); }
 .wl-rounds.many .wl-round span { font-size: calc(22px * var(--s)); }
+
+/* 2.6 Venue Check test card */
+#venueTest { position: fixed; inset: 0; z-index: 9999; display: none; background: radial-gradient(120% 90% at 30% 20%, #1D3A5E 0%, #102542 55%, #0B1B31 100%); color: #FFF2CF; font-family: 'Inter', 'Segoe UI', sans-serif; }
+#venueTest.on { display: block; }
+#venueTest .vt-edge { position: absolute; inset: 0; border: calc(14px * var(--s, 1)) solid #FF5B32; }
+#venueTest .vt-edge::before, #venueTest .vt-edge::after { content: ""; position: absolute; left: 50%; top: 0; bottom: 0; border-left: 2px dashed rgba(255,242,207,.25); }
+#venueTest .vt-edge::after { left: 0; right: 0; top: 50%; bottom: auto; border-left: 0; border-top: 2px dashed rgba(255,242,207,.25); }
+#venueTest .vt-mid { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); text-align: center; width: 80%; display: flex; flex-direction: column; gap: calc(18px * var(--s, 1)); align-items: center; }
+#venueTest .vt-ey { font-weight: 800; letter-spacing: .2em; color: #FF5B32; font-size: calc(26px * var(--s, 1)); }
+#venueTest .vt-big { font-family: 'Montserrat', 'Segoe UI', sans-serif; font-weight: 800; font-size: calc(120px * var(--s, 1)); line-height: 1; }
+#venueTest .vt-sub { font-size: calc(30px * var(--s, 1)); color: #B3B4AA; max-width: 36em; }
+#venueTest .vt-bars { display: flex; height: calc(60px * var(--s, 1)); width: 70%; border-radius: 8px; overflow: hidden; }
+#venueTest .vt-bars i { flex: 1; }
+#venueTest .vt-bars i:nth-child(1) { background: #FFFFFF; } #venueTest .vt-bars i:nth-child(2) { background: #FFF2CF; } #venueTest .vt-bars i:nth-child(3) { background: #FF5B32; }
+#venueTest .vt-bars i:nth-child(4) { background: #35D68F; } #venueTest .vt-bars i:nth-child(5) { background: #3B82F6; } #venueTest .vt-bars i:nth-child(6) { background: #000000; }
+
+/* 2.6 Audio-only songs: music card */
+#audioCard { position: absolute; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; gap: calc(22px * var(--s, 1)); background: radial-gradient(120% 90% at 30% 20%, #1D3A5E 0%, #102542 55%, #0B1B31 100%); color: #FFF2CF; }
+#audioCard.on { display: flex; }
+#audioCard .ac-eq { display: flex; gap: calc(12px * var(--s, 1)); align-items: flex-end; height: calc(240px * var(--s, 1)); }
+#audioCard .ac-eq i { width: calc(30px * var(--s, 1)); border-radius: calc(6px * var(--s, 1)); background: #FF5B32; height: 30%; animation: aceq 1.1s ease-in-out infinite alternate; }
+#audioCard .ac-eq i:nth-child(2) { animation-delay: -.7s; } #audioCard .ac-eq i:nth-child(3) { animation-delay: -.4s; } #audioCard .ac-eq i:nth-child(4) { animation-delay: -.9s; }
+#audioCard .ac-eq i:nth-child(5) { animation-delay: -.2s; } #audioCard .ac-eq i:nth-child(6) { animation-delay: -.6s; } #audioCard .ac-eq i:nth-child(7) { animation-delay: -.3s; }
+@keyframes aceq { from { height: 18%; } to { height: 100%; } }
+#audioCard .ac-ey { font-weight: 800; letter-spacing: .18em; text-transform: uppercase; color: #FF5B32; font-size: calc(28px * var(--s, 1)); }
+#audioCard .ac-big { font-family: 'Montserrat', 'Segoe UI', sans-serif; font-weight: 800; font-size: calc(96px * var(--s, 1)); }
+/* Low Resource Mode and reduced motion: still bars, no animation cost */
+.low-res #audioCard .ac-eq i { animation: none; height: 60%; }
+.low-res #audioCard .ac-eq i:nth-child(odd) { height: 35%; }
+@media (prefers-reduced-motion: reduce) { #audioCard .ac-eq i { animation: none; height: 55%; } }

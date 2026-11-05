@@ -131,7 +131,8 @@ App.register('settings', {
             <label class="field">Maximum boost (dB)<input type="number" id="aB" min="0" max="20" value="${gd.audio.maxBoostDb}"></label>
             <label class="field">Fade in (s, 0 = off)<input type="number" id="aFi" min="0" max="5" step="0.1" value="${gd.audio.fadeIn}"></label>
             <label class="field">Fade out (s, 0 = off)<input type="number" id="aFo" min="0" max="8" step="0.1" value="${gd.audio.fadeOut}"></label></div>
-            <div class="st-hint">Loudness is measured once per video (EBU R128); playback never goes above the peak ceiling, so nothing clips.</div></details>`)}
+            <div class="st-hint">Loudness is measured once per video (EBU R128); playback never goes above the peak ceiling, so nothing clips.</div></details>
+          <label class="field" style="max-width:340px;margin-top:10px">Talkover: while you hold “Hold to talk”, the music drops by<select id="aTk">${[[-8, 'a little (8 dB)'], [-11, 'some (11 dB)'], [-14, 'about three-quarters (14 dB, recommended)'], [-18, 'a lot (18 dB)'], [-24, 'almost silent (24 dB)']].map(([v, l]) => `<option value="${v}" ${Number(gd.audio.talkoverDb || -14) === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>`)}
         ${sec('cards', '<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/>', 'Cards & printing', 'Defaults for printed cards. Footer message and font are on the Bingo Cards page.', `
           <div class="form-grid"><label class="field">Text size (%)<input type="number" id="kT" min="80" max="125" step="5" value="${Math.round(s.cards.textScale * 100)}"></label></div>
           <div class="st-togs">${tog('kQ', 'QR code on each card', s.cards.qr, 'Lets you check a claim by scanning the card.')}${tog('kL', 'Your logo on cards', s.cards.useLogo)}${tog('kB', 'Black & white (saves ink)', s.cards.bw)}</div>
@@ -235,7 +236,7 @@ App.register('settings', {
           overlay: { position: v('#oPos'), titleSize: n('#oT'), artistSize: n('#oA'), opacity: n('#oO') / 100, duration: n('#oD'), revealDelay: n('#oR'), enabled: c('#oOn') },
           crawler: { speed: Math.max(1, Math.min(10, n('#cS'))), fontSize: n('#cF'), height: n('#cH'), separator: v('#cSep') },
           screens: Object.assign({}, gd.screens || {}, { welcome: c('#gWel'), end: c('#gEnd') }),
-          audio: { levelling: c('#aLev'), targetLufs: n('#aT'), maxBoostDb: n('#aB'), fadeIn: n('#aFi'), fadeOut: n('#aFo'), ceilingDbtp: n('#aC'), muted: false } }
+          audio: { levelling: c('#aLev'), targetLufs: n('#aT'), maxBoostDb: n('#aB'), fadeIn: n('#aFi'), fadeOut: n('#aFo'), ceilingDbtp: n('#aC'), talkoverDb: n('#aTk'), muted: false } }
       };
       App.settings = await api('settings:update', patch);
       App.applyAppearance();

@@ -278,3 +278,47 @@ video.scan { width: 100%; max-height: 300px; background: #000; border-radius: 10
 .ck-banner { flex-wrap: wrap; }
 .ck-banner > .grow { flex: 1 1 100%; min-width: 0; }
 .ck-banner h3 { font-size: 22px; }
+
+/* 2.6 claim warning: card not handed out tonight */
+.banner.warn { display: block; padding: 10px 14px; font-size: 14px; background: rgba(255,200,87,.14); border-color: var(--amber, #FFC857); color: inherit; margin-bottom: 0; }
+.talkbtn.primary { box-shadow: 0 0 0 3px rgba(255,91,50,.35); }
+
+/* 2.6 Help & Guide */
+.hp-cols { grid-template-columns: 260px minmax(0, 1fr); align-items: start; }
+.hp-toc { position: sticky; top: 12px; max-height: calc(100vh - 140px); overflow: auto; display: flex; flex-direction: column; gap: 2px; font-size: 13px; }
+.hp-toc a { color: inherit; text-decoration: none; padding: 5px 8px; border-radius: 8px; }
+.hp-toc a:hover { background: var(--panel2, rgba(255,255,255,.06)); }
+.hp-toc a.l2 { font-weight: 800; margin-top: 8px; }
+.hp-toc a.l3 { padding-left: 18px; opacity: .85; }
+.hp-body { line-height: 1.6; max-width: 900px; }
+.hp-body h2 { font-size: 30px; margin: 0 0 8px; }
+.hp-body h3 { font-size: 22px; margin: 28px 0 8px; padding-top: 14px; border-top: 1px solid var(--border, rgba(255,255,255,.12)); scroll-margin-top: 12px; }
+.hp-body h4 { font-size: 16px; margin: 20px 0 6px; scroll-margin-top: 12px; }
+.hp-body p, .hp-body li { max-width: 75ch; }
+.hp-body ul, .hp-body ol { padding-left: 22px; }
+.hp-body code { background: rgba(0,0,0,.25); padding: 1px 5px; border-radius: 4px; }
+.hp-body pre { background: rgba(0,0,0,.25); padding: 10px; border-radius: 8px; overflow: auto; }
+.hp-note { border-left: 3px solid var(--amber, #FFC857); padding: 8px 12px; margin: 10px 0; background: rgba(255,200,87,.08); border-radius: 0 8px 8px 0; }
+.hp-tbl { overflow-x: auto; margin: 10px 0; }
+.hp-tbl table { border-collapse: collapse; font-size: 13.5px; }
+.hp-tbl th, .hp-tbl td { border: 1px solid var(--border, rgba(255,255,255,.12)); padding: 6px 10px; text-align: left; vertical-align: top; }
+.hp-flash { animation: hpflash 1.6s ease-out; }
+@keyframes hpflash { 0% { background: rgba(255,91,50,.35); } 100% { background: transparent; } }
+.hp-body mark { background: #FFC857; color: #171717; border-radius: 3px; padding: 0 2px; }
+
+/* 2.6 Venue Check */
+.vc-cols { grid-template-columns: minmax(0, 1fr) 340px; align-items: start; }
+.vc-res { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+.vc-row { display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 10px; align-items: center; padding: 8px 10px; border-radius: 10px; border: 1px solid transparent; }
+.vc-row.cur { border-color: var(--pink); }
+.vc-ic { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; background: rgba(255,255,255,.08); }
+.vc-row.ok .vc-ic { background: var(--green, #35D68F); color: #0B1B31; }
+.vc-row.warn .vc-ic { background: var(--amber, #FFC857); color: #171717; }
+.vc-row.fail .vc-ic { background: var(--red, #FF5470); color: #fff; }
+.vc-ask { margin-top: 14px; padding: 14px; border-radius: 12px; background: rgba(255,255,255,.05); display: flex; flex-direction: column; gap: 10px; }
+.vc-tips { margin: 12px 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; max-width: 70ch; }
+.vc-wait { font-weight: 700; }
+.vc-wait::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: var(--amber, #FFC857); margin-right: 8px; animation: vcpulse 1.2s ease-in-out infinite; }
+@keyframes vcpulse { 50% { opacity: .3; } }
+@media (prefers-reduced-motion: reduce) { .vc-wait::before { animation: none; } }
+@media (max-width: 1100px) { .vc-cols, .hp-cols { grid-template-columns: minmax(0, 1fr); } .hp-toc { position: static; max-height: 240px; } }

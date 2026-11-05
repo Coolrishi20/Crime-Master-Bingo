@@ -5,10 +5,13 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const { readMp4Tags, parseFilename } = require('./mp4meta');
+const { readMp4Tags, readId3Tags, parseFilename } = require('./mp4meta');
 const { MIN_SONGS } = require('../core/cards');
 const m3u = require('./m3u');
 const AUDIO_EXT = ['.mp3', '.m4a', '.aac', '.flac', '.wav', '.ogg', '.oga', '.wma', '.opus', '.aif', '.aiff'];
+/** 2.6: audio files Windows laptops play directly (the TV shows a music card instead of a video) */
+const PLAYABLE_AUDIO_EXT = ['.mp3', '.m4a', '.aac', '.flac', '.wav', '.ogg', '.oga', '.opus'];
+const isAudioPath = (p) => PLAYABLE_AUDIO_EXT.includes(path.extname(String(p || '')).toLowerCase());
 
 const PLAYABLE_EXT = ['.mp4', '.m4v', '.mov', '.webm', '.mkv', '.ogv'];
 const KNOWN_VIDEO_EXT = PLAYABLE_EXT.concat(['.avi', '.wmv', '.flv', '.mpg', '.mpeg', '.3gp', '.ts', '.vob', '.divx', '.m2ts']);
@@ -84,15 +87,16 @@ class Library {
     const byPath = new Map(this.data.songs.map(s => [path.resolve(s.path).toLowerCase(), s]));
     for (const f of files) {
       const ext = path.extname(f).toLowerCase();
-      if (!KNOWN_VIDEO_EXT.includes(ext)) { report.ignored++; continue; }
+      const isAudio = PLAYABLE_AUDIO_EXT.includes(ext);
+      if (!KNOWN_VIDEO_EXT.includes(ext) && !isAudio) { if (AUDIO_EXT.includes(ext)) (report.audioUnsupported = report.audioUnsupported || []).push(f); else report.ignored++; continue; }
       if (byPath.has(path.resolve(f).toLowerCase())) { report.alreadyInLibrary.push(f); continue; }
-      const needsConversion = !PLAYABLE_EXT.includes(ext); // AVI, WMV, FLV, MPG… → converted to an MP4 copy
+      const needsConversion = !isAudio && !PLAYABLE_EXT.includes(ext); // AVI, WMV, FLV, MPG… → converted to an MP4 copy
       await yieldLoop(); // keep the app (TV, phone, host) responsive during big imports
       let fp; try { fp = await fingerprintAsync(f); } catch (e) { report.unsupported.push({ path: f, reason: 'File could not be read: ' + e.message }); continue; }
-      const tags = ['.mp4', '.m4v', '.mov'].includes(ext) ? readMp4Tags(f) : {};
+      const tags = ['.mp4', '.m4v', '.mov', '.m4a'].includes(ext) ? readMp4Tags(f) : ext === '.mp3' ? readId3Tags(f) : {};
       const guess = parseFilename(f);
       const song = {
-        id: uid('s_'), path: f, fileName: path.basename(f), ext,
+        id: uid('s_'), path: f, fileName: path.basename(f), ext, kind: isAudio ? 'audio' : 'video',
         title: tags.title || guess.title || '', artist: tags.artist || guess.artist || '',
         year: tags.year || null, tags: tags.genre ? [tags.genre] : [],
         displayTitle: '', printTitle: '',
@@ -123,8 +127,11 @@ class Library {
     else {
       s.duration = Math.round((Number(r.duration) || 0) * 10) / 10;
       s.width = r.width || 0; s.height = r.height || 0;
-      if (!s.width || !s.height) { s.status = 'unsupported'; s.statusNote = 'No playable video track (audio-only or unsupported video codec). Use MP4 H.264/AAC.'; }
-      else { s.status = 'ok'; s.statusNote = ''; }
+      if (!s.width || !s.height) {
+        // 2.6: no picture but it plays → an audio song (the TV shows a music card)
+        if (s.duration > 0 && (s.kind === 'audio' || r.hasAudio !== false)) { s.status = 'ok'; s.kind = 'audio'; s.statusNote = 'Audio only: the TV shows a music card'; }
+        else { s.status = 'unsupported'; s.statusNote = 'No playable video or audio (unsupported codec). Use MP4 H.264/AAC or MP3.'; }
+      } else { s.status = 'ok'; s.kind = 'video'; s.statusNote = ''; }
       if (r.thumb && thumbDir) {
         try {
           const b64 = String(r.thumb).replace(/^data:image\/\w+;base64,/, '');
@@ -241,14 +248,14 @@ class Library {
       if (d.name.startsWith('.')) return;
       const p = path.join(root, d.name);
       if (d.isDirectory()) groups.push({ name: d.name, dir: p });
-      else if (KNOWN_VIDEO_EXT.includes(path.extname(d.name).toLowerCase())) loose.push(p);
+      else if (KNOWN_VIDEO_EXT.includes(path.extname(d.name).toLowerCase()) || PLAYABLE_AUDIO_EXT.includes(path.extname(d.name).toLowerCase())) loose.push(p);
     });
     if (loose.length) groups.unshift({ name: path.basename(root), files: loose });
     const total = { added: 0, alreadyInLibrary: 0, duplicates: 0, unsupported: [], converting: 0 };
     const out = [];
     for (const g of groups) {
       const files = g.files || (() => { const f = []; walk(g.dir, f); return f; })();
-      const vids = files.filter(f => KNOWN_VIDEO_EXT.includes(path.extname(f).toLowerCase()));
+      const vids = files.filter(f => KNOWN_VIDEO_EXT.includes(path.extname(f).toLowerCase()) || PLAYABLE_AUDIO_EXT.includes(path.extname(f).toLowerCase()));
       if (!vids.length) continue;
       const rep = await this.importPaths(g.files ? g.files : [g.dir]);
       total.added += rep.added.length; total.alreadyInLibrary += rep.alreadyInLibrary.length; total.duplicates += rep.duplicates.length; total.converting += rep.converting || 0; total.unsupported.push(...rep.unsupported);
@@ -279,8 +286,8 @@ class Library {
       if (e.url) return rep.streams.push({ line: e.line, label });
       if (e.missing) return rep.missing.push({ line: e.line, label, path: e.path });
       const ext = path.extname(e.path).toLowerCase();
-      if (AUDIO_EXT.includes(ext)) return rep.audio.push({ line: e.line, label });
-      if (!KNOWN_VIDEO_EXT.includes(ext)) return rep.notVideo.push({ line: e.line, label });
+      if (AUDIO_EXT.includes(ext) && !PLAYABLE_AUDIO_EXT.includes(ext)) return rep.audio.push({ line: e.line, label });
+      if (!KNOWN_VIDEO_EXT.includes(ext) && !PLAYABLE_AUDIO_EXT.includes(ext)) return rep.notVideo.push({ line: e.line, label });
       if (e.relocated) rep.relocated++;
       const k = path.resolve(e.path).toLowerCase(); if (seen.has(k)) return; seen.add(k);
       vids.push(e);
@@ -442,4 +449,4 @@ class Library {
   }
 }
 
-module.exports = { Library, PLAYABLE_EXT, KNOWN_VIDEO_EXT, songKey, fingerprint, cleanTags, decadeOf };
+module.exports = { Library, PLAYABLE_EXT, KNOWN_VIDEO_EXT, PLAYABLE_AUDIO_EXT, isAudioPath, songKey, fingerprint, cleanTags, decadeOf };

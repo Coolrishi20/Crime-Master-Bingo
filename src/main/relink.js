@@ -12,7 +12,7 @@ const fs = require('fs');
 const path = require('path');
 const { readMp4Tags, parseFilename } = require('./mp4meta');
 
-const VIDEO_EXT = ['.mp4', '.m4v', '.mov', '.webm', '.mkv', '.ogv'];
+const VIDEO_EXT = ['.mp4', '.m4v', '.mov', '.webm', '.mkv', '.ogv', '.mp3', '.m4a', '.aac', '.flac', '.wav', '.ogg', '.oga', '.opus']; // 2.6: audio songs relink too
 function walk(dir, out = [], depth = 0) {
   if (depth > 64) return out;
   let items = []; try { items = fs.readdirSync(dir, { withFileTypes: true }); } catch (e) { return out; }
