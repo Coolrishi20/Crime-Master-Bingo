@@ -1,3 +1,10 @@
+## Anthem Square 2.5.1 — signed updates switched on
+
+- The first release signed with Anthem Square's update key. From now on, copies on 2.4 or
+  later check this signature and install updates with one click. Copies on 2.4 that showed
+  2.5.0 as a manual download can update straight to 2.5.1.
+- Everything else is the same as 2.5.0 (new logo, simpler Settings page).
+
 ## Anthem Square 2.5.0 — new logo and a simpler Settings page
 
 ### New logo
