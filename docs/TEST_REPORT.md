@@ -1,3 +1,51 @@
+# Anthem Square — Test report (v2.5.3)
+
+## v2.5.3 (print preview colours, Save diagnostics, Bingo rules text, Low Resource benchmark)
+- **Unit tests: 213 / 213 passed.** New: `v27-diagnostics` checks that the report:
+  - removes pairing tokens, passwords, licence tokens, PINs and player names;
+  - hides the home folder;
+  - trims long lists;
+  - still produces a report if one section fails.
+- **`v25-settings-brand.js`: 12 / 12** (new: Save diagnostics writes one readable file with
+  system, app, library, displays and the recent laptop-window error, and no secrets or home
+  paths).
+- **Full regression green:**
+
+  | Suite | Result |
+  |---|---|
+  | v24 | 33/33 |
+  | v23 | 28/28 |
+  | v22 | 14/14 |
+  | v21 | 14/14 |
+  | v20 | 26/26 |
+  | v19 | 9/9 |
+  | v18 | 10/10 |
+  | v17 | 22/22 |
+  | v16 | 34/34 |
+  | acceptance | 85/85 |
+  | v15 | 28/28 |
+  | v14 | 38/38 |
+  | v13 | 13/13 |
+  | print | 12/12 |
+  | reveal | 7/7 |
+
+- **Low Resource benchmark (2.5.2 code, 75 songs, laptop + TV + phone, app held to 2 cores):**
+  every check passed.
+
+  | Measure | Result |
+  |---|---|
+  | Dropped frames | 0.5% (120 of 22,743), same as 1.5's 0.5% |
+  | TV stutters over 50 ms | 0 |
+  | CPU | 34% of one core |
+  | RAM | 1,083 MB on average, 1,151 MB peak, 1,097 MB after 75 songs |
+  | Phone commands | 13 ms median, 15 ms max |
+  | Phone traffic | 83 KB/min |
+
+  The main process stalled once for 587 ms during the 20-minute run, with no visible effect (no
+  TV stutters, phone commands still under 15 ms). Single spikes like this also appeared in
+  earlier runs (413 ms in 1.6 Low Resource, 226 ms in 2.0 normal).
+- Still not measured on a real 4 GB Windows laptop.
+
 # Anthem Square — Test report (v2.5.2)
 
 ## v2.5.2 (portable update helper)

@@ -16,7 +16,7 @@ html, body { color: #102542; }
 .lg-title { color: #102542 !important; }
 .pat rect.on { fill: #FF5B32 !important; }
 .legend { border-color: #9AA6B4 !important; }
-.pv-brand img { width: 22px; height: 22px; vertical-align: middle; margin-right: 6px; }
+.pv-brand img { width: 22px; height: 22px; vertical-align: middle; margin-right: 2px; }
 body.bw .brand .as-w b + b { color: #000; }
 body.bw .pat rect.on { fill: #000 !important; }
 body.bw { --ink: #000 !important; --accent: #000 !important; --soft: #333 !important; --line: #555 !important; }
@@ -24,7 +24,7 @@ body.bw { --ink: #000 !important; --accent: #000 !important; --soft: #333 !impor
 /* ---- 2.5.3: print preview window in the Anthem Square palette (was the old pink/purple) ---- */
 body.preview { background: #0B1B31; }
 .pv-bar { background: #102542; color: #FFF2CF; border-bottom: 1px solid rgba(255,242,207,.12); box-shadow: 0 4px 18px rgba(0,0,0,.35); }
-.pv-brand { font-family: 'Montserrat', 'Inter', sans-serif; font-weight: 800; font-size: 16px; letter-spacing: 0; color: #FFF2CF; display: flex; align-items: center; }
+.pv-brand { font-family: 'Montserrat', 'Inter', sans-serif; font-weight: 800; font-size: 16px; letter-spacing: 0; color: #FFF2CF; display: flex; align-items: center; gap: 6px; white-space: nowrap; }
 .pv-brand b { color: #FF5B32; font-weight: 800; }
 .pv-grp { background: #16304F; border-color: rgba(255,242,207,.14); }
 .pv-grp span { color: #B3B4AA; }
