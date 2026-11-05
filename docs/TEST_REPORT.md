@@ -1,4 +1,46 @@
-# Anthem Square — Test report (v1.9.0)
+# Anthem Square — Test report (v2.0.0)
+
+## v2.0.0 (start-up fix, click-to-update, live TV preview, YouTube Beta)
+- **Unit tests: 175 / 175 passed.** `v21-update.test.js` (3 tests) covers the portable updater:
+  - offers "Update" only when the folder is writable and a portable EXE is on the release;
+  - download progress → downloaded → Restart now;
+  - a failed download returns to "available" with a message;
+  - a waiting update is applied when the app closes.
+
+  `v12-features` was updated for click-to-update: the installer no longer downloads by itself.
+- **New e2e `v22-preview-update.js`: 11 / 11 passed.**
+  - **Live TV preview (Create Game step 4):** the real TV page shows the game's 5-rule checklist. Crawler height 72 → 130 px, title size 64 → 100 px, the pattern panel → bottom-left and the title → top-left all change live.
+  - **Live TV preview (Settings):** crawler height 72 → 120 px and the pattern-panel corner follow the fields.
+  - **Portable click-to-update** (against a local stand-in for the GitHub API):
+    - the sidebar shows "Update to 2.1.0" and the window shows the size;
+    - progress is shown while downloading;
+    - a corrupted download is rejected (SHA-256) and deleted;
+    - a good download is verified, then "Restart now / Later" is offered;
+    - "Restart now" swaps the EXE in place under the same name and relaunches (the helper script was inspected; Windows itself was not run).
+- **New e2e `v21-youtube.js`: 14 / 14 passed** (against a stand-in for YouTube's oEmbed and embedded-player protocol; live YouTube was not reachable from the test environment).
+- **Start-up fix:** a packaged Linux build has no `app.asar.unpacked` folder. v19 run on the packaged build: **9/9** (volume analysis, intro skipping).
+- **GitHub API check:** the v1.9.0 release assets carry `sha256:` digests, which the portable updater verifies.
+- **Regression (all re-run on this build):**
+
+  | Suite | Result |
+  |---|---|
+  | v20 | 26/26 |
+  | v19 | 9/9 |
+  | v18 | 10/10 |
+  | v17 | 22/22 |
+  | v16 | 34/34 |
+  | acceptance | 85/85 |
+  | v15 | 28/28 |
+  | v14 | 38/38 |
+  | v13 | 13/13 |
+  | print | 12/12 |
+  | reveal | 7/7 |
+
+- **Not tested here:**
+  - a real Windows update swap;
+  - live YouTube;
+  - a 4 GB RAM laptop.
+
 
 ## v1.9.0 (templates, tags + builder, song check, intermission slides, second TV)
 - **Unit tests: 172 / 172 passed.** `v20-tags-builder.test.js` (3 tests) covers:
