@@ -31,7 +31,7 @@ const OLD = /crime\s*master/i;
   ok((await host.title()) === 'Anthem Square', 'Window title is Anthem Square', await host.title());
   ok(await host.evaluate(() => document.documentElement.dataset.theme) === 'dark' && (await inv('settings:get')).appearance.theme === 'dark', 'Dark Mode is the default (old “crime-master” theme value migrated)');
   ok(await host.evaluate(() => { const i = document.querySelector('.as-logo img'); return i && i.naturalWidth > 0 && getComputedStyle(i).display !== 'none'; }), 'Sidebar shows the Anthem Square icon');
-  ok((await host.$$('.nav-sec')).length === 4 && (await host.$$('#nav a:not([hidden]) svg.ico')).length === 10, 'Navigation grouped (Overview / Prepare / Play / Manage) with line icons');
+  ok((await host.$$('.nav-sec')).length === 4 && (await host.$$('#nav a:not([hidden]) svg.ico')).length === 12, 'Navigation grouped (Overview / Prepare / Play / Manage) with line icons (2.6: + Venue Check, Help & Guide)');
   const btnCol = await host.evaluate(() => { const b = document.createElement('button'); b.className = 'btn primary'; document.body.appendChild(b); const s = getComputedStyle(b); const r = [s.color, s.backgroundColor]; b.remove(); return r; });
   ok(btnCol[0] === 'rgb(23, 23, 23)' && btnCol[1] === 'rgb(255, 91, 50)', 'Primary buttons: Dark Gray text on Vivid Orange Red (5.8:1)', btnCol.join(' on '));
 
