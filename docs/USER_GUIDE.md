@@ -28,7 +28,14 @@ Install Anthem Square over your existing copy. Your music library, playlists, sa
 printed-card numbers, backups and phone pairings are kept: the app still reads the same data
 folder. Cards printed before the rename still scan and check normally.
 
-### Dark and Light Mode — *Settings → Appearance → Theme*
+### Settings
+*Settings* holds the defaults for new games. It has nine sections with a side menu (General, TV
+screen, Gameplay, Bingo rules, Sound, Cards & printing, Phone & home play, Library & performance,
+Updates & about) and a **Find a setting…** box. **Changes save by themselves.** If a game is
+loaded, a bar asks whether to apply the new defaults to that game too. The game in progress can
+always be changed live on Host Game.
+
+### Dark and Light Mode — *Settings → General → Theme*
 **Dark** is the default and is best during a live event. **Light** suits daytime preparation
 (playlists, the library, printing). The change applies straight away and is remembered. The
 phone remote and player phones follow the laptop's choice. The TV always stays dark so the
@@ -42,7 +49,7 @@ video stands out.
   are converted automatically.** The app makes a playable MP4 copy in the background
   and never changes your original file. The Status column shows *Converting 45%*,
   then *Ready · Converted*. If a file can't be converted (e.g. it's damaged), you'll
-  see **Retry convert**. Turn automatic conversion off in Settings → Gameplay.
+  see **Retry convert**. Turn automatic conversion off in Settings → Library & performance.
 - **Import folders as playlists…** (Music Library or Playlists): choose a top folder
   and every sub-folder becomes a playlist with the folder's name. For example,
   *Music Videos\80s* becomes an **80s** playlist. Sub-folders inside those are
@@ -220,7 +227,7 @@ The wizard has nine steps:
 Plug in HDMI and set Windows to **Extend** (Win + P → Extend). In **Host Game** click
 **Open audience window**; it opens fullscreen on the TV. Press **F** to toggle
 fullscreen. Sound goes to Windows' default output. To send it to the TV/HDMI, pick
-the device in **Settings → Video & TV → Audio output**.
+the device in **Settings → Sound → Sound output**.
 
 The TV shows **only**:
 1. the music video;
@@ -247,7 +254,7 @@ every song played, handy for "what was that song?". Both screens can be switched
 per game, and the defaults are in Settings → Gameplay.
 
 ### Intermission slides and a second TV
-- **Slides:** add pictures in *Settings → Intermission slides*. They rotate on the TV during
+- **Slides:** add pictures in *Settings → TV screen → Intermission slides*. They rotate on the TV during
   every intermission, with the countdown at the bottom.
 - **Second TV:** in big rooms, click **＋ TV 2** at the top of Host Game to mirror the audience
   screen on another display. It's silent and follows the main TV; click again to close it.
@@ -310,7 +317,7 @@ or more of these patterns. If you tick several for a round, **any one of them** 
 | **Fast 5** | *any* 5 songs on the card, or a set pattern of 5 squares you choose |
 | **Custom** | your own 5×5 pattern (e.g. Four Corners, Plus Sign) |
 
-- **Defaults for new games:** Settings → 🎯 Bingo Rules. Use **− / ＋** to set the number of
+- **Defaults for new games:** Settings → Bingo rules. Use **− / ＋** to set the number of
   rounds, then **Change Round N…** to tick its patterns. You can also save presets (rounds
   and patterns together), design custom patterns and restore the standard 3 rounds there.
 - **This game:** Host Game → Rounds → **🎯 Rules…**. Add or remove rounds and change a
@@ -500,14 +507,14 @@ clip you play, so a quiet intro won't fool it.
   to turn off.
 - Only one song ever plays at a time; skipping fades out in 50 ms with no overlap.
 - Turn it on/off, mute, or change the volume from the laptop or phone.
-- **Settings → Audio** holds the target, maximum boost and fade lengths.
+- **Settings → Sound → Levelling details** holds the target, peak ceiling, maximum boost and fade lengths.
 - If a video can't be analysed, it plays at its original volume with a warning. Analysis
   can be paused/resumed in the Music Library.
 
 ---
 
 ## 7. Delayed title reveal (optional)
-To make players work for it, go to **Settings → Song overlay → Reveal song title after**
+To make players work for it, go to **Settings → TV screen → Reveal the title after**
 and choose 5–30 seconds. Each song starts on the TV with **♪ Guess the song…** and a
 countdown, then the title and artist slide in. The countdown follows the music: pause
 the song and the countdown pauses too. The laptop and phone always show the title

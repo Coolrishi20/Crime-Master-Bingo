@@ -1,3 +1,24 @@
+## Anthem Square 2.5.0 — new logo and a simpler Settings page
+
+### New logo
+- The new lowercase **“a” with a round bingo grid** inside, traced from the approved artwork
+  and coloured in Cream, Dark Blue and Orange Red.
+- It appears on the Windows icon, taskbar, installer, sidebar, dashboard, TV screens, phone
+  remote and printed cards.
+- Small logos (the sidebar, phone header and Windows icons at 32 px and below) use a simplified
+  version with bold bands, so they stay crisp.
+
+### Settings, simplified
+- **Nine sections** with a side menu that follows you as you scroll: General, TV screen,
+  Gameplay, Bingo rules, Sound, Cards & printing, Phone & home play, Library & performance,
+  Updates & about. Every setting is still there.
+- **Find a setting…** shows only the sections that match and highlights the fields.
+- **Changes save by themselves** (“✓ All changes saved”). When a game is loaded, a bar offers to
+  apply the new defaults to it as well. It never does that automatically.
+- The live TV preview sits next to the TV fields, and the optional TV screens (winner, welcome,
+  “Thanks for playing!”, intermission slides) are together in *TV screen*.
+- Advanced audio values are folded under *Levelling details*.
+
 ## Anthem Square 2.4.0 — media check, presets, Ready for Bingo?, automatic backups, signed updates
 
 2.4 brings together the planned 2.2 (media), 2.3 (game preparation) and 2.4 (recovery and

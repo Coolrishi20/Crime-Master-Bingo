@@ -1256,7 +1256,8 @@ function createRemote() {
       '/jsqr.js': require.resolve('jsqr/dist/jsQR.js'),
       '/shared/patterns.js': path.join(RENDERER, 'shared', 'patterns.js'),
       '/icon.png': path.join(ROOT, 'assets', 'icon.png'),
-      '/brand/icon.svg': path.join(RENDERER, 'shared', 'brand', 'icon.svg')
+      '/brand/icon.svg': path.join(RENDERER, 'shared', 'brand', 'icon.svg'),
+      '/brand/icon-small.svg': path.join(RENDERER, 'shared', 'brand', 'icon-small.svg')
     },
     mounts: { '/fonts/': path.join(RENDERER, 'shared', 'fonts') },
     players: playerHooks,

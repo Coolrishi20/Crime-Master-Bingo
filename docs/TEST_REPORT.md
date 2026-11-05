@@ -1,4 +1,22 @@
-# Anthem Square — Test report (v2.4.0)
+# Anthem Square — Test report (v2.5.0)
+
+## v2.5.0 (new logo, simpler Settings page)
+- **Unit tests: 210 / 210 passed.**
+- **New e2e `v25-settings-brand.js`: 10 / 10 passed.** It covers:
+  - the sidebar uses the simplified small logo;
+  - the app icon is the rounded Dark Blue tile;
+  - the Windows icon file holds 7 sizes;
+  - the nine-section side menu, with the TV preview, Bingo rules and Low Resource Mode all
+    present;
+  - a field and a toggle save by themselves;
+  - *Find a setting…* filters the sections and highlights matches;
+  - no “apply to this game” bar without a loaded game;
+  - the side menu jumps to a section.
+- **Logo:** traced from the supplied artwork (potrace) and recoloured. Rebuilt from
+  `tools/brand/`: SVG icons, PNGs from 16 to 1024 px, the `.ico`, lock-ups, print and
+  one-colour versions.
+- **Regression:** see the table below (all re-run on this build).
+
 
 ## v2.4.0 (media check, presets + pacing, Ready for Bingo?, backups, usage report, onboarding, signed updates)
 - **Unit tests: 210 / 210 passed.** New files:

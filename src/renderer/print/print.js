@@ -160,7 +160,7 @@
     document.body.classList.add('preview');
     var bar = el('div', 'pv-bar');
     bar.innerHTML =
-      '<div class="pv-brand"><img src="../shared/brand/icon.svg" alt=""><span>ANTHEM</span> <b>SQUARE</b> · Print preview</div>' +
+      '<div class="pv-brand"><img src="../shared/brand/icon-small.svg" alt=""><span>ANTHEM</span> <b>SQUARE</b> · Print preview</div>' +
       '<div class="pv-grp"><button id="pvPrev" title="Previous page">◀</button><span id="pvPage">Page 1 / ' + info.sheets + '</span><button id="pvNext" title="Next page">▶</button></div>' +
       '<div class="pv-grp"><button id="pvOut" title="Zoom out">−</button><span id="pvZoom">100%</span><button id="pvIn" title="Zoom in">+</button><button id="pvFit">Fit</button></div>' +
       '<div class="pv-grp"><input id="pvFind" inputmode="numeric" placeholder="Card #" maxlength="3"><button id="pvGo">Find</button></div>' +
