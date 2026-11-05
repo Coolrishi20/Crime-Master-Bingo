@@ -88,6 +88,9 @@ App.register('cards', {
       <div id="ppRangeRow" style="display:none;margin-bottom:12px"><label class="field">Card numbers (e.g. 1-50, 75, 101-120)<input type="text" id="ppRange" placeholder="1-${s.total || 100}"></label></div>
       <div class="row" style="gap:24px;margin-bottom:12px">${toggleHtml('ppQr', 'QR codes', cs.qr)}${toggleHtml('ppBw', 'Black & white (ink saver)', cs.bw)}${toggleHtml('ppLogo', 'Logo', cs.useLogo)}${toggleHtml('ppCut', 'Cutting guide', cs.cutLines !== false)}</div>
       <div class="field" style="margin-bottom:12px"><span class="muted small" style="font-weight:700">Squares show</span><div class="seg" id="ppShow"><button data-v="1" class="${cs.showArtist !== false ? 'on' : ''}">Song title + artist</button><button data-v="0" class="${cs.showArtist === false ? 'on' : ''}">Song title only</button></div></div>
+      <div class="form-grid" style="margin-bottom:12px"><label class="field">Footer message (optional, 90 characters)<input type="text" id="ppFoot" maxlength="90" value="${esc(cs.footer || '')}" placeholder="e.g. Shout BINGO! and bring your card to the bar"></label>
+        <label class="field">Song font<select id="ppFont">${[['inter', 'Modern (Inter)'], ['montserrat', 'Bold (Montserrat)'], ['classic', 'Classic (Arial)'], ['serif', 'Serif (Georgia)']].map(([v, l]) => `<option value="${v}" ${(cs.font || 'inter') === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label></div>
+      <p class="muted tiny" style="margin:-4px 0 12px">Footer and font change only how cards look. Card numbers and songs never change, even for cards already printed.</p>
       <label class="field" style="max-width:320px">Card text size: <span id="ppTsV">${Math.round(cs.textScale * 100)}%</span><input type="range" id="ppTs" min="80" max="125" step="5" value="${Math.round(cs.textScale * 100)}"></label>
       <div class="muted" id="ppInfo" style="margin:14px 0"></div>
       <div class="row"><button class="btn" id="ppPrev" title="Preview never locks the cards">🔍 Print preview</button><button class="btn" id="ppPdf">Export PDF…</button><button class="btn primary" id="ppPrint">🖨 Print…</button></div>
@@ -95,7 +98,7 @@ App.register('cards', {
       <div id="ppResult"></div>`;
     let sel = 'all'; let showArtist = cs.showArtist !== false;
     $$('#ppShow button', box).forEach(b => b.onclick = () => { showArtist = b.dataset.v === '1'; $$('#ppShow button', box).forEach(x => x.classList.toggle('on', x === b)); });
-    const opts = () => ({ id: gameId, qr: $('#ppQr', box).checked, bw: $('#ppBw', box).checked, useLogo: $('#ppLogo', box).checked, cutLines: $('#ppCut', box).checked, showArtist, textScale: Number($('#ppTs', box).value) / 100, range: sel === 'range' ? $('#ppRange', box).value : null, onlyUnprinted: sel === 'unprinted' });
+    const opts = () => ({ id: gameId, qr: $('#ppQr', box).checked, bw: $('#ppBw', box).checked, useLogo: $('#ppLogo', box).checked, cutLines: $('#ppCut', box).checked, showArtist, textScale: Number($('#ppTs', box).value) / 100, footer: $('#ppFoot', box).value, font: $('#ppFont', box).value, range: sel === 'range' ? $('#ppRange', box).value : null, onlyUnprinted: sel === 'unprinted' });
     const info = () => {
       let n = s.total; if (sel === 'unprinted') n = unprinted;
       if (sel === 'range') { try { n = (($('#ppRange', box).value || '').split(/[,\s]+/).filter(Boolean).reduce((a, p) => { const m = /^(\d+)(?:-(\d+))?$/.exec(p); if (!m) return a; const x = +m[1], y = m[2] ? +m[2] : x; return a + Math.abs(y - x) + 1; }, 0)); } catch (e) { n = 0; } }
@@ -104,7 +107,7 @@ App.register('cards', {
     $$('#ppSel button', box).forEach(b => b.onclick = () => { sel = b.dataset.v; $$('#ppSel button', box).forEach(x => x.classList.toggle('on', x === b)); $('#ppRangeRow', box).style.display = sel === 'range' ? 'block' : 'none'; info(); });
     $('#ppRange', box).oninput = info;
     $('#ppTs', box).oninput = (e) => { $('#ppTsV', box).textContent = e.target.value + '%'; };
-    const saveOpts = () => { const o = opts(); api('settings:update', { cards: { qr: o.qr, bw: o.bw, useLogo: o.useLogo, textScale: o.textScale, showArtist: o.showArtist, cutLines: o.cutLines } }).then(st => { App.settings = st; }); };
+    const saveOpts = () => { const o = opts(); api('settings:update', { cards: { qr: o.qr, bw: o.bw, useLogo: o.useLogo, textScale: o.textScale, showArtist: o.showArtist, cutLines: o.cutLines, footer: o.footer, font: o.font } }).then(st => { App.settings = st; }); };
     const busy = (on, label) => { $$('button', box).forEach(b => { b.disabled = on; }); $('#ppResult', box).innerHTML = on ? `<div class="badge pink" style="margin-top:10px">${label}</div>` : ''; };
     const done = (r, verb) => {
       if (!r) return;

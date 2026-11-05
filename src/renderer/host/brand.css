@@ -259,3 +259,20 @@ html[data-theme] .tvp-cap { margin-top: 6px; font-size: 12px; color: var(--lav);
 .clip-ticks span { position: absolute; transform: translateX(-50%); top: 2px; }
 .clip-ticks span:first-child { transform: none; }
 .clip-read { font-size: 13px; }
+
+/* ---- presets + pacing (2.3) ---- */
+.preset-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; margin-bottom: 18px; }
+.preset { text-align: left; display: flex; flex-direction: column; gap: 6px; padding: 14px; border-radius: 12px; background: var(--panel-2); border: 1.5px solid var(--border-soft); color: var(--text); cursor: pointer; font: inherit; }
+.preset b { font-family: var(--display); font-weight: 800; font-size: 16px; }
+.preset span { font-size: 12px; color: var(--lav); line-height: 1.35; }
+.preset em { font-style: normal; font-size: 10px; font-weight: 800; letter-spacing: .12em; color: var(--accent-ink); margin-top: auto; }
+.preset:hover { border-color: var(--border); }
+.preset.on { border-color: #FF5B32; box-shadow: inset 0 0 0 1px #FF5B32; }
+.preset[data-p="custom"] { border-style: dashed; }
+.pace-box { margin-top: 18px; padding: 14px; border-radius: 12px; border: 1px solid var(--border-soft); background: var(--panel-2); }
+.pace-t td, .pace-t th { padding: 6px 8px; }
+
+/* ---- Ready for Bingo? (2.3) ---- */
+.rc-h { font-size: 11px; font-weight: 800; letter-spacing: .14em; margin: 14px 0 4px; }
+.rc-h.bad { color: var(--red); } .rc-h.warn { color: var(--accent-ink); } .rc-h.ok { color: var(--green); }
+.rc-ok summary { cursor: pointer; margin-top: 12px; }

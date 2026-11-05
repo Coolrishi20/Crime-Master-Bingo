@@ -95,3 +95,9 @@ body.images .cut { display: none; }
 .legend.many .lg-round { flex: 0 0 31%; }
 .lg-round > div { min-width: 0; overflow: hidden; }
 .lg-round b, .lg-round span { overflow: hidden; text-overflow: ellipsis; }
+
+/* 2.3 card branding: footer message and the font of the song squares (fitted with the same font) */
+.footmsg { text-align: center; font-weight: 700; font-size: 8.5pt; margin: .6mm 0 .4mm; color: var(--ink); }
+body.font-montserrat .cell .t, body.font-montserrat .cell .a, body.font-montserrat #mcell .t, body.font-montserrat #mcell .a { font-family: 'Montserrat', 'Inter', sans-serif; }
+body.font-classic .cell .t, body.font-classic .cell .a, body.font-classic #mcell .t, body.font-classic #mcell .a { font-family: Arial, Helvetica, sans-serif; }
+body.font-serif .cell .t, body.font-serif .cell .a, body.font-serif #mcell .t, body.font-serif #mcell .a { font-family: Georgia, 'Times New Roman', serif; }

@@ -37,12 +37,20 @@ let powerBlock = null;
 let recoveryInfo = null;
 
 /* ======================================================================= settings */
+/* Decision 3 (2.3): the TV shows the video, title and artist, winning patterns and the crawler.
+   The extras stay available as options; for new installations only the winner screen is on. */
+function appGameDefaults() {
+  const d = defaultGameSettings();
+  d.screens = Object.assign({}, d.screens, { welcome: false, end: false });
+  d.tvScreens = Object.assign({}, d.tvScreens, { winner: true, wrongClaim: false, closeCount: false });
+  return d;
+}
 function defaultSettings() {
   return {
     appearance: { logo: null, scale: 1, theme: 'dark' },   // 'dark' (default) | 'light'
     video: { displayId: null, fullscreen: true, aspect: 'contain', audioDeviceId: 'default' },
-    gameDefaults: defaultGameSettings(),
-    cards: { textScale: 1, qr: true, bw: false, useLogo: true, showArtist: true, cutLines: true },
+    gameDefaults: appGameDefaults(),
+    cards: { textScale: 1, qr: true, bw: false, useLogo: true, showArtist: true, cutLines: true, footer: '', font: 'inter' },
     remote: { port: 8787, autoStart: true, devices: [], secure: true },
     library: { autoConvert: true },
     updates: { auto: true },
@@ -62,11 +70,11 @@ function loadSettings() {
   const s = store.read('settings', d);
   const merged = Object.assign({}, d, s);
   ['appearance', 'video', 'cards', 'remote', 'updates', 'library', 'home', 'performance'].forEach(k => { merged[k] = Object.assign({}, d[k], s[k] || {}); });
-  merged.gameDefaults = Object.assign(defaultGameSettings(), s.gameDefaults || {});
-  merged.gameDefaults.overlay = Object.assign(defaultGameSettings().overlay, (s.gameDefaults || {}).overlay || {});
-  merged.gameDefaults.crawler = Object.assign(defaultGameSettings().crawler, (s.gameDefaults || {}).crawler || {});
-  merged.gameDefaults.audio = Object.assign(defaultGameSettings().audio, (s.gameDefaults || {}).audio || {});
-  merged.gameDefaults.screens = Object.assign(defaultGameSettings().screens, (s.gameDefaults || {}).screens || {});
+  merged.gameDefaults = Object.assign(appGameDefaults(), s.gameDefaults || {});
+  merged.gameDefaults.overlay = Object.assign(appGameDefaults().overlay, (s.gameDefaults || {}).overlay || {});
+  merged.gameDefaults.crawler = Object.assign(appGameDefaults().crawler, (s.gameDefaults || {}).crawler || {});
+  merged.gameDefaults.audio = Object.assign(appGameDefaults().audio, (s.gameDefaults || {}).audio || {});
+  merged.gameDefaults.screens = Object.assign(appGameDefaults().screens, (s.gameDefaults || {}).screens || {});
   merged.gameDefaults.roundCount = Math.max(1, Math.min(10, Number((s.gameDefaults || {}).roundCount) || 3));
   merged.gameDefaults.rounds = validRounds((s.gameDefaults || {}).rounds, merged.gameDefaults.roundCount);
   if (!['dark', 'light'].includes(merged.appearance.theme)) merged.appearance.theme = 'dark'; // v1 'crime-master' → Dark
@@ -521,12 +529,13 @@ async function buildPrintJob(game, opts) {
     game: { id: game.cardSetId || game.id, internalId: game.id, name: game.name, date: game.date, venue: game.venue, total: game.cards.length },
     cards: list.map(c => ({ no: c.no, cells: c.cells, batch: c.batch || 1 })), songs, qrs, logo,
     bw: !!cardOpts.bw, textScale: Number(cardOpts.textScale) || 1, showArtist: cardOpts.showArtist !== false, cutLines: cardOpts.cutLines !== false,
+    footer: String(cardOpts.footer || '').replace(/\s+/g, ' ').trim().slice(0, 90), font: ['inter', 'montserrat', 'classic', 'serif'].includes(cardOpts.font) ? cardOpts.font : 'inter',
     rounds: Object.keys(validRounds(game.settings.rounds, game.settings.roundCount)).map(Number).map(n => { const i = rules.roundInfo({ round: n, rules: validRounds(game.settings.rounds, game.settings.roundCount)[n] }); return { n, label: i.label, short: i.short, pattern: i.examples[0], diagonals: i.diagonalsCount }; }),
     mode: game.settings.mode === 'checklist' ? 'checklist' : 'rounds',
     checklist: (game.settings.checklist || []).map(it => { const i = rules.roundInfo({ round: 0, rules: [it.rule] }); return { label: i.label, short: i.short, pattern: i.examples[0], diagonals: i.diagonalsCount }; }),
     names: opts.names || null,
     locked: !!game.cardsLocked,
-    opts: { qr: !!cardOpts.qr, bw: !!cardOpts.bw, useLogo: !!cardOpts.useLogo, textScale: Number(cardOpts.textScale) || 1, showArtist: cardOpts.showArtist !== false, cutLines: cardOpts.cutLines !== false }
+    opts: { qr: !!cardOpts.qr, bw: !!cardOpts.bw, useLogo: !!cardOpts.useLogo, textScale: Number(cardOpts.textScale) || 1, showArtist: cardOpts.showArtist !== false, cutLines: cardOpts.cutLines !== false, footer: String(cardOpts.footer || '').slice(0, 90), font: cardOpts.font || 'inter' }
   };
   return { job, list };
 }
@@ -745,6 +754,20 @@ const handlers = {
     settings.templates = settings.templates.filter(x => x.id !== tpl.id).concat([tpl]).slice(-40);
     saveSettings();
     return tpl;
+  },
+  /** Pacing estimate (an estimate only — never touches a real game's order or cards). */
+  'health:decodeTest': () => decodeTest(),
+  'pacing:estimate': ({ playlistId, cards, settings: st, minutes }) => {
+    if (engine && engine.game.status === 'live' && ['playing', 'loading'].includes(engine.game.playback.status)) throw new Error('The estimate is not run while a song is playing — pause first.');
+    const v = library.validatePlaylist(playlistId); if (!v.ok) throw new Error('Choose a playlist with at least 40 playable songs first.');
+    const ids = v.songs.map(s => s.id);
+    const avgDur = v.songs.reduce((a, s) => a + (Number(s.duration) || 200), 0) / v.songs.length;
+    const clip = st && Number(st.clipMode) > 0 ? Number(st.clipMode) : avgDur;
+    const secsPerSong = clip + (st && st.autoAdvance === false ? 8 : Math.max(0, Number(st && st.autoAdvanceGap) || 0)) + 1.5;
+    const pacing = require('../core/pacing');
+    const sim = pacing.simulate({ songIds: ids, cardCount: cards, mode: st && st.mode, rounds: st && st.rounds, roundCount: st && st.roundCount, checklist: st && st.checklist, trials: 1500, secsPerSong, seed: Date.now() & 0xffff });
+    sim.break = minutes ? pacing.inBreak(sim, Number(minutes)) : null;
+    return sim;
   },
   'templates:delete': ({ id }) => { settings.templates = settings.templates.filter(t => t.id !== id); saveSettings(); return true; },
   'games:create': (opts) => {
@@ -988,7 +1011,9 @@ const handlers = {
       if (r.canceled) return null; file = r.filePath; overwrite = true; // the system dialog already asked about overwriting
     }
     if (fs.existsSync(file) && !overwrite) throw new Error('A file with that name already exists.');
-    return backup.createBackup(JSON.parse(JSON.stringify(g)), { file, includeMedia: !!includeMedia, password: password || null, appVersion: app.getVersion(), onProgress: (p) => sendHost('backup-progress', p) });
+    const res = await backup.createBackup(JSON.parse(JSON.stringify(g)), { file, includeMedia: !!includeMedia, password: password || null, appVersion: app.getVersion(), onProgress: (p) => sendHost('backup-progress', p) });
+    recordBackup(g.id, { file, kind: includeMedia ? 'full' : 'compact', auto: false });
+    return res;
   },
   'backup:pickFile': async () => {
     const r = await dialog.showOpenDialog(hostWin, { title: 'Choose an Anthem Square backup', properties: ['openFile'], filters: [{ name: 'Anthem Square backup', extensions: ['cmbbackup'] }] });
@@ -1200,6 +1225,34 @@ function createRemote() {
   });
 }
 
+/* Decode test: play 5 s of one real game video in an invisible off-screen window and count
+   dropped frames. Never while a song is playing. */
+let lastDecodeTest = null;
+async function decodeTest() {
+  if (engine && ['playing', 'loading'].includes(engine.game.playback.status)) throw new Error('Pause the game first — the test plays a video on this laptop.');
+  const g = engine && engine.game; const songs = g ? Object.values(g.songs) : library.songs();
+  const pick = songs.filter(s => s.source !== 'youtube' && s.path && fs.existsSync(s.path)).sort((a, b) => ((library.get(b.id) || b).height || 0) - ((library.get(a.id) || a).height || 0))[0];
+  if (!pick) throw new Error('No video available to test.');
+  const html = path.join(DATA_DIR, 'decode-test.html');
+  fs.writeFileSync(html, '<!doctype html><meta charset="utf-8"><body style="margin:0;background:#000"><video id="v" muted playsinline style="width:100vw;height:100vh"></video>');
+  const w = new BrowserWindow({ show: false, width: 1280, height: 720, webPreferences: { offscreen: true, backgroundThrottling: false, sandbox: true, contextIsolation: true } });
+  try {
+    await w.loadFile(html);
+    const r = await w.webContents.executeJavaScript(`new Promise((res) => { const v = document.getElementById('v'); v.src = ${JSON.stringify(pathToFileURL(pick.path).href)};
+      v.onerror = () => res({ ok: false, error: 'the video could not be decoded' });
+      v.onloadedmetadata = () => { try { v.currentTime = Math.min(30, (v.duration || 60) / 3); } catch (e) {} };
+      v.onseeked = () => { v.play().then(() => setTimeout(() => { const q = v.getVideoPlaybackQuality(); res({ ok: true, total: q.totalVideoFrames, dropped: q.droppedVideoFrames, height: v.videoHeight }); }, 5000), (e) => res({ ok: false, error: String(e) })); };
+      setTimeout(() => res({ ok: false, error: 'timed out' }), 15000); })`);
+    lastDecodeTest = Object.assign({ at: new Date().toISOString(), title: pick.title, pct: r.ok && r.total ? Math.round(r.dropped / r.total * 1000) / 10 : 0 }, r);
+  } finally { try { w.destroy(); } catch (e) { /* */ } }
+  return lastDecodeTest;
+}
+function recordBackup(gameId, info) {
+  settings.backupLog = settings.backupLog || {};
+  settings.backupLog[gameId] = Object.assign({ at: new Date().toISOString() }, info);
+  saveSettings();
+}
+
 function preflight() {
   const checks = [];
   const add = (key, label, ok, detail, warn) => checks.push({ key, label, ok: !!ok, warn: !!warn && !ok, detail });
@@ -1235,6 +1288,19 @@ function preflight() {
   add('tv', 'TV / projector', displays.length > 1, displays.length > 1 ? `${displays.length} displays detected` : 'Only one display detected — connect the TV (HDMI) and set Windows to "Extend"', true);
   add('overlay', 'Song overlay', g.settings.overlay.enabled, g.settings.overlay.enabled ? `Title/artist overlay on (${g.settings.overlay.position})` : 'Overlay is turned off', true);
   add('crawler', 'Song-history crawler', !g.settings.crawler.paused, `Speed ${g.settings.crawler.speed}/10, ${g.settings.crawler.fontSize}px text${g.settings.crawler.paused ? ' — currently paused' : ''}`, true);
+  // 2.3 Ready for Bingo?: media check, clip points, backups, memory and a short decode test
+  const mrep = mediaReport(Object.keys(g.songs));
+  const unsup = mrep.rows.filter(r => r.status === 'unsupported'); const heavy = mrep.rows.filter(r => r.status === 'optimise' && !r.clipIssue && !r.optimised); const clipBad = mrep.rows.filter(r => r.clipIssue);
+  if (unsup.length) add('mediacheck', 'Media check', false, `${unsup.length} video(s) may not play: ${unsup.slice(0, 2).map(r => r.title).join(', ')} — convert them`);
+  else add('mediacheck', 'Media check', heavy.length === 0 && !mrep.pending, mrep.pending ? `${mrep.pending} video(s) still being checked` : heavy.length ? `${heavy.length} video(s) would play more smoothly as optimised copies (${heavy.slice(0, 2).map(r => r.title).join(', ')}…)` : 'Every video suits this laptop', true);
+  add('clips', 'Clip points', clipBad.length === 0, clipBad.length ? `${clipBad.length} song(s) have a clip start/end past the end of the video: ${clipBad.slice(0, 2).map(r => r.title).join(', ')}` : 'All clip points are inside their videos', true);
+  const lb = (settings.backupLog || {})[g.id];
+  const hrs = lb ? (Date.now() - new Date(lb.at).getTime()) / 3600000 : null;
+  add('backup', 'Backup', !!lb && hrs < 24, lb ? `Last backup ${hrs < 1 ? Math.max(1, Math.round(hrs * 60)) + ' min' : hrs < 48 ? Math.round(hrs) + ' h' : Math.round(hrs / 24) + ' days'} ago (${lb.kind}${lb.auto ? ', automatic' : ''})` : 'This game has never been backed up', true);
+  if (LOW_RAM && !lowRes()) add('lowres', 'Low Resource Mode', false, `This laptop has ${TOTAL_RAM_GB} GB of memory — Low Resource Mode is recommended`, true);
+  const dt = lastDecodeTest;
+  if (dt) add('decode', 'Video decoding test', dt.ok && dt.pct < 3, dt.ok ? `${dt.pct}% of frames dropped while playing 5 s of “${dt.title}” (${dt.height}p)${dt.pct >= 3 ? (lowRes() ? ' — use optimised copies' : ' — Low Resource Mode is recommended') : ''}` : 'Test could not run: ' + dt.error, true);
+  else add('decode', 'Video decoding test', false, 'Not run yet — plays 5 s of one of your videos off-screen and counts dropped frames', true);
   const ri = remote ? remote.info() : { running: false, connected: [] };
   add('remote', 'Mobile remote', ri.running && ri.connected.length > 0, ri.running ? (ri.connected.length ? `${ri.connected.length} phone(s) connected` : `Service running at ${ri.url} — no phone connected yet`) : 'Remote service is not running', true);
   return { checks };

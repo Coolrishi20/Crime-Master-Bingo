@@ -109,6 +109,7 @@
     small.appendChild(el('div', null, CKP ? 'No rounds · win any rule in any order · one card can win several rules · shout BINGO! and show this card' : 'Same card for all ' + job.rounds.length + ' round' + (job.rounds.length === 1 ? '' : 's') + ' · songs stay marked · shout BINGO! and show this card'));
     var right = el('div'); right.innerHTML = 'Card <b>' + pad(card.no) + '</b> · Batch ' + (card.batch || 1) + ' · Game ' + job.game.id;
     small.appendChild(right);
+    if (job.footer) foot.appendChild(el('div', 'footmsg', job.footer));
     foot.appendChild(small);
     c.appendChild(foot);
     return c;
@@ -116,6 +117,7 @@
 
   function build(job) {
     document.body.classList.toggle('bw', !!job.bw);
+    ['inter', 'montserrat', 'classic', 'serif'].forEach(function (f) { document.body.classList.toggle('font-' + f, (job.font || 'inter') === f); });
     document.body.classList.toggle('no-cut', !job.cutLines);
     var scale = Math.max(0.8, Math.min(1.25, job.textScale || 1));
     if (!job.showArtist) document.getElementById('mcell').classList.add('title-only');

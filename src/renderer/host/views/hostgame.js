@@ -19,7 +19,7 @@ App.register('host', {
         <div><div class="eyebrow" id="hgEyebrow">Host · now playing</div><h1 id="hgName"></h1></div>
         <span class="chip" id="hgRound"></span><span class="badge" id="hgLock"></span><span class="grow"></span>
         <div class="songcount" id="hgCount"></div>
-        <button class="btn" id="hgAud"></button><button class="btn" id="hgTv2" title="Mirror the TV on a second screen (silent)">TV 2</button>
+        <button class="btn" id="hgReady" title="Every pre-game check in one place">✓ Ready?</button><button class="btn" id="hgAud"></button><button class="btn" id="hgTv2" title="Mirror the TV on a second screen (silent)">TV 2</button>
       </div>
       <div id="hgNight"></div><div id="hgRecover"></div><div id="hgSession"></div><div id="hgUnavail"></div>
       <div class="cols main-side">
@@ -79,6 +79,7 @@ App.register('host', {
   bind() {
     const el = this.el;
     const g = () => App.game;
+    $('#hgReady', el).onclick = () => readyCheck();
     $$('#cGap button', el).forEach(b => b.onclick = async () => {
       let v = b.dataset.g;
       if (v === 'custom') { v = await promptBox('Gap between songs', 'Seconds of pause between songs (0–30)', String(App.game.settings.autoAdvanceGap || 0)); if (v == null || v === '') return; }

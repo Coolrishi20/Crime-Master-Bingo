@@ -19,7 +19,7 @@ async function launch(dataDir) {
   const app = await electron.launch({ executablePath: exe || require('electron'), args: exe ? ['--no-sandbox'] : [ROOT, '--no-sandbox'], env: Object.assign({}, process.env, { CMB_TEST: '1', CMB_DATA_DIR: dataDir, CMB_NO_SANDBOX: '1' }) });
   const host = await app.firstWindow();
   host.on('pageerror', e => ok(false, 'host page error', e.message));
-  await host.waitForFunction(() => window.App && window.App.settings);
+  await host.waitForFunction(() => window.App && window.App.settings); await host.evaluate(async () => { await window.cmb.invoke('settings:update', { gameDefaults: { screens: { welcome: true, end: true }, tvScreens: { winner: true, wrongClaim: true, showCardNumber: false, showName: true, closeCount: true, seconds: 7 } } }); window.App.settings = await window.cmb.invoke('settings:get'); }); // 2.3 made these TV extras opt-in; these tests cover them
   const inv = (ch, p) => host.evaluate(([c, x]) => window.cmb.invoke(c, x), [ch, p]);
   const audience = async () => { const w = await waitFor(async () => app.windows().find(x => x.url().includes('audience')), 10000); return w; };
   return { app, host, inv, audience };

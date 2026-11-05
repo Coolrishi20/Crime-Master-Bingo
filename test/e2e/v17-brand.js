@@ -15,7 +15,7 @@ const OLD = /crime\s*master/i;
   /* ---- 1. a normal install (no test data dir) keeps the ORIGINAL data folder */
   const XDG = fs.mkdtempSync(path.join(os.tmpdir(), 'as-xdg-'));
   let app = await electron.launch({ executablePath: process.env.CMB_APP_EXE || require('electron'), args: process.env.CMB_APP_EXE ? ['--no-sandbox'] : [ROOT, '--no-sandbox'], env: Object.assign({}, process.env, { CMB_TEST: '1', CMB_NO_SANDBOX: '1', CMB_NO_REMOTE: '1', XDG_CONFIG_HOME: XDG, CMB_DATA_DIR: '' }) });
-  let host = await app.firstWindow(); await host.waitForFunction(() => window.App && window.App.settings);
+  let host = await app.firstWindow(); await host.waitForFunction(() => window.App && window.App.settings); await host.evaluate(async () => { await window.cmb.invoke('settings:update', { gameDefaults: { screens: { welcome: true, end: true }, tvScreens: { winner: true, wrongClaim: true, showCardNumber: false, showName: true, closeCount: true, seconds: 7 } } }); window.App.settings = await window.cmb.invoke('settings:get'); }); // 2.3 made these TV extras opt-in; these tests cover them
   const info = await host.evaluate(() => window.cmb.invoke('app:info'));
   ok(info.dataDir === path.join(XDG, 'Crime Master Bingo', 'data'), 'Existing installs keep their data: same folder as before the rename', info.dataDir);
   await app.close();
@@ -24,7 +24,7 @@ const OLD = /crime\s*master/i;
   const DATA = fs.mkdtempSync(path.join(os.tmpdir(), 'as-brand-'));
   fs.writeFileSync(path.join(DATA, 'settings.json'), JSON.stringify({ appearance: { logo: null, scale: 1, theme: 'crime-master' } }));
   const launch = () => electron.launch({ executablePath: process.env.CMB_APP_EXE || require('electron'), args: process.env.CMB_APP_EXE ? ['--no-sandbox'] : [ROOT, '--no-sandbox'], env: Object.assign({}, process.env, { CMB_TEST: '1', CMB_SHOW: '1', CMB_DATA_DIR: DATA, CMB_NO_SANDBOX: '1' }) });
-  app = await launch(); host = await app.firstWindow(); await host.waitForFunction(() => window.App && window.App.settings);
+  app = await launch(); host = await app.firstWindow(); await host.waitForFunction(() => window.App && window.App.settings); await host.evaluate(async () => { await window.cmb.invoke('settings:update', { gameDefaults: { screens: { welcome: true, end: true }, tvScreens: { winner: true, wrongClaim: true, showCardNumber: false, showName: true, closeCount: true, seconds: 7 } } }); window.App.settings = await window.cmb.invoke('settings:get'); }); // 2.3 made these TV extras opt-in; these tests cover them
   host.on('pageerror', e => ok(false, 'host page error', e.message));
   await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(1440, 900));
   const inv = (c, p) => host.evaluate(([a, b]) => window.cmb.invoke(a, b), [c, p]);
@@ -98,7 +98,7 @@ const OLD = /crime\s*master/i;
 
   // restart: the theme choice is remembered
   await app.close();
-  app = await launch(); host = await app.firstWindow(); await host.waitForFunction(() => window.App && window.App.settings);
+  app = await launch(); host = await app.firstWindow(); await host.waitForFunction(() => window.App && window.App.settings); await host.evaluate(async () => { await window.cmb.invoke('settings:update', { gameDefaults: { screens: { welcome: true, end: true }, tvScreens: { winner: true, wrongClaim: true, showCardNumber: false, showName: true, closeCount: true, seconds: 7 } } }); window.App.settings = await window.cmb.invoke('settings:get'); }); // 2.3 made these TV extras opt-in; these tests cover them
   ok(await host.evaluate(() => document.documentElement.dataset.theme) === 'light', 'Light Mode remembered after restarting the app');
   await app.close();
   console.log(failed ? `\n${failed} FAILED` : '\nALL PASSED');

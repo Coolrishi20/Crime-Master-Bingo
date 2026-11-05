@@ -1,3 +1,17 @@
+/* Quick-start presets (2.3). Every value stays editable in the next steps. "Custom" keeps your
+   own defaults so you choose everything yourself — save the result as one of "My presets". */
+const PRESETS = [
+  { id: 'quick', name: 'Quick Bingo Break', desc: 'Fast 5, then One Line · 20 s clips · no Full House', tag: '~10–15 MIN',
+    s: { mode: 'rounds', roundCount: 2, rounds: { 1: [{ id: 'fast5', mode: 'any' }], 2: [{ id: 'line' }] }, clipMode: 20, autoAdvanceGap: 3 } },
+  { id: 'standard', name: 'Standard Bingo', desc: 'One Line → Two Lines → Full House · 30 s · one card all night', tag: '3 ROUNDS',
+    s: { mode: 'rounds', roundCount: 3, rounds: { 1: [{ id: 'line' }], 2: [{ id: 'twoLines' }], 3: [{ id: 'full' }] }, clipMode: 30, autoAdvanceGap: 3 } },
+  { id: 'checklist', name: 'Rules Checklist', desc: '5 rules, any order · 30 s clips', tag: 'FLEXIBLE',
+    s: { mode: 'checklist', checklist: [{ id: 'k1', rule: { id: 'fast5', mode: 'any' } }, { id: 'k2', rule: { id: 'line' } }, { id: 'k3', rule: { id: 'diagonal' } }, { id: 'k4', rule: { id: 'lShape' } }, { id: 'k5', rule: { id: 'full' } }], clipMode: 30, autoAdvanceGap: 3 } },
+  { id: 'full', name: 'Full Music Bingo Night', desc: 'Line → Two Lines → L shape → Full House · 40 s · best with 75+ songs', tag: '~60–90 MIN',
+    s: { mode: 'rounds', roundCount: 4, rounds: { 1: [{ id: 'line' }], 2: [{ id: 'twoLines' }], 3: [{ id: 'lShape' }], 4: [{ id: 'full' }] }, clipMode: 40, autoAdvanceGap: 5 } },
+  { id: 'custom', name: 'Custom', desc: 'Your own rules, rounds, clip length and gaps — you choose everything in the next steps', tag: 'YOUR CHOICE', s: null }
+];
+
 App.register('create', {
   step: 1,
   data: null,
@@ -51,6 +65,13 @@ App.register('create', {
     this.step++; this.draw();
   },
 
+  applyPreset(id) {
+    const p = PRESETS.find(x => x.id === id); if (!p) return;
+    const d = this.data; d.presetId = id; d.templateId = null;
+    if (!p.s) { toast('Custom: choose rules, clips and gaps in the next steps. You can save them as one of “My presets” at step 5.', 'ok', 6000); return; }
+    Object.keys(p.s).forEach(k => { d.settings[k] = JSON.parse(JSON.stringify(p.s[k])); });
+    toast(`Preset “${p.name}” applied — every value can still be changed`, 'ok', 4000);
+  },
   async applyTemplate(t) {
     const gd = App.settings.gameDefaults; const d = this.data;
     const base = { clipMode: gd.clipMode, defaultStart: gd.defaultStart, skipIntros: gd.skipIntros !== false, spreadArtists: gd.spreadArtists !== false, shuffle: gd.shuffle, volume: gd.volume, autoAdvance: gd.autoAdvance, autoAdvanceGap: gd.autoAdvanceGap, overlay: Object.assign({}, gd.overlay), crawler: Object.assign({}, gd.crawler), screens: Object.assign({}, gd.screens || {}), patternPosition: gd.patternPosition, mode: gd.mode || 'rounds', checklist: JSON.parse(JSON.stringify(gd.checklist || [])) };
@@ -62,7 +83,8 @@ App.register('create', {
   },
   step1(b) {
     const d = this.data;
-    b.innerHTML = `<div id="gTpl"></div><h2>Game details</h2><div class="form-grid">
+    b.innerHTML = `<h2>Start from…</h2><div class="preset-row" id="gPresets">${PRESETS.map(p => `<button class="preset ${d.presetId === p.id ? 'on' : ''}" data-p="${p.id}"><b>${esc(p.name)}</b><span>${esc(p.desc)}</span><em>${p.tag}</em></button>`).join('')}</div>
+      <div id="gTpl"></div><h2>Game details</h2><div class="form-grid">
       <label class="field">Game name *<input type="text" id="gName" value="${esc(d.name)}" placeholder="e.g. Thursday Night Music Bingo"></label>
       <label class="field">Date<input type="date" id="gDate" value="${esc(d.date)}"></label>
       <label class="field">Venue (optional)<input type="text" id="gVenue" value="${esc(d.venue)}" placeholder="e.g. The Red Lion"></label></div>
@@ -73,9 +95,10 @@ App.register('create', {
     const ck = checklistEditor($('#gCkEd', b), d.settings.checklist, (l) => { d.settings.checklist = l; });
     $$('input[name=gmode]', b).forEach(r => r.onchange = () => { d.settings.mode = r.value; $$('.mode-card', b).forEach(c => c.classList.toggle('on', c.querySelector('input').checked)); $('#gCk', b).style.display = r.value === 'checklist' ? '' : 'none'; });
     $('#gPick', b).onclick = async () => { this.collectFn(); const p = await api('settings:pickLogo'); if (p) { App.settings = await api('settings:get'); App.applyAppearance(); this.data.useLogo = true; this.draw(); } };
+    $$('#gPresets [data-p]', b).forEach(x => x.onclick = () => { this.collectFn(); this.applyPreset(x.dataset.p); this.draw(); });
     api('templates:list').then(ts => {
       const box = $('#gTpl', b); if (!box || !ts.length) return;
-      box.innerHTML = `<div class="row" style="margin-bottom:16px;padding:12px 14px;border-radius:12px;background:var(--bg-2)"><b>Start from a template</b><select id="gTplSel"><option value="">— none —</option>${ts.map(t => `<option value="${t.id}" ${d.templateId === t.id ? 'selected' : ''}>${esc(t.name)}${t.playlistName ? ' · ' + esc(t.playlistName) : ''}</option>`).join('')}</select><button class="btn sm ghost" id="gTplDel" ${d.templateId ? '' : 'disabled'}>Delete template</button><span class="muted small">Fills in the playlist, cards, game mode, rules, clips and TV screens. You can still change anything.</span></div>`;
+      box.innerHTML = `<div class="row" style="margin-bottom:16px;padding:12px 14px;border-radius:12px;background:var(--bg-2)"><b>My presets</b><select id="gTplSel"><option value="">— none —</option>${ts.map(t => `<option value="${t.id}" ${d.templateId === t.id ? 'selected' : ''}>${esc(t.name)}${t.playlistName ? ' · ' + esc(t.playlistName) : ''}</option>`).join('')}</select><button class="btn sm ghost" id="gTplDel" ${d.templateId ? '' : 'disabled'}>Delete template</button><span class="muted small">Fills in the playlist, cards, game mode, rules, clips and TV screens. You can still change anything.</span></div>`;
       $('#gTplSel', b).onchange = async (e) => { const t = ts.find(x => x.id === e.target.value); if (!t) { d.templateId = null; return; } this.collectFn(); await this.applyTemplate(t); this.draw(); };
       $('#gTplDel', b).onclick = async () => { const t = ts.find(x => x.id === d.templateId); if (!t) return; if (await confirmBox('Delete this template?', `“${esc(t.name)}” will be removed. Games made from it are not affected.`, 'Delete', true)) { await api('templates:delete', { id: t.id }); d.templateId = null; this.draw(); } };
     });
@@ -134,7 +157,7 @@ App.register('create', {
       Object.assign(s.overlay, { position: $('#gOP', b).value, titleSize: Number($('#gTS', b).value), artistSize: Math.round(Number($('#gTS', b).value) * 0.6), revealDelay: Number($('#gRev', b).value), enabled: $('#gOvOn', b).checked });
       Object.assign(s.crawler, { speed: Number($('#gCS', b).value), fontSize: Number($('#gCF', b).value), height: Number($('#gCH', b).value), separator: $('#gSep', b).value });
       [['gTSV', 'gTS'], ['gCSV', 'gCS'], ['gCFV', 'gCF'], ['gCHV', 'gCH']].forEach(([l, i]) => { $('#' + l, b).textContent = $('#' + i, b).value; });
-      prev.update({ overlay: s.overlay, crawler: s.crawler, patternPosition: s.patternPosition, mode: s.mode, checklist: s.checklist, rounds: App.settings.gameDefaults.rounds, roundCount: App.settings.gameDefaults.roundCount, name: this.data.name });
+      prev.update({ overlay: s.overlay, crawler: s.crawler, patternPosition: s.patternPosition, mode: s.mode, checklist: s.checklist, rounds: s.rounds || App.settings.gameDefaults.rounds, roundCount: s.roundCount || App.settings.gameDefaults.roundCount, name: this.data.name });
     };
     b.querySelectorAll('input, select').forEach(x => { x.addEventListener('input', read); x.addEventListener('change', read); });
     read();
@@ -152,16 +175,31 @@ App.register('create', {
     $('#gCards', b).oninput = upd; upd();
     $$('.seg button', b).forEach(x => x.onclick = () => { $('#gCards', b).value = x.dataset.n; upd(); });
     $('#cNext', this.el).textContent = 'Create game & generate cards ›';
-    const tb = document.createElement('button'); tb.className = 'btn'; tb.id = 'gTplSave'; tb.textContent = 'Save these choices as a template…'; tb.style.marginTop = '8px';
+    const pace = document.createElement('div'); pace.className = 'pace-box'; pace.innerHTML = `<div class="row"><h3 style="margin:0">Pacing estimate</h3><span class="badge">ESTIMATE</span><span class="grow"></span><label class="small">Planned break <input type="number" id="gBreak" min="5" max="180" value="${d.breakMinutes || 15}" style="width:64px"> min</label><button class="btn sm" id="gPace">Estimate</button></div><div id="gPaceOut" class="muted small" style="margin-top:8px">How many songs each round or rule is likely to take with this playlist and this many cards. It never changes the real play order.</div>`;
+    b.appendChild(pace);
+    const runPace = async () => {
+      const out = $('#gPaceOut', b); d.breakMinutes = Number($('#gBreak', b).value) || 15; out.textContent = 'Simulating 1,500 shuffles…';
+      try {
+        const r = await api('pacing:estimate', { playlistId: d.playlistId, cards: Number($('#gCards', b).value) || 1, settings: d.settings, minutes: d.breakMinutes });
+        out.innerHTML = `<div class="muted small" style="margin-bottom:6px">${r.trials.toLocaleString()} simulated shuffles of your ${r.songs}-song playlist against ${r.cards} simulated cards · about ${Math.round(r.secsPerSong)} s per song (clip + gap).</div>
+          <table class="list pace-t"><thead><tr><th>${d.settings.mode === 'checklist' ? 'Rule' : 'Round'}</th><th>Usually won by song</th><th>Time from start</th></tr></thead><tbody>${r.items.map(i => `<tr><td><b>${esc(i.label)}</b></td><td>${i.songs.p10}–${i.songs.p90} <span class="muted">(typically ${i.songs.p50})</span></td><td>${i.minutes.p10}–${i.minutes.p90} min${i.mayNotFinish ? ` <span class="badge warn">${i.finishChance}% CHANCE TO FINISH</span>` : ''}</td></tr>`).join('')}</tbody></table>
+          ${r.break ? `<div class="small" style="margin-top:8px">${r.break.likely.length ? `✓ A ${d.breakMinutes}-minute break (~${r.break.songs} songs) should usually produce: <b>${r.break.likely.map(esc).join(', ')}</b>.` : `A ${d.breakMinutes}-minute break (~${r.break.songs} songs) will usually <b>not</b> produce a winner — try shorter clips, a quicker first rule, or a longer break.`}${r.break.possible.length ? ` Possibly also: ${r.break.possible.map(esc).join(', ')}.` : ''}</div>` : ''}
+          ${r.items.some(i => i.mayNotFinish) ? '<div class="small" style="margin-top:6px;color:var(--red)">Some rules may not be won before the playlist runs out — use more songs or more cards, or change the rule.</div>' : ''}`;
+      } catch (e) { out.textContent = cleanErr ? cleanErr(e) : String(e.message || e); }
+    };
+    $('#gPace', b).onclick = runPace;
+    if (d.playlistId) runPace();
+    const tb = document.createElement('button'); tb.className = 'btn'; tb.id = 'gTplSave'; tb.textContent = 'Save these choices as one of my presets…'; tb.style.marginTop = '8px';
     b.appendChild(tb);
     tb.onclick = async () => { this.collectFn(); const name = await promptBox('Save as template', 'Template name (e.g. Friday Pub Night)', d.name || ''); if (!name) return; const t = await api('templates:save', { name, playlistId: d.playlistId, cards: d.cards, venue: d.venue, settings: d.settings }); d.templateId = t.id; toast(`Template “${t.name}” saved — pick it in step 1 next time`, 'ok', 5000); };
     this.collectFn = () => { d.cards = Number($('#gCards', b).value); };
   },
   step6(b) { $('#cNext', this.el).textContent = 'Next ›'; App.views.cards.renderPrintPanel(b, App.game && App.game.gameId); },
   async step7(b) {
-    b.innerHTML = `<h2>Pre-flight test</h2><div class="row" style="margin-bottom:12px"><button class="btn primary" id="pfAud">Open audience window on TV</button><button class="btn" id="pfFs">Toggle TV fullscreen (F)</button><button class="btn" id="pfTest">▶ Play 8-second audio/video test</button><button class="btn" id="pfRun">Re-run checks</button></div><div id="pfList"></div>
+    b.innerHTML = `<h2>Pre-flight test</h2><div class="row" style="margin-bottom:12px"><button class="btn" id="pfReady">✓ Ready for Bingo? (with fixes)</button><button class="btn primary" id="pfAud">Open audience window on TV</button><button class="btn" id="pfFs">Toggle TV fullscreen (F)</button><button class="btn" id="pfTest">▶ Play 8-second audio/video test</button><button class="btn" id="pfRun">Re-run checks</button></div><div id="pfList"></div>
       <p class="muted small">The test plays a few seconds of the first song on the TV — it is not counted as played. Check the sound comes out of the TV/PA (set Windows' sound output, or pick the audio device in Settings → Video).</p>`;
     const run = async () => { const r = await api('game:preflight'); $('#pfList', b).innerHTML = r.checks.map(c => `<div class="check-row"><span class="ic ${c.ok ? 'ok' : (c.warn ? 'warn' : 'bad')}">${c.ok ? '✓' : (c.warn ? '!' : '×')}</span><div><b>${esc(c.label)}</b><div class="muted small">${esc(c.detail)}</div></div></div>`).join(''); };
+    $('#pfReady', b).onclick = async () => { await readyCheck(); run(); };
     $('#pfAud', b).onclick = async () => { await api('audience:open'); setTimeout(run, 1200); };
     $('#pfFs', b).onclick = () => api('audience:fullscreen');
     $('#pfTest', b).onclick = async () => { const r = await api('audience:test'); toast(`Testing: ${r.title} — ${r.artist}`, 'ok'); setTimeout(run, 1500); };
