@@ -33,7 +33,19 @@ App.register('library', {
     $('#lFolderPl', el).onclick = async () => { const r = await api('library:pickFolderPlaylists'); if (r) { folderPlaylistReport(r); this.load(); } };
     $('#lAudioPause', el).onclick = async () => { const st = await api('audio:status'); this.audio = await api(st.paused ? 'audio:resume' : 'audio:pause'); this.drawAudio(); };
     $('#lCheck', el).onclick = async () => { const n = await api('library:checkFiles'); toast(n ? `${n} file(s) missing — use Relink` : 'All files found', n ? 'err' : 'ok'); this.load(); };
-    $('#lRelinkF', el).onclick = async () => { const n = await api('library:relinkFolder'); if (n != null) { toast(`${n} missing file(s) relinked`, 'ok'); this.load(); } };
+    $('#lRelinkF', el).onclick = async () => {
+      const r = await api('library:relinkFolder'); if (r == null) return;
+      toast(`${r.fixed} identical file${r.fixed === 1 ? '' : 's'} relinked · ${r.scanned} files searched`, 'ok');
+      if (r.needsConfirm.length) {
+        const pick = await modal({ title: 'Check these matches', size: 'wide',
+          body: `<p class="muted">These files have the same name or the same title and artist, but they are not provably the same video. Tick only the ones you know are right. Song details, playlists, clip points and printed cards are kept.</p>
+            <div class="rl-list">${r.needsConfirm.map((m, i) => `<label class="check-row"><input type="checkbox" data-i="${i}"><div class="grow"><b>${esc(m.title)}</b> — ${esc(m.artist)}<div class="muted small">${esc(m.path)}</div><div class="small"><span class="badge warn">${m.match === 'filename' ? 'SAME NAME?' : 'SAME SONG?'}</span> ${esc(m.detail)}</div></div></label>`).join('')}</div>`,
+          buttons: [{ label: 'Skip', value: null }, { label: 'Relink ticked', kind: 'primary', value: (b) => Array.from(b.querySelectorAll('input[data-i]:checked')).map(x => r.needsConfirm[+x.dataset.i]) }] });
+        if (pick && pick.length) { const n = await api('library:relinkConfirm', { items: pick.map(m => ({ id: m.id, path: m.path })) }); toast(`${n} more relinked`, 'ok'); }
+      }
+      if (r.unmatched) toast(`${r.unmatched} video${r.unmatched === 1 ? '' : 's'} still missing`, 'warn');
+      this.load();
+    };
     $('#lSearch', el).oninput = (e) => { this.q = e.target.value; this.draw(); };
     $('#lTag', el).onchange = (e) => { this.tagF = e.target.value; this.draw(); };
     $('#lTagB', el).onclick = async () => {

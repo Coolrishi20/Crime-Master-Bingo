@@ -32,7 +32,7 @@ html[data-theme] .tk-item.latest .tk-title { color: #FF7451; }
 html[data-theme] .tk-artist, html[data-theme] .tk-sep { color: #B3B4AA; }
 html[data-theme] .tk-n, html[data-theme] .tk-dot { color: #FF5B32; }
 /* full-screen pages: flat blue, no drifting glows */
-html[data-theme] #welcome, html[data-theme] #endscreen, html[data-theme] #intermission { background: #102542 !important; }
+html[data-theme] #welcome, html[data-theme] #endscreen, html[data-theme] #intermission, html[data-theme] #quizhold { background: #102542 !important; }
 html[data-theme] .es-glow { display: none; }
 html[data-theme] .wl-name, html[data-theme] .es-thanks, html[data-theme] .im-title { font-family: var(--display); font-weight: 800; letter-spacing: -.02em; color: #FFF2CF; text-shadow: none; animation: none; -webkit-text-fill-color: #FFF2CF; background: none; filter: none; }
 html[data-theme] .wl-round, html[data-theme] .im-next, html[data-theme] .wl-join, html[data-theme] .wl-lobby, html[data-theme] .es-listwrap, html[data-theme] .es-stat { background: #142D4E; border-color: rgba(255, 242, 207, .16); }
@@ -90,3 +90,10 @@ body.yt-mode .yt-badge { display: block; }
 html.preview #stage { background: #0B1B31 var(--preview-bg, none) center / cover no-repeat; }
 html.preview #idle { display: none !important; }
 html.preview #video { display: none; }
+
+/* Quiz Intermission Mode: still holding screen (only when the host chose it instead of hiding the TV) */
+#quizhold { background: #102542; }
+#quizhold .wl-name { animation: none; }
+.qh-msg { font-family: var(--display); font-weight: 800; color: #FF5B32; font-size: calc(54px * var(--s)); letter-spacing: .02em; }
+.qh-tag { color: #FFF2CF; opacity: .8; font-weight: 700; letter-spacing: .14em; font-size: calc(22px * var(--s)); }
+.qh-tag b { color: #FF5B32; }

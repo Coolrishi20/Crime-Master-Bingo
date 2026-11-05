@@ -73,6 +73,24 @@ input { font-family: inherit; }
 #tabs button { flex: 1; background: none; border: 0; color: var(--lav); padding: 10px 0 12px; font-size: 12px; font-weight: 800; font-family: inherit; display: flex; flex-direction: column; align-items: center; gap: 2px; }
 #tabs button span { font-size: 20px; }
 #tabs button.on { color: var(--pink); }
+/* Quiz Intermission Mode (2.1) */
+.nightbar { display: flex; align-items: center; gap: 10px; background: #FF5B32; color: #171717; border-radius: 12px; padding: 8px 8px 8px 12px; margin-bottom: 10px; }
+.nightbar > div { flex: 1; display: flex; flex-direction: column; line-height: 1.15; }
+.nightbar b { font-weight: 900; letter-spacing: .04em; font-size: 14px; }
+.nightbar small { font-weight: 700; font-size: 12px; opacity: .8; }
+.nightbar button { flex: none; border: 0; border-radius: 10px; background: #171717; color: #FFF2CF; font-weight: 900; font-size: 13px; padding: 12px 12px; letter-spacing: .03em; font-family: inherit; touch-action: manipulation; }
+.nightbar.hidden { display: none; }
+.quizcard { text-align: center; background: #102542 !important; color: #FFF2CF; }
+.qz-pill { display: inline-block; background: #FFF2CF; color: #102542; font-weight: 900; letter-spacing: .1em; border-radius: 999px; padding: 6px 14px; font-size: 14px; }
+.qz-where { margin: 12px 0 6px; font-size: 15px; line-height: 1.4; }
+.qz-stats { display: flex; justify-content: space-around; margin-top: 10px; }
+.qz-stats div { display: flex; flex-direction: column; }
+.qz-stats b { font-size: 26px; font-weight: 900; }
+.qz-stats span { font-size: 11px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; opacity: .7; }
+.qz-start { display: block; width: 100%; min-height: 96px; margin: 14px 0 10px; border: 0; border-radius: 18px; background: #FF5B32; color: #171717; font-weight: 900; font-size: 24px; letter-spacing: .04em; font-family: var(--display, inherit); touch-action: manipulation; }
+.qz-start:disabled, .nightbar button:disabled { opacity: .6; }
+#bingoFab.hidden { display: none; }
+.center { text-align: center; }
 .sheet { position: fixed; inset: 0; background: var(--bg); z-index: 20; overflow: auto; padding: max(12px, env(safe-area-inset-top)) 14px calc(170px + env(safe-area-inset-bottom)); }
 .sheet-head { display: flex; justify-content: space-between; align-items: center; font-family: var(--display); font-size: 28px; margin-bottom: 8px; }
 .x { background: var(--panel2); border: 0; color: #fff; width: 44px; height: 44px; border-radius: 12px; font-size: 26px; }

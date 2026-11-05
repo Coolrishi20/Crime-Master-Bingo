@@ -9,6 +9,7 @@
   var pending = {}; // id -> {msg, resolve, reject, timer}
   var tab = 'play', ckInput = '', ckOpen = false, ckPaused = false, scanStream = null, scanRaf = null;
   var tick = { position: 0 };
+  var SID = 's' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8), seq = 0;
 
   function store(k, v) { try { if (v === undefined) return localStorage.getItem(k); if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) { return null; } }
   function uuid() { return 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10); }
@@ -84,7 +85,15 @@
       if (!$('pair').classList.contains('hidden')) { $('pairMsg').textContent = m.reason; $('pairBtn').disabled = false; }
       else { store(TOKEN_KEY, null); showPair(m.reason); }
     } else if (m.type === 'revoked') { store(TOKEN_KEY, null); showPair('This phone was removed by the laptop. Pair again with the PIN.'); }
-    else if (m.type === 'state') { if (m.state.theme) document.documentElement.setAttribute('data-theme', m.state.theme); state = m.state.game; if (state) tick.position = state.playback.position; render(); if (askingNext && askRound && (!state || state.round.number !== askRound || state.round.status === 'ready' || state.intermission || state.status === 'finished') && !$('modal').classList.contains('hidden')) { $('modal').classList.add('hidden'); askingNext = false; askRound = null; } }
+    else if (m.type === 'state') { if (m.state.theme) document.documentElement.setAttribute('data-theme', m.state.theme); state = m.state.game; if (state) tick.position = state.playback.position; render(); closeStaleAsk(); }
+    else if (m.type === 'patch') {
+      if (m.theme) document.documentElement.setAttribute('data-theme', m.theme);
+      if (!state) { send({ type: 'getState' }); return; }
+      Object.keys(m.set || {}).forEach(function (k) { state[k] = m.set[k]; });
+      (m.del || []).forEach(function (k) { delete state[k]; });
+      if (m.set && m.set.playback) tick.position = state.playback.position;
+      render(); closeStaleAsk();
+    }
     else if (m.type === 'tick') { tick = m; if (state) { state.playback.position = m.position; state.playback.status = m.status; } renderProgress(); }
     else if (m.type === 'ack') {
       var p = pending[m.id]; if (!p) return;
@@ -98,11 +107,12 @@
     }
   }
 
+  function closeStaleAsk() { if (askingNext && askRound && (!state || state.round.number !== askRound || state.round.status === 'ready' || state.intermission || state.status === 'finished') && !$('modal').classList.contains('hidden')) { $('modal').classList.add('hidden'); askingNext = false; askRound = null; } }
   /** Send a command to the laptop. Unique id → never executed twice even if re-sent after a reconnect. */
   function cmd(action, args) {
     return new Promise(function (resolve, reject) {
       var id = uuid();
-      var msg = { type: 'cmd', id: id, action: action, args: args || {} };
+      var msg = { type: 'cmd', id: id, sid: SID, seq: ++seq, action: action, args: args || {} };
       var entry = { msg: msg, resolve: resolve, reject: reject };
       entry.timer = setTimeout(function () { if (pending[id]) { delete pending[id]; reject(new Error('The laptop did not answer — check the Wi-Fi connection.')); } }, 15000);
       pending[id] = entry;
@@ -151,7 +161,9 @@
     else if (pb.pausedForClaim) msg = '⏸ Music paused for a BINGO check.';
     else if (g.gamePaused) msg = '⏸ Game paused.';
     else if (g.lastError) msg = '⚠ ' + g.lastError;
+    if (g.night && g.night.phase === 'quiz' && !g.audienceConnected) msg = '';
     b.textContent = msg; b.classList.toggle('hidden', !msg);
+    renderNight();
     var playing = pb.status === 'playing' || pb.status === 'loading';
     $('nowLbl').textContent = cur ? 'Song ' + cur.number + ' · ' + (pb.status === 'between' ? 'next song coming' : pb.status) + (cur.played ? ' · ✓ counted' : '') : 'Now playing';
     $('nowTitle').textContent = cur ? cur.title : (g.round.number ? 'Ready' : (CK ? 'Start the game' : 'Start Round 1'));
@@ -168,6 +180,30 @@
     renderAudio();
     renderCredits();
   }
+  /* Quiz Intermission Mode: one big button during the quiz, a slim bar during a break */
+  function renderNight() {
+    var g = state; var n = g && g.night;
+    var quiz = !!(n && n.phase === 'quiz' && g.status !== 'finished');
+    $('quizPane').classList.toggle('hidden', !(quiz && tab === 'play'));
+    $('tab-play').classList.toggle('hidden', tab !== 'play' || quiz);
+    $('bingoFab').classList.toggle('hidden', quiz);
+    var showBar = !!(n && !quiz && g.status !== 'finished' && (n.breakNo || n.breaks.length));
+    $('nightBar').classList.toggle('hidden', !showBar);
+    if (!n) return;
+    var tonight = g.totals.played + g.totals.credited;
+    if (showBar) { $('nbLbl').textContent = 'BINGO BREAK ' + (n.breakNo || 1); $('nbSub').textContent = tonight + ' played tonight'; }
+    if (quiz) {
+      var p = n.pausedAt;
+      $('qzWhere').innerHTML = 'Bingo paused ' + (p ? 'at song <b>' + (p.index + 1) + '</b> (' + fmt(p.position) + ')' : (g.round.number ? 'between songs' : 'before the first song')) + '.<br>' + (n.quizTv === 'hold' ? 'The TV shows a still holding screen.' : 'TV window hidden.');
+      $('qzPlayed').textContent = tonight; $('qzBreaks').textContent = n.breaks.length; $('qzWinners').textContent = (g.winners || []).length;
+      $('qzStart').textContent = 'START BINGO BREAK ' + n.nextBreak;
+      $('qzNext').textContent = (g.mode === 'checklist' ? 'Rules ' + g.checklist.completed + ' of ' + g.checklist.total + ' won' : g.round.number ? 'Round ' + g.round.number + ' · ' + (g.round.label || '') : 'Round 1 not started') + (n.autoPlay ? ' · music starts straight away' : ' · starts paused: press Play when the room is ready');
+    }
+    $('nightLog').innerHTML = n.breaks.length ? n.breaks.map(function (b) { return '<div class="row small"><b>Break ' + b.n + '</b><span class="muted">' + b.songs + ' song' + (b.songs === 1 ? '' : 's') + (b.winners ? ' · ' + b.winners + ' winner' + (b.winners === 1 ? '' : 's') : '') + (b.endedAt ? '' : ' · now') + '</span></div>'; }).join('') : '<div class="muted small">No quiz breaks yet. Use “Return to Quiz” to pause the bingo for your quiz.</div>';
+  }
+  $('nbQuiz').onclick = function () { $('nbQuiz').disabled = true; safe(cmd('returnToQuiz')).then(function () { $('nbQuiz').disabled = false; }); };
+  $('qzStart').onclick = function () { $('qzStart').disabled = true; safe(cmd('startBreak')).then(function () { $('qzStart').disabled = false; }); };
+
   function renderProgress() {
     if (!state) return; var pb = state.playback; var cs = pb.clipStart || 0, ce = pb.clipEnd || 0; var pos = pb.position || 0;
     var pct = ce > cs ? Math.max(0, Math.min(100, (pos - cs) / (ce - cs) * 100)) : 0;
@@ -363,7 +399,7 @@
   var crT; $('crSpeed').oninput = function (e) { $('crSpeedV').textContent = e.target.value; clearTimeout(crT); crT = setTimeout(function () { safe(cmd('setCrawler', { speed: Number(e.target.value) })); }, 150); };
   $('crPause').onclick = function () { safe(cmd('setCrawler', { togglePause: true })); };
   Array.prototype.forEach.call(document.querySelectorAll('#tabs button'), function (b) {
-    b.onclick = function () { tab = b.getAttribute('data-tab'); Array.prototype.forEach.call(document.querySelectorAll('#tabs button'), function (x) { x.classList.toggle('on', x === b); }); ['play', 'rounds', 'history'].forEach(function (t) { $('tab-' + t).classList.toggle('hidden', t !== tab); }); window.scrollTo(0, 0); };
+    b.onclick = function () { tab = b.getAttribute('data-tab'); Array.prototype.forEach.call(document.querySelectorAll('#tabs button'), function (x) { x.classList.toggle('on', x === b); }); ['play', 'rounds', 'history', 'winners'].forEach(function (t) { $('tab-' + t).classList.toggle('hidden', t !== tab); }); renderNight(); window.scrollTo(0, 0); };
   });
 
   /* ------------------------------------------------------------ bingo checker */

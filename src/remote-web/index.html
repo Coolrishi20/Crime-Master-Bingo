@@ -35,6 +35,17 @@
     <div id="conn" class="conn"><span class="dot"></span><span id="connTxt">Connecting…</span></div>
   </header>
   <div id="banner" class="banner hidden"></div>
+  <div id="nightBar" class="nightbar hidden"><div><b id="nbLbl">BINGO BREAK</b><small id="nbSub"></small></div><button id="nbQuiz">RETURN TO QUIZ</button></div>
+
+  <div id="quizPane" class="tab hidden">
+    <div class="card quizcard">
+      <div class="qz-pill">QUIZ TIME</div>
+      <div id="qzWhere" class="qz-where"></div>
+      <div class="qz-stats"><div><b id="qzPlayed">0</b><span>played</span></div><div><b id="qzBreaks">0</b><span>breaks</span></div><div><b id="qzWinners">0</b><span>winners</span></div></div>
+    </div>
+    <button id="qzStart" class="qz-start">START BINGO BREAK</button>
+    <div id="qzNext" class="muted small center"></div>
+  </div>
 
   <div id="tab-play" class="tab two">
    <div class="col">
@@ -72,8 +83,12 @@
       <button class="btn" id="endRound">Complete round…</button>
       <button class="btn" id="pauseGame">Pause game</button>
     </div>
-    <div class="card"><div class="eyebrow">Winners</div><div id="winners"></div></div>
     <button class="btn danger wide" id="endGame">End game</button>
+  </div>
+
+  <div id="tab-winners" class="tab hidden">
+    <div class="card"><div class="eyebrow">Winners</div><div id="winners"></div></div>
+    <div class="card"><div class="eyebrow">Tonight</div><div id="nightLog"></div></div>
   </div>
 
   <div id="tab-history" class="tab hidden">
@@ -92,6 +107,7 @@
     <button data-tab="play" class="on"><span>▶</span>Play</button>
     <button data-tab="rounds"><span>▦</span>Rounds</button>
     <button data-tab="history"><span>☰</span>History</button>
+    <button data-tab="winners"><span>★</span>Winners</button>
   </nav>
 </section>
 

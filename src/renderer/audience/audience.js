@@ -393,6 +393,8 @@
     $('welcome').classList.toggle('hidden', sc.mode !== 'welcome');
     $('endscreen').classList.toggle('hidden', sc.mode !== 'end');
     $('intermission').classList.toggle('hidden', sc.mode !== 'intermission');
+    $('quizhold').classList.toggle('hidden', sc.mode !== 'quiz');
+    if (sc.mode === 'quiz') $('qhName').textContent = sc.name || '';
     clearInterval(imTimer); imTimer = null;
     lastScreen = sc; runSlides(sc);
     if (sc.mode === 'intermission') {

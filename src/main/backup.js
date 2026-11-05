@@ -22,7 +22,6 @@ const yauzl = require('yauzl');
 const cardsLib = require('../core/cards');
 const locking = require('../core/locking');
 const { fingerprint } = require('./library');
-const { readMp4Tags, parseFilename } = require('./mp4meta');
 
 const FORMAT = 'cmbbackup';
 const FORMAT_VERSION = 1;
@@ -312,53 +311,14 @@ async function restoreBackup(file, { password, mode, mediaDir, tmpDir, exists: g
 /* ------------------------------------------------------------------ relinking */
 function missingMedia(game) { return Object.values(game.songs).filter(s => !s.path || !exists(s.path)).map(s => ({ songId: s.id, title: s.title, artist: s.artist, fileName: s.fileName || path.basename(s.path || ''), path: s.path })); }
 
-const VIDEO_EXT = ['.mp4', '.m4v', '.mov', '.webm', '.mkv', '.ogv'];
-function walk(dir, out = [], depth = 0) {
-  if (depth > 64) return out;
-  let items = []; try { items = fs.readdirSync(dir, { withFileTypes: true }); } catch (e) { return out; }
-  items.forEach(d => { if (d.name.startsWith('.')) return; const p = path.join(dir, d.name); if (d.isDirectory()) walk(p, out, depth + 1); else if (VIDEO_EXT.includes(path.extname(d.name).toLowerCase())) out.push(p); });
-  return out;
-}
-const norm = (s) => String(s || '').toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '').replace(/\(.*?\)|\[.*?\]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
-
 /** Propose matches for every missing video. Strong identity (fingerprint) is auto-accepted; anything weaker needs confirmation. */
 function scanForMatches(game, folder) {
-  const files = walk(folder);
-  const info = files.map(f => { let size = 0; try { size = fs.statSync(f).size; } catch (e) { /* */ } return { path: f, name: path.basename(f).toLowerCase(), size }; });
-  const fpCache = new Map();
-  const fpOf = (f) => { if (!fpCache.has(f)) { try { fpCache.set(f, fingerprint(f).fp); } catch (e) { fpCache.set(f, null); } } return fpCache.get(f); };
-  const used = new Set();
-  const results = missingMedia(game).map(m => {
-    const s = game.songs[m.songId];
-    let cand = null;
-    if (s.fingerprint) {
-      const hit = info.find(x => !used.has(x.path) && (!s.size || x.size === s.size) && fpOf(x.path) === s.fingerprint);
-      if (hit) cand = { path: hit.path, match: 'fingerprint', auto: true, detail: 'Identical video file (fingerprint match)' };
-    }
-    if (!cand && !s.fingerprint && s.size) {
-      const hit = info.find(x => !used.has(x.path) && x.name === String(s.fileName || '').toLowerCase() && x.size === s.size);
-      if (hit) cand = { path: hit.path, match: 'name-size', auto: true, detail: 'Same file name and exact size' };
-    }
-    if (!cand) {
-      const hit = info.find(x => !used.has(x.path) && x.name === String(s.fileName || '').toLowerCase());
-      if (hit) cand = { path: hit.path, match: 'filename', auto: false, detail: 'Same file name but the content differs — confirm it is the same recording' };
-    }
-    if (!cand) {
-      const key = norm(s.title) + '|' + norm(s.artist);
-      const hit = info.find(x => {
-        if (used.has(x.path)) return false;
-        const t = /\.(mp4|m4v|mov)$/i.test(x.path) ? readMp4Tags(x.path) : {};
-        const g = parseFilename(x.path);
-        return (norm(t.title || g.title) + '|' + norm(t.artist || g.artist)) === key;
-      });
-      if (hit) cand = { path: hit.path, match: 'title-artist', auto: false, detail: 'Same title and artist — may be a different recording; confirm before using' };
-    }
-    if (cand) used.add(cand.path);
-    return Object.assign({}, m, { candidate: cand });
-  });
-  return { folder, scanned: files.length, results, autoMatched: results.filter(r => r.candidate && r.candidate.auto).length, needsConfirm: results.filter(r => r.candidate && !r.candidate.auto).length, unmatched: results.filter(r => !r.candidate).length };
+  // shared matcher (2.1): exact matches are taken first, weaker ones always need confirmation
+  const items = missingMedia(game).map(m => { const s = game.songs[m.songId] || {}; return Object.assign({}, m, { size: s.size, fingerprint: s.fingerprint }); });
+  const r = require('./relink').findMatches(items, folder, { fingerprint });
+  r.results = r.results.map(x => { const o = Object.assign({}, x); delete o.size; delete o.fingerprint; return o; });
+  return r;
 }
-
 /** Apply host-approved matches: only the file path changes — song identity, labels and cards never do. */
 function applyMatches(game, matches) {
   let n = 0;

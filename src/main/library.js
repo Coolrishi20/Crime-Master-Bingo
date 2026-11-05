@@ -189,17 +189,19 @@ class Library {
     return s;
   }
 
-  /** Search a folder for missing files with the same file name. */
+  /**
+   * Search a folder for missing videos. Only provably identical files (fingerprint, or name +
+   * exact size when no fingerprint is known) are relinked straight away; a same-name or
+   * same-title file is returned for the host to confirm — never applied silently (2.1).
+   */
   relinkFolder(folder) {
-    const files = []; walk(folder, files);
-    const byName = new Map(files.map(f => [path.basename(f).toLowerCase(), f]));
+    const missing = this.data.songs.filter(s => s.status === 'missing');
+    const r = require('./relink').findMatches(missing.map(s => ({ id: s.id, fileName: s.fileName || path.basename(s.path || ''), size: s.size, fingerprint: s.fingerprint, title: s.title, artist: s.artist })), folder, { fingerprint });
     let fixed = 0;
-    this.data.songs.filter(s => s.status === 'missing').forEach(s => {
-      const f = byName.get(String(s.fileName || path.basename(s.path)).toLowerCase());
-      if (f) { s.path = f; s.status = 'unchecked'; s.statusNote = ''; fixed++; }
-    });
+    r.results.forEach(x => { if (x.candidate && x.candidate.auto) { const s = this.get(x.id); s.path = x.candidate.path; s.fileName = path.basename(x.candidate.path); s.status = 'unchecked'; s.statusNote = ''; fixed++; } });
     this.save();
-    return fixed;
+    return { fixed, scanned: r.scanned, missing: missing.length, unmatched: r.unmatched,
+      needsConfirm: r.results.filter(x => x.candidate && !x.candidate.auto).map(x => ({ id: x.id, title: x.title, artist: x.artist, fileName: x.fileName, path: x.candidate.path, match: x.candidate.match, detail: x.candidate.detail })) };
   }
 
   /**

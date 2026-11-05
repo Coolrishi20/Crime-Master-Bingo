@@ -211,3 +211,27 @@ html[data-theme] .tvp-frame { position: relative; width: 100%; overflow: hidden;
 html[data-theme] .tvp-frame iframe { position: absolute; left: 0; top: 0; border: 0; transform-origin: 0 0; pointer-events: none; }
 html[data-theme] .tvp-cap { margin-top: 6px; font-size: 12px; color: var(--lav); }
 @media (max-width: 1150px) { html[data-theme] .tvp-cols { grid-template-columns: 1fr; } }
+
+/* ---- Quiz Intermission Mode bar (2.1): quiz = dark blue, break = orange ---- */
+.nightbar { display: flex; align-items: center; gap: 16px; padding: 14px 18px; border-radius: var(--radius); margin-bottom: 10px; }
+.nightbar.quiz { background: #102542; border: 1px solid rgba(255,242,207,.18); color: #FFF2CF; }
+.nightbar.break { background: #FF5B32; color: #171717; margin-bottom: 16px; }
+.nightbar .grow b { font-weight: 800; }
+.nightbar.quiz .muted { color: #B3B4AA; }
+.nb-pill { flex: none; font-family: var(--display); font-weight: 800; letter-spacing: .08em; font-size: 15px; padding: 6px 12px; border-radius: 999px; }
+.nightbar.quiz .nb-pill { background: #FFF2CF; color: #102542; }
+.nightbar.break .nb-pill { background: #171717; color: #FFF2CF; }
+.nb-dim { opacity: .75; font-weight: 600; margin-left: 6px; }
+.nightbar .nb-quiz { background: #171717; color: #FFF2CF; border-color: #171717; }
+.nightbar .nb-quiz:hover { background: #102542; }
+.nb-sub { margin: 0 0 16px; padding: 10px 14px; border: 1px solid var(--border-soft); border-radius: var(--radius); background: var(--panel); display: flex; flex-direction: column; gap: 10px; }
+.nightbar.break + .nb-sub { margin-top: -6px; }
+.nb-line { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.nb-line > span { font-size: 12px; font-weight: 700; padding: 5px 10px; border-radius: 8px; background: var(--panel-2); color: var(--text); display: inline-flex; flex-direction: column; line-height: 1.2; }
+.nb-line small { font-weight: 600; opacity: .7; font-size: 11px; }
+.nb-line .nb-b { background: rgba(255,91,50,.16); }
+.nb-line .nb-b.on { background: #FF5B32; color: #171717; }
+.nb-line .nb-q.on { background: #102542; color: #FFF2CF; outline: 1px solid rgba(255,242,207,.3); }
+.nb-opts { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; }
+
+.controls .ctl:disabled { opacity: .35; cursor: not-allowed; }

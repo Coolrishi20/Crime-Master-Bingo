@@ -47,11 +47,16 @@ function defaultGameSettings() {
     mode: 'rounds',         // 'rounds' (Round-Based Bingo) or 'checklist' (Rules Checklist Bingo)
     checklist: JSON.parse(JSON.stringify(DEFAULT_CHECKLIST)), // checklist mode: [{ id, rule }]
     afterWinner: 'ask',      // when a round has a winner: 'ask' the host, or go to 'intermission' automatically
-    intermissionMinutes: 10
+    intermissionMinutes: 10,
+    // Quiz Intermission Mode (2.1): what the TV does while the host runs their quiz, and
+    // whether a bingo break starts playing straight away.
+    night: { quizTv: 'hide', autoPlay: false }
   };
 }
 
 const MAX_ROUNDS = 10;
+/** Actions that would play music — refused during quiz time (the TV is hidden). */
+const QUIZ_BLOCKED = ['play', 'togglePlay', 'next', 'skip', 'previous', 'replay', 'jumpTo', 'startRound', 'resumeGame'];
 /** Default Rules Checklist (any order). */
 const DEFAULT_CHECKLIST = [{ id: 'k1', rule: { id: 'fast5', mode: 'any' } }, { id: 'k2', rule: { id: 'line' } }, { id: 'k3', rule: { id: 'diagonal' } }, { id: 'k4', rule: { id: 'lShape' } }, { id: 'k5', rule: { id: 'full' } }];
 /** Validate a checklist: keeps item ids stable (claims refer to them), gives new items an id. */
@@ -104,6 +109,8 @@ class GameEngine {
     game.settings.audio = Object.assign({}, d.audio, (game.settings.audio || {}));
     game.settings.tvScreens = Object.assign({}, d.tvScreens, (game.settings.tvScreens || {}));
     game.settings.screens = Object.assign({}, d.screens, (game.settings.screens || {}));
+    game.settings.night = Object.assign({}, d.night, (game.settings.night || {}));
+    if (!['hide', 'hold'].includes(game.settings.night.quizTv)) game.settings.night.quizTv = 'hide';
     const cnt = Math.max(1, Math.min(MAX_ROUNDS, Number(game.settings.roundCount) || 3));
     game.settings.roundCount = cnt;
     const src = Object.assign({}, d.rounds, game.settings.rounds || {}); const rs = {};
@@ -121,6 +128,11 @@ class GameEngine {
     game.players = game.players || [];
     if (game.playersOpen === undefined) game.playersOpen = true;
     game.intermission = game.intermission || null;
+    // Quiz Intermission Mode: the evening alternates quiz time and bingo breaks. Older games
+    // load in 'break' so they behave exactly as before.
+    game.night = Object.assign({ phase: 'break', breaks: [] }, game.night || {});
+    if (!['quiz', 'break'].includes(game.night.phase)) game.night.phase = 'break';
+    if (!Array.isArray(game.night.breaks)) game.night.breaks = [];
     game.checklistClosed = !!game.checklistClosed;
     game.claimSessions = game.claimSessions || [];
     game.queue = game.queue || [];       // host-queued songs (play next, in order)
@@ -394,7 +406,7 @@ class GameEngine {
     const g = this.game; const s = this.settings;
     const next = this.nextUnplayedIndex(g.playback.index);
     if (next < 0) { g.playback.status = 'finished'; this.log('All songs in the playlist have been played'); return; }
-    if (!s.autoAdvance || g.gamePaused || g.round.number === 0 || g.status === 'finished' || this.activeSession()) return;
+    if (!s.autoAdvance || g.gamePaused || g.round.number === 0 || g.status === 'finished' || this.activeSession() || (g.night && g.night.phase === 'quiz')) return;
     const gap = Math.max(0, Number(s.autoAdvanceGap) || 0) * 1000;
     g.playback.status = 'between';
     g.playback.nextAt = this._now() + gap;
@@ -419,9 +431,12 @@ class GameEngine {
   dispatch(action, args = {}, source = 'desktop') {
     const fn = this.actions[action];
     if (!fn) throw new Error(`Unknown action: ${action}`);
-    const allowedWhenFinished = ['closeChecklist', 'endIntermission', 'playerRemove', 'playerRename', 'setPlayersOpen', 'setScreens', 'showTvScreen', 'setTvScreens', 'openChecker', 'closeChecker', 'checkClaim', 'freezeClaims', 'addClaim', 'closeSession', 'confirmClaim', 'dismissClaim', 'removeClaim', 'viewClaim', 'setCrawler', 'setOverlay', 'reopenGame', 'setVolume', 'setAudio', 'reverseCredit'];
+    const allowedWhenFinished = ['closeChecklist', 'endIntermission', 'startBreak', 'setNight', 'playerRemove', 'playerRename', 'setPlayersOpen', 'setScreens', 'showTvScreen', 'setTvScreens', 'openChecker', 'closeChecker', 'checkClaim', 'freezeClaims', 'addClaim', 'closeSession', 'confirmClaim', 'dismissClaim', 'removeClaim', 'viewClaim', 'setCrawler', 'setOverlay', 'reopenGame', 'setVolume', 'setAudio', 'reverseCredit'];
     if (this.game.status === 'finished' && !allowedWhenFinished.includes(action)) {
       throw new Error('This game has ended. Re-open it from Game History to continue.');
+    }
+    if (this.game.night && this.game.night.phase === 'quiz' && QUIZ_BLOCKED.includes(action)) {
+      const e = new Error('It’s quiz time — start the bingo break first.'); e.code = 'QUIZ'; throw e;
     }
     return fn.call(this, args || {}, source);
   }
@@ -450,6 +465,7 @@ class GameEngine {
       // home play: phone cards for players
       setRoundRules: this.aSetRoundRules, setRoundCount: this.aSetRoundCount,
       startIntermission: this.aStartIntermission, endIntermission: this.aEndIntermission,
+      startBreak: this.aStartBreak, returnToQuiz: this.aReturnToQuiz, setNight: this.aSetNight,
       setGameMode: this.aSetGameMode, changeAward: this.aChangeAward, setChecklist: this.aSetChecklist, closeChecklist: this.aCloseChecklist,
       playerJoin: this.aPlayerJoin, playerRemove: this.aPlayerRemove, playerRename: this.aPlayerRename, playerBingo: this.aPlayerBingo, setPlayersOpen: this.aSetPlayersOpen
     };
@@ -464,6 +480,7 @@ class GameEngine {
 
   aPlay() {
     const g = this.game; const pb = g.playback;
+    if (g.night && g.night.phase === 'quiz') { const e = new Error('It’s quiz time — start the bingo break first.'); e.code = 'QUIZ'; throw e; }
     if (g.round.number === 0) throw new Error('Start Round 1 to begin playing songs.');
     if (g.gamePaused) g.gamePaused = false;
     if (pb.status === 'paused') {
@@ -1385,6 +1402,65 @@ class GameEngine {
     return { ok: true };
   }
 
+  /* ------------------------------------------------ Quiz Intermission Mode (2.1)
+   * The whole evening is one game. "Return to Quiz" pauses wherever the bingo is (any
+   * round, mid-song, even with a claim session open), keeps the exact video position and
+   * hides the TV window so the host's quiz shows. "Start Bingo Break" brings it back.
+   * Nothing is completed, reshuffled or regenerated by switching. */
+  confirmedCount() { return this.game.claims.filter(c => c.status === 'confirmed').length; }
+  openBreak() { const b = this.game.night.breaks; const last = b[b.length - 1]; return last && !last.endedAt ? last : null; }
+  aReturnToQuiz(args, source) {
+    const g = this.game; const n = g.night; const pb = g.playback;
+    if (g.status === 'finished') throw new Error('The game has ended.');
+    if (n.phase === 'quiz') return { ok: true, already: true };
+    this.cancelAdvance();
+    const wasPlaying = ['playing', 'loading'].includes(pb.status);
+    if (wasPlaying) { pb.status = 'paused'; this.player({ cmd: 'pause' }); }
+    // the first stretch of bingo (before any switch) counts as break 1
+    if (!n.breaks.length && (g.played.length || g.round.number)) n.breaks.push({ n: 1, startedAt: (g.rounds[1] && g.rounds[1].startedAt) || g.createdAt || this.nowIso(), playedAtStart: 0, winnersAtStart: 0 });
+    const ob = this.openBreak();
+    if (ob) { ob.endedAt = this.nowIso(); ob.playedAtEnd = g.played.length; ob.winnersAtEnd = this.confirmedCount(); }
+    n.phase = 'quiz'; n.quizSince = this.nowIso();
+    n.pausedAt = pb.index >= 0 ? { index: pb.index, position: Math.round((pb.position || 0) * 10) / 10, wasPlaying } : null;
+    this.audit('quiz-start', { songIndex: pb.index, position: n.pausedAt ? n.pausedAt.position : null, round: g.round.number }, source);
+    this.log(`Back to the quiz${n.pausedAt ? ` — bingo paused at song ${pb.index + 1} (${Math.floor(n.pausedAt.position / 60)}:${String(Math.floor(n.pausedAt.position % 60)).padStart(2, '0')})` : ''}`);
+    this.touch('state', true);
+    return { ok: true, phase: 'quiz', pausedAt: n.pausedAt };
+  }
+  aStartBreak(args, source) {
+    const g = this.game; const n = g.night; const pb = g.playback;
+    if (n.phase === 'break') return { ok: true, already: true };
+    // after the game ended during quiz time: just bring the TV back (end screen)
+    if (g.status === 'finished') { n.phase = 'break'; n.quizSince = null; n.pausedAt = null; this.touch('state', true); return { ok: true, phase: 'break', finished: true }; }
+    const no = (n.breaks.length ? n.breaks[n.breaks.length - 1].n : 0) + 1;
+    n.breaks.push({ n: no, startedAt: this.nowIso(), playedAtStart: g.played.length, winnersAtStart: this.confirmedCount() });
+    n.phase = 'break'; n.quizSince = null; n.pausedAt = null;
+    this.audit('break-start', { breakNo: no, round: g.round.number }, source);
+    this.log(`Bingo break ${no}`);
+    let played = false;
+    const autoPlay = args.play != null ? !!args.play : !!this.settings.night.autoPlay;
+    if (autoPlay && g.round.number > 0 && !this.activeSession() && !['playing', 'loading'].includes(pb.status)) {
+      try { this.aPlay({}); played = true; } catch (e) { /* nothing left to play — stays paused */ }
+    }
+    if (!played) this.touch('state', true);
+    return { ok: true, phase: 'break', breakNo: no, playing: played };
+  }
+  aSetNight(args, source) {
+    const s = this.settings.night;
+    if (args.quizTv && ['hide', 'hold'].includes(args.quizTv)) s.quizTv = args.quizTv;
+    if (args.autoPlay != null) s.autoPlay = !!args.autoPlay;
+    this.audit('night-settings', { quizTv: s.quizTv, autoPlay: s.autoPlay }, source);
+    this.touch('state', true);
+    return { ok: true };
+  }
+  nightView() {
+    const g = this.game; const n = g.night;
+    const total = g.played.length; const won = this.confirmedCount();
+    const breaks = n.breaks.map(b => ({ n: b.n, startedAt: b.startedAt, endedAt: b.endedAt || null, songs: (b.endedAt ? b.playedAtEnd : total) - (b.playedAtStart || 0), winners: (b.endedAt ? b.winnersAtEnd : won) - (b.winnersAtStart || 0) }));
+    const open = this.openBreak();
+    return { phase: n.phase, quizSince: n.quizSince || null, pausedAt: n.pausedAt || null, breakNo: open ? open.n : (n.breaks.length ? n.breaks[n.breaks.length - 1].n : 0), nextBreak: (n.breaks.length ? n.breaks[n.breaks.length - 1].n : (total || g.round.number ? 1 : 0)) + 1, breaks, quizTv: this.settings.night.quizTv, autoPlay: !!this.settings.night.autoPlay };
+  }
+
   /** Round-Based or Rules Checklist — chosen before the game starts. */
   aSetGameMode(args, source) {
     const m = args.mode === 'checklist' ? 'checklist' : 'rounds';
@@ -1671,6 +1747,9 @@ class GameEngine {
   /** Which full-screen TV page to show: welcome (before Round 1), end (after the game), or none. */
   audienceScreen() {
     const g = this.game; const sc = this.settings.screens;
+    // quiz time: the window is normally hidden; the holding screen is what shows if the
+    // host chose "show a still holding screen" (or the window is shown by hand)
+    if (g.night && g.night.phase === 'quiz' && g.status !== 'finished') return { mode: 'quiz', name: g.name };
     if (g.intermission && g.status !== 'finished') {
       const n = g.round.number || 1;
       if (this.isChecklist()) { const v = this.checklistView(); const o = v.items.filter(i => i.status !== 'completed'); return { mode: 'intermission', checklist: true, until: g.intermission.until, message: g.intermission.message || '', name: g.name, next: { n: 0, label: o.length ? `${o.length} RULE${o.length > 1 ? 'S' : ''} STILL TO WIN` : 'ALL RULES WON', example: o.length ? o[0].example : null } }; }
@@ -1708,7 +1787,7 @@ class GameEngine {
       mode: this.isChecklist() ? 'checklist' : 'rounds',
       checklist: this.isChecklist() ? Object.assign(this.checklistView(), { playlistDone: remaining === 0 || pb.status === 'finished' }) : null,
       checklistRules: this.ckItems().map(it => ({ id: it.id, rule: it.rule, label: this.ckInfo(it).label, example: this.ckInfo(it).examples[0] })),
-      roundRules: this.roundRulesView(), roundCount: this.roundCount(), intermission: g.intermission,
+      roundRules: this.roundRulesView(), roundCount: this.roundCount(), intermission: g.intermission, night: this.nightView(),
       round: this.isChecklist() ? { number: g.round.number, status: g.round.status, label: 'RULES CHECKLIST', rule: 'Every selected rule is open from the start — win them in any order.', short: 'Any open rule',
         winners: g.claims.filter(c => c.status === 'confirmed').length, canComplete: false, preQualified: [] } :
       { number: g.round.number, status: g.round.status, label: g.round.number ? this.info(g.round.number).label : null, rule: g.round.number ? this.info(g.round.number).rule : null, short: g.round.number ? this.info(g.round.number).short : null,

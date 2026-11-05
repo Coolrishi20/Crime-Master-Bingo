@@ -21,7 +21,7 @@ App.register('host', {
         <div class="songcount" id="hgCount"></div>
         <button class="btn" id="hgAud"></button><button class="btn" id="hgTv2" title="Mirror the TV on a second screen (silent)">TV 2</button>
       </div>
-      <div id="hgRecover"></div><div id="hgSession"></div><div id="hgUnavail"></div>
+      <div id="hgNight"></div><div id="hgRecover"></div><div id="hgSession"></div><div id="hgUnavail"></div>
       <div class="cols main-side">
         <div>
           <div class="panel" style="margin-bottom:16px">
@@ -141,6 +141,8 @@ App.register('host', {
     $('#cMute', el).textContent = g.settings.audio.muted ? '🔊 Unmute' : '🔇 Mute'; $('#cMute', el).className = 'btn sm' + (g.settings.audio.muted ? ' primary' : '');
     $('#hgLevel', el).textContent = g.settings.audio.levelling ? `Levelling to ${g.settings.audio.targetLufs} LUFS · max boost +${g.settings.audio.maxBoostDb} dB · fade in ${g.settings.audio.fadeIn}s / out ${g.settings.audio.fadeOut}s${g.settings.audio.muted ? ' · MUTED' : ''}` : (g.settings.audio.muted ? 'MUTED' : 'Levelling off — songs play at their original loudness');
     $('#hgLock', el).textContent = g.cardsLocked ? '🔒 CARDS LOCKED' : 'DRAFT CARDS'; $('#hgLock', el).className = 'badge ' + (g.cardsLocked ? 'ok' : 'warn');
+    this.drawNight();
+    const quizNow = !!(g.night && g.night.phase === 'quiz'); $$('.controls .ctl', el).forEach(b => { if (b.id !== 'cStop') b.disabled = quizNow; });
     const ss = g.session;
     const im = g.intermission;
     $('#hgSession', el).innerHTML = (im ? `<div class="banner" style="border-color:var(--lilac);background:rgba(196,176,255,.1)"><div class="grow"><h3>☕ Intermission</h3><div class="muted">${im.until ? 'Back at ' + new Date(im.until).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' · ' : ''}The TV shows the break screen${im.message ? ': “' + esc(im.message) + '”' : ''}. Music is paused.</div></div><button class="btn" id="hgImEnd">End intermission</button><button class="btn primary lg" id="hgImGo">▶ Start Round ${g.round.number}</button></div>` : '') + (ss ? `<div class="banner" style="border-color:var(--amber);background:rgba(255,200,87,.12)"><div class="grow"><h3>❄ Claims frozen</h3><div class="muted">Session ${esc(ss.id)} · ${ss.claims.length} card(s) · ${ss.claims.filter(c => c.status === 'pending').length} awaiting a decision · ${ss.snapshotCount} eligible songs frozen</div></div><button class="btn primary lg" id="hgOpenSess">Open claim session</button></div>` : '');
@@ -170,6 +172,44 @@ App.register('host', {
     const lib = await apiQuiet('library:list'); const s = lib.songs.find(x => x.id === songId);
     const img = $('#hgThumb', this.el); if (!img) return;
     if (s && s.thumb) { img.src = fileUrl(s.thumb); img.style.display = 'block'; } else img.style.display = 'none';
+  },
+
+  /* Quiz Intermission Mode bar: QUIZ TIME (dark blue) ⇄ BINGO BREAK n (orange). One button each way. */
+  drawNight() {
+    const g = App.game; const el = this.el; const box = $('#hgNight', el); if (!box) return;
+    const n = g.night; if (!n || (g.status === 'finished' && n.phase !== 'quiz')) { box.innerHTML = ''; this._nk = null; return; }
+    const cur = g.current;
+    const quiz = n.phase === 'quiz';
+    const tonight = g.totals.played + g.totals.credited;
+    const key = JSON.stringify([n, quiz ? null : [cur && cur.number, g.round.number, g.round.label, tonight], g.audienceConnected, g.status, g.mode, g.checklist && g.checklist.completed]);
+    if (key === this._nk) return; this._nk = key;
+    const pos = n.pausedAt ? `song ${n.pausedAt.index + 1}, ${fmtTime(n.pausedAt.position)} in` : (g.round.number ? 'between songs' : 'before the first song');
+    const tvTxt = n.quizTv === 'hold' ? 'The TV shows a still holding screen.' : (g.audienceConnected ? 'TV window hidden, so your quiz shows on the TV.' : 'The TV window is not open.');
+    const timeline = (n.breaks.length || quiz) ? `<div class="nb-line">${n.breaks.map(b => `<span class="nb-q">Quiz</span><span class="nb-b${b.endedAt ? '' : ' on'}">Break ${b.n}<small>${b.songs} song${b.songs === 1 ? '' : 's'}${b.winners ? ` · ${b.winners} winner${b.winners === 1 ? '' : 's'}` : ''}</small></span>`).join('')}${quiz ? '<span class="nb-q on">Quiz · now</span>' : ''}</div>` : '';
+    const where = g.mode === 'checklist' ? `Rules ${g.checklist.completed} of ${g.checklist.total} won` : (g.round.number ? `Round ${g.round.number} · ${esc(g.round.label || '')}` : 'Not started');
+    if (g.status === 'finished') {
+      box.innerHTML = `<div class="nightbar quiz" id="nbBar"><span class="nb-pill">QUIZ TIME</span><div class="grow"><b>The game has ended.</b> <span class="muted">${tvTxt}</span></div><button class="btn primary lg" id="nbStart">Show the TV (end screen)</button></div>`;
+    } else if (quiz) {
+      box.innerHTML = `<div class="nightbar quiz" id="nbBar">
+        <span class="nb-pill">QUIZ TIME</span>
+        <div class="grow"><b>Bingo paused at ${pos}.</b> <span class="muted">${tvTxt}</span></div>
+        <button class="btn primary lg" id="nbStart">▶ START BINGO BREAK ${n.nextBreak}</button>
+      </div>
+      <div class="nb-sub">${timeline}
+        <div class="nb-opts"><span class="muted tiny">WHEN I RETURN TO THE QUIZ</span><div class="seg" id="nbTv"><button data-v="hide" class="${n.quizTv === 'hide' ? 'on' : ''}">Hide the TV window</button><button data-v="hold" class="${n.quizTv === 'hold' ? 'on' : ''}">Show a still holding screen</button></div>
+        <span class="muted tiny">WHEN A BREAK STARTS</span><div class="seg" id="nbAuto"><button data-v="0" class="${n.autoPlay ? '' : 'on'}">Wait for me to press Play</button><button data-v="1" class="${n.autoPlay ? 'on' : ''}">Play straight away</button></div></div>
+        <div class="muted tiny">Cards, rules, winners, history and any open claim session are kept. Nothing is reshuffled.</div></div>`;
+    } else {
+      box.innerHTML = `<div class="nightbar break" id="nbBar">
+        <span class="nb-pill">${n.breakNo ? 'BINGO BREAK ' + n.breakNo : 'BINGO'}</span>
+        <div class="grow"><b>${cur ? `Song ${cur.number} of ${g.totals.songs}` : 'Ready'} · ${where}</b> <span class="nb-dim">${tonight} played tonight</span></div>
+        <button class="btn lg nb-quiz" id="nbQuiz" title="Pause the bingo and hide the TV so your quiz shows (Q)">❚❚ RETURN TO QUIZ</button>
+      </div>${timeline && n.breaks.length > 1 ? `<div class="nb-sub">${timeline}</div>` : ''}`;
+    }
+    const q = $('#nbQuiz', box); if (q) q.onclick = () => App.cmd('returnToQuiz');
+    const st = $('#nbStart', box); if (st) st.onclick = () => App.cmd('startBreak');
+    $$('#nbTv button', box).forEach(b => b.onclick = () => App.cmd('setNight', { quizTv: b.dataset.v }));
+    $$('#nbAuto button', box).forEach(b => b.onclick = () => App.cmd('setNight', { autoPlay: b.dataset.v === '1' }));
   },
 
   updateProgress() {

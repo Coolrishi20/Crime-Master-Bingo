@@ -341,14 +341,34 @@ function flushEngineChanges() {
   if (remote) remote.broadcastState();
 }
 function onEngineChanged(kind) {
-  if (!engine) return;
+  if (!engine) { if (tvHiddenForQuiz) applyQuizTv(); return; }
   if (kind !== 'tickOnly') pendingTv = true;
+  applyQuizTv();
   if (!flushQueued) { flushQueued = true; setImmediate(flushEngineChanges); }
   updateBackgroundWork();
   // keep the laptop awake while a game is live
   const live = engine.game.status === 'live';
   if (live && powerBlock === null) powerBlock = powerSaveBlocker.start('prevent-display-sleep');
   if (!live && powerBlock !== null) { powerSaveBlocker.stop(powerBlock); powerBlock = null; }
+}
+
+/* Quiz Intermission Mode: during quiz time the TV window(s) are hidden — never closed, so the
+   video, crawler and overlay are not rebuilt — and brought back without taking keyboard focus
+   from the host's quiz app (showInactive). The host can choose a still holding screen instead. */
+let tvHiddenForQuiz = false;
+function applyQuizTv() {
+  const n = engine && engine.game.night; const ns = engine && engine.game.settings.night;
+  const hide = !!(n && n.phase === 'quiz' && (!ns || ns.quizTv !== 'hold'));
+  if (hide === tvHiddenForQuiz) return;
+  tvHiddenForQuiz = hide;
+  [audienceWin, mirrorWin].forEach(w => {
+    if (!w || w.isDestroyed()) return;
+    try {
+      if (hide) w.hide();
+      else { w.showInactive(); if (w.__full && !w.isFullScreen()) w.setFullScreen(true); }
+    } catch (e) { /* window closing */ }
+  });
+  sendHost('audience', { open: !!(audienceWin && !audienceWin.isDestroyed()), hiddenForQuiz: hide });
 }
 
 function sendHost(ch, data) { if (hostWin && !hostWin.isDestroyed()) hostWin.webContents.send(ch, data); }
@@ -398,7 +418,7 @@ function pickAudienceDisplay() {
 }
 
 function openAudienceWindow(opts = {}) {
-  if (audienceWin && !audienceWin.isDestroyed()) { audienceWin.show(); audienceWin.focus(); return; }
+  if (audienceWin && !audienceWin.isDestroyed()) { if (!tvHiddenForQuiz) { audienceWin.show(); audienceWin.focus(); } return; }
   const d = opts.displayId ? (screen.getAllDisplays().find(x => String(x.id) === String(opts.displayId)) || pickAudienceDisplay()) : pickAudienceDisplay();
   const external = d.id !== screen.getPrimaryDisplay().id;
   const b = d.bounds;
@@ -412,10 +432,12 @@ function openAudienceWindow(opts = {}) {
   audienceWin.setMenuBarVisibility(false);
   audienceReady = false;
   audienceWin.loadFile(path.join(RENDERER, 'audience', 'index.html'));
+  audienceWin.__full = external && settings.video.fullscreen && !IS_TEST;
   audienceWin.once('ready-to-show', () => {
+    if (tvHiddenForQuiz) return; // quiz time: the window is prepared but stays hidden
     if (IS_TEST && !process.env.CMB_SHOW) { audienceWin.showInactive(); }
     else audienceWin.show();
-    if (external && settings.video.fullscreen && !IS_TEST) audienceWin.setFullScreen(true);
+    if (audienceWin.__full) audienceWin.setFullScreen(true);
   });
   audienceWin.on('closed', () => { audienceWin = null; audienceReady = false; if (engine) engine.playerGone(); sendHost('audience', { open: false }); });
   sendHost('audience', { open: true });
@@ -424,7 +446,7 @@ function openAudienceWindow(opts = {}) {
 
 /** Second TV screen: a silent mirror of the audience window on another display. */
 function openMirrorWindow(displayId) {
-  if (mirrorWin && !mirrorWin.isDestroyed()) { mirrorWin.show(); mirrorWin.focus(); return mirrorStatus(); }
+  if (mirrorWin && !mirrorWin.isDestroyed()) { if (!tvHiddenForQuiz) { mirrorWin.show(); mirrorWin.focus(); } return mirrorStatus(); }
   const displays = screen.getAllDisplays(); const primary = screen.getPrimaryDisplay();
   const tvId = audienceWin && !audienceWin.isDestroyed() ? screen.getDisplayMatching(audienceWin.getBounds()).id : null;
   const d = (displayId && displays.find(x => String(x.id) === String(displayId))) || displays.find(x => x.id !== primary.id && x.id !== tvId) || displays.find(x => x.id !== primary.id) || primary;
@@ -437,7 +459,8 @@ function openMirrorWindow(displayId) {
   });
   mirrorWin.setMenuBarVisibility(false);
   mirrorWin.loadFile(path.join(RENDERER, 'audience', 'index.html'), { query: { mirror: '1' } });
-  mirrorWin.once('ready-to-show', () => { if (IS_TEST && !process.env.CMB_SHOW) mirrorWin.showInactive(); else mirrorWin.show(); if (external && settings.video.fullscreen && !IS_TEST) mirrorWin.setFullScreen(true); });
+  mirrorWin.__full = external && settings.video.fullscreen && !IS_TEST;
+  mirrorWin.once('ready-to-show', () => { if (tvHiddenForQuiz) return; if (IS_TEST && !process.env.CMB_SHOW) mirrorWin.showInactive(); else mirrorWin.show(); if (mirrorWin.__full) mirrorWin.setFullScreen(true); });
   mirrorWin.on('closed', () => { mirrorWin = null; sendHost('mirror', mirrorStatus()); });
   sendHost('mirror', { open: true });
   return { open: true, displayId: d.id, external };
@@ -639,8 +662,14 @@ const handlers = {
   'library:relinkFolder': async () => {
     const r = await dialog.showOpenDialog(hostWin, { title: 'Folder containing the moved videos', properties: ['openDirectory'] });
     if (r.canceled) return null;
-    const n = library.relinkFolder(r.filePaths[0]);
+    const res = library.relinkFolder(r.filePaths[0]);
     library.songs().forEach(s => relinkInGames(s));
+    return res;
+  },
+  /** The host ticked these weaker matches in the relink window. */
+  'library:relinkConfirm': ({ items }) => {
+    let n = 0;
+    (items || []).forEach(it => { try { const s = library.relink(it.id, it.path); relinkInGames(s); n++; } catch (e) { /* file gone */ } });
     return n;
   },
   'library:fileUrl': (p) => pathToFileURL(p).href,
@@ -880,8 +909,8 @@ const handlers = {
   'game:preflight': () => preflight(),
   'audience:open': (o) => { openAudienceWindow(o || {}); return true; },
   'audience:close': () => { if (audienceWin) audienceWin.close(); return true; },
-  'audience:fullscreen': () => { if (!audienceWin) openAudienceWindow(); else audienceWin.setFullScreen(!audienceWin.isFullScreen()); return true; },
-  'audience:status': () => ({ open: !!(audienceWin && !audienceWin.isDestroyed()), ready: audienceReady, fullscreen: !!(audienceWin && !audienceWin.isDestroyed() && audienceWin.isFullScreen()) }),
+  'audience:fullscreen': () => { if (tvHiddenForQuiz) return false; if (!audienceWin) openAudienceWindow(); else audienceWin.setFullScreen(!audienceWin.isFullScreen()); return true; },
+  'audience:status': () => ({ open: !!(audienceWin && !audienceWin.isDestroyed()), ready: audienceReady, hiddenForQuiz: tvHiddenForQuiz, visible: !!(audienceWin && !audienceWin.isDestroyed() && audienceWin.isVisible()), fullscreen: !!(audienceWin && !audienceWin.isDestroyed() && audienceWin.isFullScreen()) }),
   'audience:test': () => {
     if (!engine) throw new Error('Load a game first');
     const pb = engine.game.playback;

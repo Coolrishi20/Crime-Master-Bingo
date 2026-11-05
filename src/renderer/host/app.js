@@ -274,6 +274,7 @@
         else if (e.key === 'ArrowLeft') { e.preventDefault(); this.cmd('replay', { expectIndex: this.game.playback.index }); }
         else if (e.key === 'b' || e.key === 'B') { e.preventDefault(); App.openChecker(); }
         else if (e.key === 'f' || e.key === 'F') { e.preventDefault(); api('audience:fullscreen'); }
+        else if ((e.key === 'q' || e.key === 'Q') && this.game.night && this.game.status !== 'finished') { e.preventDefault(); this.cmd(this.game.night.phase === 'quiz' ? 'startBreak' : 'returnToQuiz'); }
       });
     },
 

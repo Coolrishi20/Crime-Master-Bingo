@@ -18,8 +18,10 @@ const REMOTE_ACTIONS = new Set([
   'play', 'pause', 'togglePlay', 'stop', 'next', 'skip', 'previous', 'replay', 'seek', 'setVolume', 'markPlayed',
   'startRound', 'endRound', 'pauseGame', 'resumeGame', 'endGame', 'setCrawler',
   'openChecker', 'closeChecker', 'checkClaim', 'confirmClaim', 'dismissClaim', 'revokeWinner', 'setClipMode',
-  'freezeClaims', 'addClaim', 'viewClaim', 'removeClaim', 'closeSession', 'grantCredit', 'reverseCredit', 'setAudio', 'showTvScreen', 'setTvScreens', 'completeRound', 'queueSong', 'unqueueSong', 'skipNext', 'resetQueue', 'jumpTo', 'startIntermission', 'endIntermission', 'changeAward', 'closeChecklist'
+  'freezeClaims', 'addClaim', 'viewClaim', 'removeClaim', 'closeSession', 'grantCredit', 'reverseCredit', 'setAudio', 'showTvScreen', 'setTvScreens', 'completeRound', 'queueSong', 'unqueueSong', 'skipNext', 'resetQueue', 'jumpTo', 'startIntermission', 'endIntermission', 'changeAward', 'closeChecklist',
+  'startBreak', 'returnToQuiz'
 ]);
+const GLOBAL_PIN_LIMIT = 20; // wrong PINs from all phones together within a minute → pairing pauses
 
 function sha(s) { return crypto.createHash('sha256').update(String(s)).digest('hex'); }
 
@@ -48,13 +50,16 @@ class RemoteServer {
     this.ackCache = new Map();   // command id -> ack (duplicate-command protection)
     this.queue = Promise.resolve(); // strict command ordering
     this.failures = new Map();   // ip -> {count, until}
+    this.globalFails = [];       // timestamps of wrong PINs from any address
+    this.pairLockUntil = 0;
+    this.seqs = new Map();       // device + page session -> highest command sequence number executed
     this.joins = new Map();      // ip -> [timestamps] (phone-card join rate limit)
     this.running = false;
     this.lastError = null;
   }
 
   static newPin() { return String(crypto.randomInt(0, 1000000)).padStart(6, '0'); }
-  regeneratePin() { this.pin = RemoteServer.newPin(); this.changed(); return this.pin; }
+  regeneratePin() { this.pin = RemoteServer.newPin(); this.pairLockUntil = 0; this.globalFails = []; this.changed(); return this.pin; }
   changed() { if (this.opts.onChange) this.opts.onChange(); }
 
   info() {
@@ -163,7 +168,7 @@ class RemoteServer {
     device.lastSeen = new Date().toISOString();
     this.opts.devices.save(this.opts.devices.list());
     this.send(c, { type: 'auth-ok', deviceId: device.id, deviceName: device.name });
-    this.send(c, { type: 'state', state: this.opts.getState() });
+    this.sendFull(c);
     this.changed();
   }
 
@@ -178,10 +183,15 @@ class RemoteServer {
     }
     if (msg.type === 'pair') {
       const f = this.failures.get(c.ip) || { count: 0, until: 0 };
-      if (Date.now() < f.until) return this.send(c, { type: 'auth-fail', reason: `Too many wrong PINs. Try again in ${Math.ceil((f.until - Date.now()) / 1000)} s.` });
+      const now = Date.now();
+      if (now < f.until) return this.send(c, { type: 'auth-fail', reason: `Too many wrong PINs. Try again in ${Math.ceil((f.until - now) / 1000)} s.` });
+      // many wrong PINs from different addresses (someone guessing on the venue Wi-Fi): pause all pairing
+      if (now < this.pairLockUntil) return this.send(c, { type: 'auth-fail', reason: `Pairing is paused after many wrong PINs. Try again in ${Math.ceil((this.pairLockUntil - now) / 1000)} s, or make a new PIN on the laptop.` });
       if (String(msg.pin || '').trim() !== this.pin) {
-        f.count++; if (f.count >= 5) { f.until = Date.now() + 60000; f.count = 0; }
+        f.count++; if (f.count >= 5) { f.until = now + 60000; f.count = 0; }
         this.failures.set(c.ip, f);
+        this.globalFails = this.globalFails.filter(t => now - t < 60000); this.globalFails.push(now);
+        if (this.globalFails.length >= GLOBAL_PIN_LIMIT) { this.pairLockUntil = now + 60000; this.globalFails = []; this.pairLocks = (this.pairLocks || 0) + 1; this.changed(); }
         return this.send(c, { type: 'auth-fail', reason: 'Wrong PIN. Check the PIN on the laptop (Mobile Host screen).' });
       }
       this.failures.delete(c.ip);
@@ -194,7 +204,7 @@ class RemoteServer {
     if (!c.authed) return this.send(c, { type: 'auth-fail', reason: 'Not paired' });
     // device may have been revoked while connected
     if (!this.opts.devices.list().some(d => d.id === c.deviceId)) { this.send(c, { type: 'revoked' }); try { c.ws.close(4001, 'revoked'); } catch (e) { /* */ } return; }
-    if (msg.type === 'getState') return this.send(c, { type: 'state', state: this.opts.getState() });
+    if (msg.type === 'getState') return this.sendFull(c);
     if (msg.type === 'cmd') return this.handleCmd(c, msg);
   }
 
@@ -206,6 +216,15 @@ class RemoteServer {
       // Duplicate (a retry after reconnect): never execute twice, just repeat the answer.
       if (cached.done) this.send(c, cached.ack); else cached.waiters.push(c);
       return;
+    }
+    // Sequence numbers (per phone page): a command that arrives after a newer one from the same
+    // phone has already run (e.g. a delayed resend) is refused instead of running out of order.
+    if (msg.sid && Number.isFinite(Number(msg.seq))) {
+      const key = (c.deviceId || '') + '|' + String(msg.sid).slice(0, 40); const seq = Number(msg.seq);
+      const last = this.seqs.get(key) || 0;
+      if (seq <= last) return this.send(c, { type: 'ack', id, ok: false, code: 'STALE', error: 'That command arrived late and was not carried out — check the screen and try again.' });
+      this.seqs.set(key, seq);
+      if (this.seqs.size > 500) this.seqs.delete(this.seqs.keys().next().value);
     }
     const entry = { done: false, ack: null, waiters: [c] };
     this.ackCache.set(id, entry);
@@ -278,11 +297,37 @@ class RemoteServer {
   onlinePlayers() { return Array.from(new Set(Array.from(this.clients).filter(c => c.playerId).map(c => c.playerId))); }
 
   broadcast(obj) { const s = JSON.stringify(obj); this.clients.forEach(c => { if (c.authed && c.ws.readyState === 1) { try { c.ws.send(s); } catch (e) { /* */ } } }); }
+  /** Whole state — on connect, on request, or when the game itself changes. */
+  sendFull(c, full) {
+    full = full || this.opts.getState();
+    this.send(c, { type: 'state', state: full });
+    c.sent = RemoteServer.parts(full);
+  }
+  static parts(full) {
+    const g = full && full.game; const o = { theme: full ? full.theme : null, gameId: g ? (g.gameId || '_') : null, keys: {} };
+    if (g) Object.keys(g).forEach(k => { o.keys[k] = JSON.stringify(g[k]); });
+    return o;
+  }
+  /* After the first full state each phone receives only the parts of the state that changed
+     (a "patch"), compared with what that phone was last sent. */
   broadcastState() {
     if (!this.clients.size) return;
-    if (Array.from(this.clients).some(c => c.authed)) {
-      const s = JSON.stringify({ type: 'state', state: this.opts.getState() });
-      if (s !== this.lastStateJson) { this.lastStateJson = s; this.clients.forEach(c => { if (c.authed && c.ws.readyState === 1) { try { c.ws.send(s); } catch (e) { /* */ } } }); }
+    const authed = Array.from(this.clients).filter(c => c.authed && c.ws.readyState === 1);
+    if (authed.length) {
+      const full = this.opts.getState(); const now = RemoteServer.parts(full);
+      authed.forEach(c => {
+        const was = c.sent;
+        if (!was || was.gameId !== now.gameId || !now.gameId) {
+          if (was && JSON.stringify(was) === JSON.stringify(now)) return;
+          return this.sendFull(c, full);
+        }
+        const set = {}; let n = 0;
+        Object.keys(now.keys).forEach(k => { if (was.keys[k] !== now.keys[k]) { set[k] = full.game[k]; n++; } });
+        const del = Object.keys(was.keys).filter(k => !(k in now.keys));
+        if (!n && !del.length && was.theme === now.theme) return;
+        this.send(c, { type: 'patch', set, del, theme: now.theme });
+        c.sent = now;
+      });
     }
     this.broadcastPlayers();
   }
