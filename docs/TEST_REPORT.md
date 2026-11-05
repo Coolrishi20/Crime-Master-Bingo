@@ -1,4 +1,32 @@
-# Anthem Square — Test report (v1.7.0)
+# Anthem Square — Test report (v1.8.0)
+
+## v1.8.0 (skip quiet intros, keep artists apart)
+- **Unit tests: 169 / 169 passed.** `v19-intros-artists.test.js` has 7 new tests:
+  - intro detection: silence, dialogue, a soft musical intro kept, under 2 s, over 45 s / 40%, a click, silent files;
+  - clip start priority: your start, then the game offset, then the intro; on/off; full-song mode; analysis errors never block playback;
+  - Up Next flag; artist identity (case, accents, "The", featured artists);
+  - spacing: 200 shuffles never back to back and mostly ≥3 apart; a dominant artist gets the mathematical minimum of back-to-backs; new game and Reshuffle; shuffle off keeps order.
+- **New e2e `v19-intros-artists.js`: 9 / 9 passed.** It uses real ffmpeg loudness analysis on videos with an 8 s silent opening:
+  - detected start 7 s; normal videos untouched;
+  - the Library shows the start; Up Next says "quiet intro skipped";
+  - **the TV video actually started at 7.3 s**;
+  - the console switch turns it off;
+  - a shuffled 52-song / 12-artist game had no back-to-back artists.
+- **Bug found by the e2e:** the host state didn't report the new setting, so the console toggle could show "on" after a refresh. Fixed.
+- **Regression (all re-run on this build):**
+
+  | Suite | Result |
+  |---|---|
+  | v18-m3u | 10/10 |
+  | v17-brand | 22/22 |
+  | v16-checklist | 34/34 |
+  | acceptance | 85/85 |
+  | v15 | 28/28 |
+  | v14 | 38/38 |
+  | v13 | 13/13 |
+  | print | 12/12 |
+  | reveal | 7/7 |
+
 
 ## v1.7.0 (full release: Anthem Square + M3U playlists)
 - **Unit tests: 162 / 162 passed.** `v18-m3u.test.js` has 6 new tests:

@@ -76,6 +76,20 @@ many more you need. Duplicates are never added silently.
   Paths are relative to where you save it, so a USB stick with the videos and the playlist works
   on any PC.
 
+### Songs start where the music starts
+With **Skip quiet intros** on (the default), each clip starts where the music actually begins.
+Silent openings, dialogue and slow scenes at the start of a video are skipped, found by the
+app's volume analysis. Check it in the **Music Library**: the clip column shows "from 0:07
+(intro)", and **Edit** shows the detected start. A start point you set for a song, or a
+*Default clip start* above 0, always wins. Turn it off in *Create Game → Playback*,
+*Settings → Gameplay*, or live with **Skip quiet intros** next to the clip buttons on the host
+console.
+
+### Artists kept apart
+With **Keep songs by the same artist apart** on (the default), a shuffled game never plays two
+songs by the same artist back to back when the playlist allows it, and usually keeps them three
+or more songs apart. Featured artists and "The …" are ignored when comparing names.
+
 ### Create the game — *Create Game*
 The wizard has nine steps:
 1. **Details**: name, date, venue, logo.

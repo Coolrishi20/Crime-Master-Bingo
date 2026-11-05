@@ -9,7 +9,7 @@ const fs = require('fs');
 const path = require('path');
 const { Worker } = require('worker_threads');
 const { execFileSync } = require('child_process');
-const { gainFor } = require('./loudness');
+const { gainFor, introEnd } = require('./loudness');
 
 function findFfmpeg(resourcesPath) {
   const exe = process.platform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg';
@@ -56,6 +56,17 @@ class AudioAnalyser {
     return gainFor(prof, clip, audio);
   }
 
+  /** Detected quiet intro (s) for a song, or null while it hasn't been analysed yet. */
+  intro(song) {
+    const lib = song && song.id ? this.library.get(song.id) : null;
+    if (lib && lib.audio && lib.audio.status === 'done' && lib.audio.fp === song.fingerprint && lib.audio.introEnd != null) return lib.audio.introEnd;
+    const prof = song && this.profileFor(song.fingerprint);
+    if (!prof) return null;
+    const t = introEnd(prof);
+    if (lib && lib.audio && lib.audio.status === 'done' && lib.audio.introEnd == null) { lib.audio.introEnd = t; this.library.save(); } // songs analysed before 1.8
+    return t;
+  }
+
   needs(s) {
     if (['missing', 'unsupported', 'needs-conversion', 'converting'].includes(s.status) || !s.fingerprint) return false;
     const a = s.audio;
@@ -93,7 +104,7 @@ class AudioAnalyser {
     }
   }
 
-  summary(prof, fp) { const src = prof.source || {}; return { status: 'done', fp, lufs: prof.lufs, truePeak: prof.truePeak, duration: Math.round(prof.duration * 10) / 10, sampleRate: src.sampleRate || null, channels: src.channels || null, layout: src.layout || null, analysedAt: prof.analysedAt }; }
+  summary(prof, fp) { const src = prof.source || {}; return { status: 'done', fp, introEnd: introEnd(prof), lufs: prof.lufs, truePeak: prof.truePeak, duration: Math.round(prof.duration * 10) / 10, sampleRate: src.sampleRate || null, channels: src.channels || null, layout: src.layout || null, analysedAt: prof.analysedAt }; }
 
   start(s) {
     s.audio = { status: 'analysing', fp: s.fingerprint };

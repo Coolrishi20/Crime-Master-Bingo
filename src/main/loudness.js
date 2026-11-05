@@ -136,4 +136,31 @@ function gainFor(profile, clip, audio) {
   return { gainDb: g, status: 'ok', lufs: L, truePeak: tp, limited };
 }
 
-module.exports = { LoudnessMeter, integrated, truePeak, gainFor, RATE };
+/**
+ * Where does the song really start? Many music videos open with silence, dialogue or a quiet
+ * scene. Returns the time (s) where 400 ms of audio first reaches normal song level
+ * (within 14 LU of the whole song) AND the three seconds from there stay musical (within 16 LU),
+ * backed off by 0.5 s so the first beat is never clipped. 0 = nothing to skip.
+ * Conservative: < 2 s is ignored, and anything over 45 s (or 40% of the song) is treated as
+ * a detection doubt and not skipped.
+ */
+const INTRO = { relLU: 14, sustainLU: 16, minSkip: 2, maxSkip: 45, maxFrac: 0.4, backoff: 0.5 };
+function introEnd(profile) {
+  if (!profile || !profile.sub || !profile.sub.length) return 0;
+  const L = integrated(profile, 0, Infinity);
+  if (L == null || L <= -60) return 0;
+  const e = profile.sub.map(db => Math.pow(10, db / 10));
+  const win = (i, n) => { if (i + n > e.length) return -Infinity; let s = 0; for (let k = 0; k < n; k++) s += e[i + k]; return -0.691 + 10 * Math.log10(s / n || 1e-12); };
+  const dur = profile.duration || e.length / 10;
+  const limit = Math.min(INTRO.maxSkip, dur * INTRO.maxFrac) * 10;
+  for (let i = 0; i + 40 <= e.length && i <= limit; i++) {
+    if (win(i, 4) >= L - INTRO.relLU && win(i + 5, 25) >= L - INTRO.sustainLU) { // 400 ms onset, then the following 2.5 s stay musical (a click is not a start)
+      const t = i / 10;
+      if (t < INTRO.minSkip) return 0;
+      return Math.max(0, Math.floor((t - INTRO.backoff) * 2) / 2);
+    }
+  }
+  return 0; // never clearly started within the limit: don't guess
+}
+
+module.exports = { LoudnessMeter, integrated, truePeak, gainFor, introEnd, INTRO, RATE };

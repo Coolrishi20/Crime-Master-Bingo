@@ -11,6 +11,45 @@ const MIN_SONGS = 40;
 
 function randInt(n) { return crypto.randomInt(n); }
 
+/** Artist identity for spacing: case/accents ignored, "The" dropped, featured artists ignored. */
+function artistKey(a) {
+  return String(a || '').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '')
+    .split(/\s+(?:feat\.?|ft\.?|featuring|with)\s+|\s*[([](?:feat|ft)\.?[^)\]]*[)\]]/)[0]
+    .replace(/^the\s+/, '').replace(/[^a-z0-9\u0900-\u097f]+/g, ' ').trim();
+}
+
+/**
+ * Random order that keeps songs by the same artist apart: never back to back when the playlist
+ * allows it (and at least 3 songs apart when it easily can). Each step picks at random among the
+ * songs whose artist didn't play recently, favouring artists with many songs left so the end of
+ * the list doesn't bunch up. Falls back gracefully when one artist dominates the playlist.
+ */
+function spreadShuffle(ids, artistOf) {
+  const left = shuffle(ids); const out = []; const recent = [];
+  const counts = new Map(); left.forEach(id => { const k = artistOf(id); counts.set(k, (counts.get(k) || 0) + 1); });
+  while (left.length) {
+    const n = left.length; const last = recent[recent.length - 1];
+    let topK = null, topC = 0; counts.forEach((c, k) => { if (c > topC) { topC = c; topK = k; } });
+    let pool = null;
+    // an artist with half (or more) of what's left must take every other slot, or the end bunches up
+    if (topK !== last && topC * 2 >= n) pool = left.filter(id => artistOf(id) === topK);
+    else {
+      for (const gap of [3, 2, 1]) {
+        const bar = new Set(recent.slice(-gap));
+        const c = left.filter(id => !bar.has(artistOf(id)));
+        if (c.length) { pool = c; break; }
+      }
+      if (!pool) pool = left; // only one artist left: unavoidable
+    }
+    // random, weighted by songs left for that artist (squared): busy artists spread through the list
+    let total = 0; const w = pool.map(id => { const c = counts.get(artistOf(id)); total += c * c; return c * c; });
+    let r = randInt(total), i = 0; while (r >= w[i]) { r -= w[i]; i++; }
+    const id = pool[i]; out.push(id); left.splice(left.indexOf(id), 1);
+    const k = artistOf(id); counts.set(k, counts.get(k) - 1); if (!counts.get(k)) counts.delete(k); recent.push(k);
+  }
+  return out;
+}
+
 function shuffle(arr) {
   const a = arr.slice();
   for (let i = a.length - 1; i > 0; i--) {
@@ -113,4 +152,4 @@ function parseRange(spec, max = MAX_CARDS) {
   return Array.from(out).sort((x, y) => x - y);
 }
 
-module.exports = { MAX_CARDS, CARD_SIZE, MIN_SONGS, shuffle, generateCards, validateCards, formatCardNo, qrPayload, parseQrPayload, parseRange };
+module.exports = { MAX_CARDS, CARD_SIZE, MIN_SONGS, shuffle, generateCards, validateCards, formatCardNo, qrPayload, parseQrPayload, parseRange, spreadShuffle, artistKey };

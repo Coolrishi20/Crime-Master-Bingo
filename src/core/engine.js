@@ -13,7 +13,7 @@
  */
 const crypto = require('crypto');
 const rules = require('./rules');
-const { shuffle, parseQrPayload, formatCardNo, generateCards } = require('./cards');
+const { shuffle, spreadShuffle, artistKey, parseQrPayload, formatCardNo, generateCards } = require('./cards');
 const locking = require('./locking');
 
 const CLIP_MODES = [20, 30, 40, 60, 'full'];
@@ -27,6 +27,8 @@ function defaultGameSettings() {
   return {
     clipMode: 40,
     defaultStart: 0,
+    skipIntros: true,       // start each clip where the music begins (quiet/silent video intros skipped)
+    spreadArtists: true,    // shuffle keeps songs by the same artist apart
     autoAdvance: true,
     autoAdvanceGap: 3,
     shuffle: true,
@@ -195,15 +197,20 @@ class GameEngine {
   clipFor(song) {
     const s = this.settings;
     const dur = Number(song.duration) || 0;
-    if (s.clipMode === 'full') return { start: 0, end: dur || null };
+    // start: your own start point for this song > the game-wide start offset > the detected intro
+    const manual = song.clipStart != null && song.clipStart !== '';
+    const intro = !manual && s.skipIntros !== false ? this.introFor(song) : 0;
+    if (s.clipMode === 'full') return { start: intro, end: dur || null, intro: intro > 0 };
     const len = Number(s.clipMode) || 40;
-    let start = song.clipStart != null && song.clipStart !== '' ? Number(song.clipStart) : Number(s.defaultStart) || 0;
+    let start = manual ? Number(song.clipStart) : (Number(s.defaultStart) > 0 ? Number(s.defaultStart) : intro);
     if (dur && start >= dur - 1) start = 0;
     let end = song.clipEnd != null && song.clipEnd !== '' ? Number(song.clipEnd) : start + len;
     if (end <= start) end = start + len;
     if (dur) end = Math.min(end, dur);
-    return { start, end };
+    return { start, end, intro: !manual && !(Number(s.defaultStart) > 0) && intro > 0 && start === intro };
   }
+  /** Detected quiet intro (s) from the audio analysis; 0 when unknown or none. */
+  introFor(song) { if (!song || !this.hooks.introFor) return 0; try { const t = Number(this.hooks.introFor(song)); return t > 0 && (!song.duration || t < song.duration - 5) ? t : 0; } catch (e) { return 0; } }
 
   /** Audio parameters for the player: levelling gain for this exact clip, fades, mute. */
   audioFor(song, clip) {
@@ -268,7 +275,7 @@ class GameEngine {
       next = Object.assign(view(n.songId), {
         index: n.index, number: n.index + 1, source: n.source,
         fileName: s.fileName || String(s.path || '').split(/[\\/]/).pop(), duration: s.duration || null,
-        clipStart: clip.start, clipEnd: clip.end, clipLength: clip.end != null ? Math.round((clip.end - clip.start) * 10) / 10 : null,
+        clipStart: clip.start, introSkipped: !!clip.intro, clipEnd: clip.end, clipLength: clip.end != null ? Math.round((clip.end - clip.start) * 10) / 10 : null,
         clipMode: this.settings.clipMode, ready: !this.unavailable[n.songId], problem: this.unavailable[n.songId] || null
       });
     }
@@ -870,7 +877,7 @@ class GameEngine {
   aReshuffle() {
     const g = this.game;
     if (g.played.length || g.round.number > 0) throw new Error('The play order is locked once the game has started.');
-    g.order = shuffle(g.order);
+    g.order = this.settings.spreadArtists !== false ? spreadShuffle(g.order, id => artistKey((this.song(id) || {}).artist)) : shuffle(g.order);
     g.playback.index = -1;
     this.log('Play order reshuffled');
     this.touch('state');
@@ -904,7 +911,7 @@ class GameEngine {
 
   aSetGameSettings(args) {
     const s = this.settings;
-    ['autoAdvance', 'shuffle', 'pauseOnClaim', 'winnerAnimation'].forEach(k => { if (args[k] != null) s[k] = !!args[k]; });
+    ['autoAdvance', 'shuffle', 'pauseOnClaim', 'winnerAnimation', 'skipIntros', 'spreadArtists'].forEach(k => { if (args[k] != null) s[k] = !!args[k]; });
     if (args.autoAdvanceGap != null) s.autoAdvanceGap = Math.max(0, Math.min(30, Number(args.autoAdvanceGap)));
     if (args.defaultStart != null) s.defaultStart = Math.max(0, Number(args.defaultStart));
     if (args.patternPosition && ['top-right', 'top-left', 'bottom-right', 'bottom-left'].includes(args.patternPosition)) s.patternPosition = args.patternPosition;
@@ -1718,7 +1725,7 @@ class GameEngine {
       credits: g.credits.map(c => ({ id: c.id, songId: c.songId, title: c.title, artist: c.artist, reason: c.reason, at: c.at, status: c.status })),
       unavailable: Object.keys(this.unavailable).filter(id => this.song(id) && !played.has(id)).map(id => ({ songId: id, title: this.song(id).title, artist: this.song(id).artist, reason: this.unavailable[id] })),
       creditReasons: CREDIT_REASONS,
-      settings: { mode: this.settings.mode, afterWinner: this.settings.afterWinner, intermissionMinutes: this.settings.intermissionMinutes, clipMode: this.settings.clipMode, volume: this.settings.volume, autoAdvance: this.settings.autoAdvance, autoAdvanceGap: this.settings.autoAdvanceGap, pauseOnClaim: this.settings.pauseOnClaim, crawler: this.settings.crawler, overlay: this.settings.overlay, audio: this.settings.audio, patternPosition: this.settings.patternPosition, winnerAnimation: this.settings.winnerAnimation, tvScreens: this.settings.tvScreens, screens: this.settings.screens, defaultStart: this.settings.defaultStart },
+      settings: { mode: this.settings.mode, skipIntros: this.settings.skipIntros !== false, spreadArtists: this.settings.spreadArtists !== false, afterWinner: this.settings.afterWinner, intermissionMinutes: this.settings.intermissionMinutes, clipMode: this.settings.clipMode, volume: this.settings.volume, autoAdvance: this.settings.autoAdvance, autoAdvanceGap: this.settings.autoAdvanceGap, pauseOnClaim: this.settings.pauseOnClaim, crawler: this.settings.crawler, overlay: this.settings.overlay, audio: this.settings.audio, patternPosition: this.settings.patternPosition, winnerAnimation: this.settings.winnerAnimation, tvScreens: this.settings.tvScreens, screens: this.settings.screens, defaultStart: this.settings.defaultStart },
       audienceConnected: this.audienceConnected,
       lastError: this.lastError
     };
@@ -1747,7 +1754,7 @@ function createGame({ name, date, venue, logo, songs, playlistId, playlistName, 
   const game = {
     id, schemaVersion: locking.SCHEMA_VERSION, name: name || 'Music Bingo', date: date || new Date().toISOString().slice(0, 10), venue: venue || '', logo: logo || null,
     createdAt: new Date().toISOString(), playlistId, playlistName,
-    songs: map, order: st.shuffle ? shuffle(ids) : ids.slice(),
+    songs: map, order: st.shuffle ? (st.spreadArtists !== false ? spreadShuffle(ids, id => artistKey(map[id].artist)) : shuffle(ids)) : ids.slice(),
     settings: st, status: 'setup', cardsLocked: false
   };
   return GameEngine.normalise(game);

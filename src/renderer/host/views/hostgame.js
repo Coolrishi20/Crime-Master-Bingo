@@ -42,6 +42,7 @@ App.register('host', {
             <div class="row" style="margin-top:14px"><span class="muted small" style="font-weight:700">CLIP</span><div class="seg" id="cClip">${[20, 30, 40, 60, 'full'].map(m => `<button data-m="${m}">${m === 'full' ? 'Full' : m + 's'}</button>`).join('')}</div>
               <label class="toggle small">${'<input type="checkbox" id="cAuto"><span class="sw"></span>'}Auto-play next</label>
               <label class="toggle small"><input type="checkbox" id="cLev"><span class="sw"></span>Auto volume levelling</label>
+              <label class="toggle small" title="Start each clip where the music begins"><input type="checkbox" id="cIntro"><span class="sw"></span>Skip quiet intros</label>
               <button class="btn sm" id="cMute">🔇 Mute</button></div>
             <div class="muted tiny" id="hgLevel" style="margin-top:6px"></div>
             <div class="statusline" id="hgStatus"></div>
@@ -87,6 +88,7 @@ App.register('host', {
     $$('#cClip button', el).forEach(b => b.onclick = () => App.cmd('setClipMode', { clipMode: b.dataset.m === 'full' ? 'full' : Number(b.dataset.m) }));
     $('#cAuto', el).onchange = (e) => App.cmd('setGameSettings', { autoAdvance: e.target.checked });
     $('#cLev', el).onchange = (e) => App.cmd('setAudio', { levelling: e.target.checked });
+    $('#cIntro', el).onchange = (e) => App.cmd('setGameSettings', { skipIntros: e.target.checked });
     $('#cMute', el).onclick = () => App.cmd('setAudio', { toggleMute: true });
     $('#bFreeze', el).onclick = () => App.openChecker();
     $('#hgCreditBtn', el).onclick = () => App.creditDialog();
@@ -127,7 +129,7 @@ App.register('host', {
     $('#cPlay', el).textContent = playing || pb.status === 'between' ? '❚❚' : '▶';
     $('#cVol', el).value = g.settings.volume; $('#cVolV', el).textContent = g.settings.volume;
     $$('#cClip button', el).forEach(b => b.classList.toggle('on', String(b.dataset.m) === String(g.settings.clipMode)));
-    $('#cAuto', el).checked = g.settings.autoAdvance; $('#cLev', el).checked = g.settings.audio.levelling;
+    $('#cAuto', el).checked = g.settings.autoAdvance; $('#cLev', el).checked = g.settings.audio.levelling; $('#cIntro', el).checked = g.settings.skipIntros !== false;
     $('#cMute', el).textContent = g.settings.audio.muted ? '🔊 Unmute' : '🔇 Mute'; $('#cMute', el).className = 'btn sm' + (g.settings.audio.muted ? ' primary' : '');
     $('#hgLevel', el).textContent = g.settings.audio.levelling ? `Levelling to ${g.settings.audio.targetLufs} LUFS · max boost +${g.settings.audio.maxBoostDb} dB · fade in ${g.settings.audio.fadeIn}s / out ${g.settings.audio.fadeOut}s${g.settings.audio.muted ? ' · MUTED' : ''}` : (g.settings.audio.muted ? 'MUTED' : 'Levelling off — songs play at their original loudness');
     $('#hgLock', el).textContent = g.cardsLocked ? '🔒 CARDS LOCKED' : 'DRAFT CARDS'; $('#hgLock', el).className = 'badge ' + (g.cardsLocked ? 'ok' : 'warn');
@@ -273,7 +275,7 @@ App.register('host', {
       ${n ? `<div class="row" style="align-items:flex-start;gap:12px">${n.thumb ? `<img class="thumb" style="width:96px;height:54px" src="${fileUrl(n.thumb)}">` : '<div class="thumb" style="width:96px;height:54px"></div>'}
         <div class="grow" style="min-width:0"><div class="eyebrow">${src} · song ${n.number}</div><div style="font-weight:800;font-size:16px;color:#fff">${esc(n.title)}</div><div class="muted">${esc(n.artist)}</div>
         <div class="tiny muted" style="margin-top:4px;word-break:break-all">${esc(n.fileName)}</div>
-        <div class="tiny muted">${n.duration ? 'Length ' + fmtTime(n.duration) + ' · ' : ''}starts at ${fmtTime(n.clipStart)} · ${n.clipMode === 'full' ? 'full song' : (n.clipLength ? n.clipLength + ' s clip' : '')}</div>
+        <div class="tiny muted">${n.duration ? 'Length ' + fmtTime(n.duration) + ' · ' : ''}starts at ${fmtTime(n.clipStart)}${n.introSkipped ? ' (quiet intro skipped)' : ''} · ${n.clipMode === 'full' ? 'full song' : (n.clipLength ? n.clipLength + ' s clip' : '')}</div>
         <div style="margin-top:6px">${n.ready ? `<span class="badge ok">READY</span>${n.levelling === 'done' ? ' <span class="badge">levelled</span>' : ''}` : `<span class="badge bad">⚠ ${esc(n.problem || 'not ready')}</span>`}</div></div></div>
         <div class="row" style="margin-top:12px"><button class="btn sm" id="unSkip">Skip this one</button><button class="btn sm" id="unPick">Choose another…</button>${u.custom ? '<button class="btn sm ghost" id="unReset">Back to playlist order</button>' : ''}${!n.ready ? `<button class="btn sm primary" id="unRelink">Relink</button>` : ''}</div>`
         : '<div class="muted small">No more songs to play.</div>'}

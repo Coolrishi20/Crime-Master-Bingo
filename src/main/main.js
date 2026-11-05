@@ -115,7 +115,8 @@ function activateGame(game) {
       if (remote) remote.broadcast({ type: 'event', name, payload });
     },
     tick: () => onTick(),
-    gainFor: (song, clip, audio) => (analyser ? analyser.gain(song, clip, audio) : { gainDb: 0, status: 'pending' })
+    gainFor: (song, clip, audio) => (analyser ? analyser.gain(song, clip, audio) : { gainDb: 0, status: 'pending' }),
+    introFor: (song) => (analyser ? analyser.intro(song) : null)
   });
   scanGameMedia();
   engine.audienceConnected = !!(audienceWin && !audienceWin.isDestroyed() && audienceReady);

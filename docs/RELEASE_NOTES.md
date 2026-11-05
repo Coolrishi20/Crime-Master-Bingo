@@ -1,3 +1,33 @@
+## Anthem Square 1.8.0 — songs start where the music starts, and artists stay apart
+
+### Skip quiet intros automatically (on by default)
+- Many music videos open with silence, dialogue or a slow scene. Each clip now starts where the
+  music actually begins, about half a second before the first beat.
+- It uses the volume analysis the app already runs. Nothing extra is decoded, and the TV,
+  phone and Low Resource Mode are unaffected.
+- It's careful about what counts as an intro:
+  - a soft musical intro is kept;
+  - openings under 2 seconds aren't touched;
+  - anything over 45 seconds (or 40% of the song) is left alone as doubtful.
+- Your own start point for a song, or a game-wide clip start above 0, always wins.
+- **Where you see it:** the Music Library shows "from 0:07 (intro)", the song editor shows the
+  detected start, and Up Next says "(quiet intro skipped)".
+- **Switching it off:** in Create Game, in Settings → Gameplay, or live from the host console
+  ("Skip quiet intros").
+- Songs not analysed yet (for example while Low Resource Mode holds the analysis during a game)
+  simply start from the beginning, as before.
+
+### Keep songs by the same artist apart (on by default)
+- Shuffled games never play the same artist back to back when the playlist allows it, and keep
+  them three or more songs apart when they easily can.
+- "The Beatles" / "Beatles" and "Calvin Harris feat. Rihanna" / "Calvin Harris" count as the same
+  artist.
+- If one artist dominates a playlist, they're spread as evenly as is mathematically possible.
+- It applies to new games and to Reshuffle, and can be switched off in Create Game or Settings.
+
+### Fixes
+- The host console's new toggle always shows the real setting after a refresh.
+
 ## Anthem Square 1.7.0 — the new name and look, plus M3U playlists
 
 **Crime Master Bingo is now Anthem Square.** *Music video bingo. Hear it. Mark it. Own it.*

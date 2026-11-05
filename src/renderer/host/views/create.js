@@ -7,7 +7,7 @@ App.register('create', {
     const gd = App.settings.gameDefaults;
     if (!this.data || arg === 'new') {
       this.data = { name: '', date: new Date().toISOString().slice(0, 10), venue: '', useLogo: !!App.settings.appearance.logo, playlistId: null, cards: 100,
-        settings: { clipMode: gd.clipMode, defaultStart: gd.defaultStart, shuffle: gd.shuffle, volume: gd.volume, autoAdvance: gd.autoAdvance, autoAdvanceGap: gd.autoAdvanceGap,
+        settings: { clipMode: gd.clipMode, defaultStart: gd.defaultStart, skipIntros: gd.skipIntros !== false, spreadArtists: gd.spreadArtists !== false, shuffle: gd.shuffle, volume: gd.volume, autoAdvance: gd.autoAdvance, autoAdvanceGap: gd.autoAdvanceGap,
           overlay: Object.assign({}, gd.overlay), crawler: Object.assign({}, gd.crawler), screens: Object.assign({ welcome: true, end: true, startTime: '', message: '' }, gd.screens || {}), patternPosition: gd.patternPosition, mode: gd.mode || 'rounds', checklist: JSON.parse(JSON.stringify(gd.checklist || [])) } };
       this.step = 1; this.created = null;
     }
@@ -86,11 +86,11 @@ App.register('create', {
         <label class="field">Gap between songs (seconds)<input type="number" id="gGap" min="0" max="30" value="${s.autoAdvanceGap}"></label>
         <label class="field">Volume: <span id="gVolV">${s.volume}</span>%<input type="range" id="gVol" min="0" max="100" value="${s.volume}"></label>
       </div>
-      <div class="row" style="margin-top:16px;gap:28px">${toggleHtml('gShuf', 'Shuffle the playlist (saved before the game starts)', s.shuffle)}${toggleHtml('gAuto', 'Auto-play the next song', s.autoAdvance)}${toggleHtml('gOv', 'Show song title & artist on the TV', s.overlay.enabled)}</div>
-      <p class="muted small">Individual songs can have their own start and end points — set them with <b>Edit</b> in the Music Library.</p>`;
+      <div class="row" style="margin-top:16px;gap:28px">${toggleHtml('gShuf', 'Shuffle the playlist (saved before the game starts)', s.shuffle)}${toggleHtml('gSpread', 'Keep songs by the same artist apart', s.spreadArtists !== false)}${toggleHtml('gIntro', 'Skip quiet intros automatically', s.skipIntros !== false)}${toggleHtml('gAuto', 'Auto-play the next song', s.autoAdvance)}${toggleHtml('gOv', 'Show song title & artist on the TV', s.overlay.enabled)}</div>
+      <p class="muted small"><b>Skip quiet intros:</b> each clip starts where the music actually begins (silent openings, dialogue and slow scenes are skipped), found by the volume analysis. A start point you set for a song, or a default clip start above 0, always wins. Individual songs can have their own start and end points — set them with <b>Edit</b> in the Music Library.</p>`;
     $$('#gClip button', b).forEach(x => x.onclick = () => { s.clipMode = x.dataset.m === 'full' ? 'full' : Number(x.dataset.m); $$('#gClip button', b).forEach(y => y.classList.toggle('on', y === x)); });
     $('#gVol', b).oninput = (e) => { $('#gVolV', b).textContent = e.target.value; };
-    this.collectFn = () => { s.defaultStart = Number($('#gStart', b).value) || 0; s.autoAdvanceGap = Number($('#gGap', b).value) || 0; s.volume = Number($('#gVol', b).value); s.shuffle = $('#gShuf', b).checked; s.autoAdvance = $('#gAuto', b).checked; s.overlay.enabled = $('#gOv', b).checked; };
+    this.collectFn = () => { s.defaultStart = Number($('#gStart', b).value) || 0; s.autoAdvanceGap = Number($('#gGap', b).value) || 0; s.volume = Number($('#gVol', b).value); s.shuffle = $('#gShuf', b).checked; s.spreadArtists = $('#gSpread', b).checked; s.skipIntros = $('#gIntro', b).checked; s.autoAdvance = $('#gAuto', b).checked; s.overlay.enabled = $('#gOv', b).checked; };
   },
   step4(b) {
     const s = this.data.settings;
