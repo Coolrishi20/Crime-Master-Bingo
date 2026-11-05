@@ -69,6 +69,7 @@ App.register('settings', {
           <label class="field">Default clip length<select id="sClip">${[20, 30, 40, 60, 'full'].map(m => `<option value="${m}" ${String(gd.clipMode) === String(m) ? 'selected' : ''}>${m === 'full' ? 'Full song' : m + ' seconds'}</option>`).join('')}</select></label>
           <label class="field">Default start point (s)<input type="number" id="sStart" min="0" value="${gd.defaultStart}"></label></div>
           <div class="row" style="margin-top:12px">${toggleHtml('sFs', 'Open audience window fullscreen on the TV', s.video.fullscreen)}</div></div>
+        <div class="panel"><h2>Live TV preview</h2><div id="sTvp"></div><p class="muted small">Change the song overlay, crawler, pattern panel or video fit below and watch this update. Click <b>Save</b> to keep the changes for new games.</p></div>
         <div class="panel"><h2>Song overlay</h2><div class="form-grid">
           <label class="field">Position<select id="oPos">${['bottom-left', 'bottom-center', 'top-left'].map(p => `<option ${gd.overlay.position === p ? 'selected' : ''}>${p}</option>`).join('')}</select></label>
           <label class="field">Title size (px @1080p)<input type="number" id="oT" value="${gd.overlay.titleSize}"></label>
@@ -123,7 +124,7 @@ App.register('settings', {
       box.textContent = L[st.state] != null ? L[st.state] : '';
       box.style.color = st.state === 'error' ? 'var(--amber)' : (['downloaded', 'available', 'portable-available'].includes(st.state) ? 'var(--green)' : '');
       act.style.display = ['available', 'downloaded', 'portable-available'].includes(st.state) ? '' : 'none';
-      act.textContent = st.state === 'downloaded' ? '⟳ Restart to update' : st.state === 'available' ? '⬇ Download update' : 'Open download page';
+      act.textContent = st.state === 'downloaded' ? '⟳ Restart now' : st.state === 'available' ? `⬆ Update to ${st.version}` : 'Open download page';
       act.onclick = () => App.updateAction();
     };
     $('#upCheck', el).onclick = async () => { App.update = await api('update:check'); App.drawUpdateSettings(App.update); };
@@ -146,6 +147,19 @@ App.register('settings', {
       $$('[data-sl-dn]', box).forEach(b => b.onclick = async () => drawSlides(await api('slides:move', { id: b.dataset.slDn, dir: 1 })));
     };
     drawSlides(s.slides || { enabled: true, seconds: 8, images: [] });
+    if (this._tvp) this._tvp.destroy();
+    const tvp = this._tvp = tvPreview($('#sTvp', el), { caption: 'Live TV preview — as new games will look' });
+    const readTv = () => {
+      const g = (id) => $(id, el);
+      tvp.update({
+        overlay: { enabled: g('#oOn').checked, position: g('#oPos').value, titleSize: Number(g('#oT').value) || 64, artistSize: Number(g('#oA').value) || 38, opacity: (Number(g('#oO').value) || 78) / 100, duration: 0, revealDelay: Number(g('#oR').value) || 0 },
+        crawler: { speed: Number(g('#cS').value) || 4, fontSize: Number(g('#cF').value) || 30, height: Number(g('#cH').value) || 72, separator: g('#cSep').value },
+        patternPosition: g('#pPos').value, aspect: g('#sAsp').value,
+        mode: gd.mode, checklist: gd.checklist, rounds: gd.rounds, roundCount: gd.roundCount
+      });
+    };
+    ['#oOn', '#oPos', '#oT', '#oA', '#oO', '#oR', '#cS', '#cF', '#cH', '#cSep', '#pPos', '#sAsp'].forEach(id => { const x = $(id, el); if (x) { x.addEventListener('input', readTv); x.addEventListener('change', readTv); } });
+    readTv();
     $('#sSave', el).onclick = async () => {
       const patch = {
         appearance: { scale: Number(v('#sScale')), theme: v('#sTheme') },

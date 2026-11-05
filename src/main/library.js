@@ -170,6 +170,7 @@ class Library {
     this.data.songs.forEach(s => {
       // converted copy deleted but the original is still there → convert again
       if (s.originalPath && !fs.existsSync(s.path) && fs.existsSync(s.originalPath)) { s.path = s.originalPath; delete s.converted; s.status = 'needs-conversion'; s.statusNote = 'Converted copy missing — converting again'; s.conversion = null; return; }
+      if (s.source === 'youtube') return; // not a file
       const exists = fs.existsSync(s.path);
       if (!exists) { if (s.status !== 'missing') { s.prevStatus = s.status; } s.status = 'missing'; s.statusNote = 'File not found — relink it.'; missing++; }
       else if (s.status === 'missing') { s.status = s.prevStatus && s.prevStatus !== 'missing' ? s.prevStatus : 'unchecked'; s.statusNote = ''; }
@@ -335,6 +336,18 @@ class Library {
     const p = this.createPlaylist(nm.slice(0, 80));
     this.addToPlaylist(p.id, pick(pool.slice(), n));
     return { playlistId: p.id, name: p.name, added: p.songIds.length, matching: pool.length, enoughForGame: p.songIds.length >= MIN_SONGS };
+  }
+
+  /** Add a YouTube video as a song (Beta). meta = { id, title, artist, thumb } from YouTube's oEmbed. */
+  addYouTube(meta) {
+    const existing = this.data.songs.find(s => s.source === 'youtube' && s.youtubeId === meta.id);
+    if (existing) return { song: existing, already: true };
+    const song = { id: uid('s_'), source: 'youtube', youtubeId: meta.id, path: 'https://www.youtube.com/watch?v=' + meta.id, fileName: 'YouTube · ' + meta.id, ext: '.youtube',
+      title: meta.title || '', artist: meta.artist || '', year: null, tags: [], displayTitle: '', printTitle: '', duration: 0, width: 1280, height: 720, thumb: meta.thumb || null,
+      clipStart: null, clipEnd: null, size: 0, fingerprint: 'yt:' + meta.id, status: 'ok', statusNote: 'YouTube — needs internet at the venue', addedAt: new Date().toISOString() };
+    if (song.title && song.artist) { const k = songKey(song); const d = this.data.songs.find(s => songKey(s) === k); if (d) song.duplicateOf = d.id; }
+    this.data.songs.push(song); this.save();
+    return { song, already: false };
   }
 
   isPlayable(s) { return s && s.status === 'ok' && !!String(s.title || '').trim() && !!String(s.artist || '').trim(); }

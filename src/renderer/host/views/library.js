@@ -5,7 +5,7 @@ App.register('library', {
     el.classList.add('dropzone');
     el.innerHTML = `
       <div class="page-head"><div><div class="eyebrow">Song library</div><h1>Music Library</h1><p>Local music videos (MP4 H.264/AAC recommended). Drag files or folders anywhere on this page.</p></div>
-        <div class="row"><button class="btn" id="lFolderPl" title="Each sub-folder becomes a playlist">Import folders as playlists…</button><button class="btn" id="lFolder">Import folder</button><button class="btn primary" id="lFiles">Import videos</button></div></div>
+        <div class="row"><button class="btn" id="lFolderPl" title="Each sub-folder becomes a playlist">Import folders as playlists…</button><button class="btn" id="lYT" title="Beta — needs internet at the venue">＋ YouTube…</button><button class="btn" id="lFolder">Import folder</button><button class="btn primary" id="lFiles">Import videos</button></div></div>
       <div class="panel" style="margin-bottom:14px"><div class="row">
         <input type="search" id="lSearch" placeholder="Search title, artist or file…" style="width:280px" value="${esc(this.q)}">
         <select id="lTag" title="Filter by decade or tag"><option value="">All decades &amp; tags</option></select>
@@ -18,6 +18,16 @@ App.register('library', {
       </div>
       <div class="row" style="margin:0 4px 8px"><div id="lSummary" class="muted small grow"></div><span id="lAudio" class="muted small"></span><button class="btn sm ghost" id="lAudioPause">Pause analysis</button></div>
       <div class="panel" style="padding:8px 12px"><table class="list"><thead><tr><th style="width:30px"><input type="checkbox" id="lAll"></th><th style="width:76px"></th><th>Song</th><th>Duration</th><th title="Automatic volume levelling">Loudness</th><th>Clip</th><th>Status</th><th style="width:220px"></th></tr></thead><tbody id="lBody"></tbody></table></div>`;
+    $('#lYT', el).onclick = async () => {
+      const urls = await modal({ title: 'Add YouTube videos (Beta)', size: 'mid', body: `<p>Paste YouTube links, one per line (watch, youtu.be, shorts and music.youtube.com links all work).</p><textarea id="ytU" rows="6" style="width:100%" placeholder="https://www.youtube.com/watch?v=…"></textarea>
+        <div class="banner" style="margin-top:12px"><div class="grow small"><b>How YouTube songs work</b><br>They play in YouTube's own player on the TV, so the laptop needs <b>internet at the venue</b>. YouTube may show adverts. Volume levelling and “skip quiet intros” don't apply to them, and the song check can't preview them. If a video can't play on the night, it's skipped like any unplayable video. The TV's title and pattern panel move beside the player while a YouTube song plays. Local video files remain the most reliable choice.</div></div>`,
+        buttons: [{ label: 'Cancel', value: null }, { label: 'Add videos', kind: 'primary', value: (b) => b.querySelector('#ytU').value }] });
+      if (!urls || !urls.trim()) return;
+      toast('Getting video details from YouTube…');
+      const r = await api('library:addYouTube', { urls });
+      modal({ title: 'YouTube videos', size: 'mid', body: `<p><b>${r.added.length}</b> added${r.already.length ? ` · ${r.already.length} already in the library` : ''}${r.failed.length ? ` · <span style="color:var(--red)">${r.failed.length} could not be added</span>` : ''}.</p>${r.added.map(x => `<div class="check-row"><span class="ic ok">✓</span><div class="grow"><b>${esc(x.title)}</b> <span class="muted">${esc(x.artist)}</span></div></div>`).join('')}${r.failed.map(x => `<div class="check-row"><span class="ic bad">✕</span><div class="grow small"><b>${esc(x.url)}</b><div style="color:var(--red)">${esc(x.reason)}</div></div></div>`).join('')}<p class="muted small">Check the title and artist with <b>Edit</b> — they come from the YouTube video's name.</p>`, buttons: [{ label: 'Done', kind: 'primary', value: true }] });
+      this.load();
+    };
     $('#lFiles', el).onclick = async () => { const r = await api('library:pickFiles'); this.report(r); };
     $('#lFolder', el).onclick = async () => { const r = await api('library:pickFolder'); this.report(r); };
     $('#lFolderPl', el).onclick = async () => { const r = await api('library:pickFolderPlaylists'); if (r) { folderPlaylistReport(r); this.load(); } };
@@ -131,6 +141,7 @@ App.register('library', {
       if (s.status === 'needs-conversion') return '<span class="badge pink">QUEUED FOR CONVERSION</span>';
       if (s.status === 'converting') return `<span class="badge pink">CONVERTING ${(s.conversion && s.conversion.percent) || 0}%</span>`;
       if (!s.title || !s.artist) return '<span class="badge warn">NEEDS TITLE/ARTIST</span>';
+      if (s.source === 'youtube') return '<span class="badge ok">READY</span> <span class="badge" title="Plays from YouTube — needs internet">YOUTUBE</span>';
       return `<span class="badge ok">READY${s.height ? ' · ' + s.height + 'p' : ''}</span>${s.converted ? ` <span class="badge" title="Copy of ${esc(s.converted.from)}">${s.converted.optimised ? s.converted.maxHeight + 'p COPY' : 'CONVERTED'}</span>` : ''}${s.optimise ? ' <span class="badge pink">MAKING 720p COPY…</span>' : ''}`;
     };
     const PAGE = 200; this.shown = Math.max(this.shown || PAGE, PAGE);
@@ -162,7 +173,7 @@ App.register('library', {
 async function editSong(s, after) {
   const body = document.createElement('div');
   body.innerHTML = `
-    <video class="preview-video" controls preload="metadata" src="${fileUrl(s.path)}"></video>
+    ${s.source === 'youtube' ? `<div class="row" style="gap:14px;margin-bottom:10px">${s.thumb ? `<img src="${fileUrl(s.thumb)}" style="width:240px;border-radius:10px">` : ''}<div><span class="badge">YOUTUBE · BETA</span><p class="small">This song plays from YouTube on the TV. Open it in the browser to find a good clip start.</p><button class="btn sm" id="eYT">Open on YouTube</button></div></div><video hidden></video>` : `<video class="preview-video" controls preload="metadata" src="${fileUrl(s.path)}"></video>`}
     <div class="row" style="margin:8px 0 14px"><button class="btn sm" id="eSetS">Set clip start = now</button><button class="btn sm" id="eSetE">Set clip end = now</button><button class="btn sm ghost" id="eClr">Use default clip</button><span class="muted small grow" style="text-align:right">${s.duration ? 'Length ' + fmtTime(s.duration) : ''}</span></div>
     <div class="form-grid">
       <label class="field">Song title *<input type="text" id="eT" value="${esc(s.title)}"></label>
@@ -177,6 +188,7 @@ async function editSong(s, after) {
     ${s.audio && s.audio.introEnd > 0 ? `<p class="small" style="margin:0 0 8px"><span class="badge">INTRO ${fmtTime(s.audio.introEnd)}</span> The music starts at about <b>${fmtTime(s.audio.introEnd)}</b>. With <i>Skip quiet intros</i> on, clips start there unless you set a clip start.</p>` : ''}
     <p class="muted small">Leave clip end empty to use the game's clip length (20/30/40/60 s) from the clip start. File: ${esc(s.path)} <button class="btn sm ghost" id="eReveal">📂 Show in folder</button>${s.converted && s.converted.optimised ? ' <button class="btn sm ghost" id="eOrig">Use the original file again</button>' : ''}</p>`;
   body.querySelector('#eReveal').onclick = () => revealSong(s.id, after);
+  if (body.querySelector('#eYT')) body.querySelector('#eYT').onclick = () => api('library:showInFolder', { id: s.id });
   if (body.querySelector('#eOrig')) body.querySelector('#eOrig').onclick = async () => { if (await api('library:restoreOriginal', { id: s.id })) { toast('Using the original file again', 'ok'); closeTopModal(); if (after) after(); } };
   const v = body.querySelector('video');
   v.addEventListener('loadedmetadata', () => { if (s.clipStart) v.currentTime = s.clipStart; });

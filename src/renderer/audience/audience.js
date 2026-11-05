@@ -90,6 +90,15 @@
     cur = { token: cmd.token, clipStart: cmd.clipStart || 0, clipEnd: cmd.clipEnd, volume: cmd.volume != null ? cmd.volume : cur.volume, ended: false, test: !!cmd.test, start: cmd.start || 0, autoplay: cmd.autoplay };
     video.classList.remove('show');
     video.pause();
+    if (cmd.youtube) {
+      // YouTube song (Beta): official embedded player, never covered by the TV's own panels
+      video.removeAttribute('src'); video.load();
+      document.body.classList.add('yt-mode');
+      YTP.load({ id: cmd.youtube, start: cmd.start || 0, autoplay: !!cmd.autoplay, muted: MIRROR });
+      YTP.setVolume(effectiveVolume(cmd.start || 0));
+      return;
+    }
+    if (YTP.active) { YTP.clear(); document.body.classList.remove('yt-mode'); }
     video.src = cmd.href || fileHref(cmd.src);
     video.load();
     if (cmd.test) { showOverlay({ title: cmd.title, artist: cmd.artist, key: 'test' }); }
@@ -119,7 +128,7 @@
   function finish() {
     if (cur.ended) return;
     cur.ended = true;
-    video.pause();
+    video.pause(); if (YTP.active) YTP.pause();
     if (cur.test) { stopTest(); return; }
     report('player:ended', { token: cur.token });
   }
@@ -127,15 +136,25 @@
   function stopTest() { clear(); renderOverlay(); }
 
   function report(ch, data) { if (!MIRROR) window.cmb.invoke(ch, data); }
+  YTP.on('started', function () { if (!cur.test && !MIRROR) window.cmb.invoke('player:started', { token: cur.token }); });
+  YTP.on('ended', function () { finish(); });
+  YTP.on('error', function (msg) { if (cur.test) { stopTest(); return; } report('player:error', { token: cur.token, message: msg }); });
   // the second screen keeps to the main TV's position (drift corrected above 0.35 s)
   if (MIRROR) window.cmb.on('mirror-sync', function (d) {
+    if (d && YTP.active && d.token === cur.token) { if (Math.abs(YTP.time() - d.t) > 0.6) YTP.seek(d.t + 0.1); return; }
     if (!d || d.token !== cur.token || video.paused || video.readyState < 2) return;
     if (Math.abs(video.currentTime - d.t) > 0.35) { try { video.currentTime = d.t + 0.05; } catch (e) { /* */ } }
   });
 
   // High-resolution clip-end watch (timeupdate alone is only ~4 Hz)
   function watch() {
-    if (cur.token != null && !video.paused && !cur.ended) {
+    if (YTP.active && cur.token != null && YTP.isPlaying() && !cur.ended) {
+      var yt = YTP.time();
+      YTP.setVolume(effectiveVolume(yt));
+      if (cur.clipEnd != null && yt >= cur.clipEnd - 0.1) finish();
+      var nowY = performance.now();
+      if (nowY - lastReport > 250 && !cur.test && !MIRROR) { lastReport = nowY; window.cmb.send('player:time-sync', { token: cur.token, t: yt }); }
+    } else if (cur.token != null && !video.paused && !cur.ended) {
       var t = video.currentTime;
       setGain(effectiveVolume(t));
       if (cur.clipEnd != null && t >= cur.clipEnd - 0.04) finish();
@@ -160,14 +179,14 @@
   window.cmb.on('player', function (cmd) {
     switch (cmd.cmd) {
       case 'load': load(cmd); break;
-      case 'play': cur.ended = false; video.play().catch(function (e) { report('player:error', { token: cur.token, message: e.message }); }); break;
-      case 'pause': setGain(0, 0.01); setTimeout(function () { video.pause(); }, 40); break;
-      case 'stop': video.pause(); try { video.currentTime = cur.clipStart; } catch (e) { /* */ } video.classList.remove('show'); break;
-      case 'seek': try { video.currentTime = cmd.position; cur.ended = false; } catch (e) { /* */ } break;
-      case 'volume': cur.volume = cmd.volume; setGain(effectiveVolume(video.currentTime || 0)); break;
+      case 'play': if (YTP.active) { cur.ended = false; YTP.play(); break; } cur.ended = false; video.play().catch(function (e) { report('player:error', { token: cur.token, message: e.message }); }); break;
+      case 'pause': if (YTP.active) { YTP.pause(); break; } setGain(0, 0.01); setTimeout(function () { video.pause(); }, 40); break;
+      case 'stop': if (YTP.active) { YTP.pause(); YTP.seek(cur.clipStart); break; } video.pause(); try { video.currentTime = cur.clipStart; } catch (e) { /* */ } video.classList.remove('show'); break;
+      case 'seek': if (YTP.active) { YTP.seek(cmd.position); cur.ended = false; break; } try { video.currentTime = cmd.position; cur.ended = false; } catch (e) { /* */ } break;
+      case 'volume': cur.volume = cmd.volume; if (YTP.active) YTP.setVolume(effectiveVolume(YTP.time())); else setGain(effectiveVolume(video.currentTime || 0)); break;
       case 'audio': if (cmd.token == null || cmd.token === cur.token || cmd.token === -1 || cur.token == null) { audio = Object.assign(audio, { gainDb: cmd.gainDb || 0, fadeIn: cmd.fadeIn != null ? cmd.fadeIn : audio.fadeIn, fadeOut: cmd.fadeOut != null ? cmd.fadeOut : audio.fadeOut, muted: !!cmd.muted }); setGain(effectiveVolume(video.currentTime || 0)); } break;
       case 'clip': if (cmd.token === cur.token) { cur.clipStart = cmd.clipStart; cur.clipEnd = cmd.clipEnd; } break;
-      case 'clear': clearTimeout(pendingLoad); clear(); break;
+      case 'clear': clearTimeout(pendingLoad); if (YTP.active) { YTP.clear(); document.body.classList.remove('yt-mode'); } clear(); break;
     }
   });
 
@@ -480,6 +499,7 @@
   function applyAppSettings(a) {
     if (!a) return;
     lowRes = !!a.lowResource; document.documentElement.classList.toggle('low-res', lowRes);
+    if (a.youtube) YTP.config(a.youtube);
     slideCfg = a.slides || slideCfg; if (lastScreen && lastScreen.mode === 'intermission') runSlides(lastScreen);
     logoUrl = a.logo ? a.logo + '?v=' + Date.now() : null;
     var img = $('idleLogo');

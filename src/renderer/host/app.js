@@ -194,20 +194,38 @@
       const show = ['available', 'downloading', 'downloaded', 'portable-available'].includes(u.state);
       if (!show) { if (pill) pill.remove(); return; }
       if (!pill) { pill = document.createElement('button'); pill.id = 'updPill'; pill.className = 'btn sm primary'; pill.style.cssText = 'margin:0 18px 12px;'; document.getElementById('sideStatus').before(pill); pill.onclick = () => this.updateAction(); }
-      pill.textContent = u.state === 'downloaded' ? `⟳ Restart to update (${u.version})` : u.state === 'downloading' ? `⬇ Downloading ${u.version || ''} ${u.percent || 0}%` : `⬆ Update ${u.version} available`;
-      pill.disabled = u.state === 'downloading';
+      pill.textContent = u.state === 'downloaded' ? `⟳ Restart to finish updating` : u.state === 'downloading' ? `⬇ Updating… ${u.percent || 0}%` : `⬆ Update to ${u.version}`;
+      if (this._updDraw) this._updDraw(u);
     },
+    /** Click-to-update: Update → download with progress → Restart now / Later. */
     async updateAction() {
-      const u = this.update || {};
-      if (u.state === 'portable-available') return api('update:openPage');
-      if (u.state === 'available') { this.update = await api('update:download'); return this.drawUpdatePill(); }
-      if (u.state !== 'downloaded') return;
-      if (!await confirmBox(`Restart to update to ${u.version}?`, 'Anthem Square will close, install the update and reopen. Your game is saved and resumes exactly where it was (paused). Phones reconnect automatically.', 'Restart & update')) return;
-      try { await window.cmb.invoke('update:install', {}); }
-      catch (e) {
-        if (/playing/i.test(cleanErr(e)) && await confirmBox('A song is playing', esc(cleanErr(e)), 'Restart anyway', true)) await window.cmb.invoke('update:install', { force: true });
-        else if (!/playing/i.test(cleanErr(e))) toast(cleanErr(e), 'err');
-      }
+      const u0 = this.update || {};
+      if (u0.state === 'portable-available') { if (await confirmBox(`Anthem Square ${esc(u0.version)} is available`, 'This copy can’t update itself here (its folder can’t be written to). Open the download page to get the new version?', 'Open download page')) api('update:openPage'); return; }
+      if (this._updOpen) return; this._updOpen = true;
+      const body = document.createElement('div');
+      let close = null;
+      const draw = (u) => {
+        const mb = (n) => (n / 1048576).toFixed(0) + ' MB';
+        if (u.state === 'available') body.innerHTML = `<p><b>Anthem Square ${esc(u.version)}</b> is ready to download${u.size ? ` (${mb(u.size)})` : ''}. You're on ${esc(u.current || '')}.</p>${u.error ? `<p class="small" style="color:var(--amber)">${esc(u.error)}</p>` : ''}<p class="muted small">Your library, playlists, games and settings stay exactly as they are. <a href="#" id="updNotes">What's new</a></p><div class="row" style="justify-content:flex-end;margin-top:14px"><button class="btn" id="updLater">Later</button><button class="btn primary" id="updGo">⬇ Update now</button></div>`;
+        else if (u.state === 'downloading') body.innerHTML = `<p>Downloading <b>Anthem Square ${esc(u.version || '')}</b>…</p><div class="progress" style="height:14px"><div class="fill" style="width:${u.percent || 0}%"></div></div><div class="row" style="margin-top:8px"><span class="muted small grow">${u.percent || 0}%${u.size ? ' of ' + mb(u.size) : ''} — you can keep using the app.</span><button class="btn sm" id="updHide">Hide</button></div>`;
+        else if (u.state === 'downloaded') body.innerHTML = `<p>✓ <b>Anthem Square ${esc(u.version || '')}</b> is downloaded and ready.</p><p class="muted small">Restarting takes a few seconds. A game in progress is saved and resumes where it was (paused); phones reconnect by themselves.${u.mode === 'installer' ? ' If you choose Later, it installs the next time you close the app.' : ' If you choose Later, it is applied the next time you close the app.'}</p><div class="row" style="justify-content:flex-end;margin-top:14px"><button class="btn" id="updLater">Later</button><button class="btn primary" id="updRestart">⟳ Restart now</button></div>`;
+        else if (u.state === 'error') body.innerHTML = `<p style="color:var(--amber)">${esc(u.error || 'The update did not work.')}</p><div class="row" style="justify-content:flex-end"><button class="btn" id="updLater">Close</button><button class="btn" id="updPage">Open download page</button></div>`;
+        const on = (id, fn) => { const b = body.querySelector('#' + id); if (b) b.onclick = fn; };
+        on('updLater', () => close && close(null)); on('updHide', () => close && close(null));
+        on('updNotes', (e) => { e.preventDefault(); api('update:openPage'); });
+        on('updPage', () => api('update:openPage'));
+        on('updGo', async () => { this.update = await api('update:download'); this.drawUpdatePill(); });
+        on('updRestart', async () => {
+          try { await window.cmb.invoke('update:install', {}); }
+          catch (e) {
+            if (/playing/i.test(cleanErr(e))) { if (await confirmBox('A song is playing', esc(cleanErr(e)), 'Restart anyway', true)) await window.cmb.invoke('update:install', { force: true }); }
+            else toast(cleanErr(e), 'err');
+          }
+        });
+      };
+      this._updDraw = draw;
+      try { await modal({ title: '⬆ App update', body, onMount: (b, c) => { close = c; draw(this.update || u0); }, buttons: [] }); }
+      finally { this._updOpen = false; this._updDraw = null; }
     },
     /** Complete the current round (transition) — pending claims must be resolved first. */
     async completeRound() {

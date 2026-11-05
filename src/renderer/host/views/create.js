@@ -99,7 +99,7 @@ App.register('create', {
       <div class="form-grid">
         <label class="field">Default clip start (seconds into each video)<input type="number" id="gStart" min="0" step="1" value="${s.defaultStart}"></label>
         <label class="field">Gap between songs (seconds)<input type="number" id="gGap" min="0" max="30" value="${s.autoAdvanceGap}"></label>
-        <label class="field">Volume: <span id="gVolV">${s.volume}</span>%<input type="range" id="gVol" min="0" max="100" value="${s.volume}"></label>
+        <label class="field"><span>Volume: <b id="gVolV">${s.volume}</b>%</span><input type="range" id="gVol" min="0" max="100" value="${s.volume}"></label>
       </div>
       <div class="row" style="margin-top:16px;gap:28px">${toggleHtml('gShuf', 'Shuffle the playlist (saved before the game starts)', s.shuffle)}${toggleHtml('gSpread', 'Keep songs by the same artist apart', s.spreadArtists !== false)}${toggleHtml('gIntro', 'Skip quiet intros automatically', s.skipIntros !== false)}${toggleHtml('gAuto', 'Auto-play the next song', s.autoAdvance)}${toggleHtml('gOv', 'Show song title & artist on the TV', s.overlay.enabled)}</div>
       <p class="muted small"><b>Skip quiet intros:</b> each clip starts where the music actually begins (silent openings, dialogue and slow scenes are skipped), found by the volume analysis. A start point you set for a song, or a default clip start above 0, always wins. Individual songs can have their own start and end points — set them with <b>Edit</b> in the Music Library.</p>`;
@@ -109,37 +109,36 @@ App.register('create', {
   },
   step4(b) {
     const s = this.data.settings;
+    s.overlay = Object.assign({ titleSize: 64, artistSize: 38, opacity: 0.78 }, s.overlay); s.crawler = Object.assign({ height: 72, separator: 'diamond' }, s.crawler);
     b.innerHTML = `<h2>Audience screen</h2>
-      <div class="cols c2"><div>
+      <div class="cols tvp-cols"><div>
         <div class="form-grid">
           <label class="field">Winning-pattern panel<select id="gPP">${['top-right', 'top-left', 'bottom-right', 'bottom-left'].map(p => `<option ${s.patternPosition === p ? 'selected' : ''} value="${p}">${p.replace('-', ' ')}</option>`).join('')}</select></label>
           <label class="field">Song title position<select id="gOP">${['bottom-left', 'bottom-center', 'top-left'].map(p => `<option ${s.overlay.position === p ? 'selected' : ''} value="${p}">${p.replace('-', ' ')}</option>`).join('')}</select></label>
+          <label class="field"><span>Song title size: <b id="gTSV">${s.overlay.titleSize}</b>px</span><input type="range" id="gTS" min="36" max="110" value="${s.overlay.titleSize}"></label>
+          <label class="field">Reveal song title after<select id="gRev">${[0, 5, 10, 15, 20, 30].map(v => `<option value="${v}" ${Number(s.overlay.revealDelay || 0) === v ? 'selected' : ''}>${v ? v + ' seconds (guess first)' : 'Immediately'}</option>`).join('')}</select></label>
+          <label class="field"><span>Crawler speed: <b id="gCSV">${s.crawler.speed}</b>/10</span><input type="range" id="gCS" min="1" max="10" value="${s.crawler.speed}"></label>
+          <label class="field"><span>Crawler text size: <b id="gCFV">${s.crawler.fontSize}</b>px</span><input type="range" id="gCF" min="18" max="56" value="${s.crawler.fontSize}"></label>
+          <label class="field"><span>Crawler height: <b id="gCHV">${s.crawler.height}</b>px</span><input type="range" id="gCH" min="48" max="140" value="${s.crawler.height}"></label>
+          <label class="field">Crawler separator<select id="gSep">${['diamond', 'bar', 'dot', 'star', 'note'].map(p => `<option ${s.crawler.separator === p ? 'selected' : ''}>${p}</option>`).join('')}</select></label>
           <label class="field">We start at (welcome screen countdown)<input type="time" id="gStartAt" value="${esc((s.screens && s.screens.startTime) || '')}"></label>
           <label class="field">Welcome message (optional)<input type="text" id="gWMsg" maxlength="120" value="${esc((s.screens && s.screens.message) || '')}" placeholder="e.g. Grab your cards at the bar!"></label>
-          <label class="field">Reveal song title after<select id="gRev">${[0, 5, 10, 15, 20, 30].map(v => `<option value="${v}" ${Number(s.overlay.revealDelay || 0) === v ? 'selected' : ''}>${v ? v + ' seconds (guess first)' : 'Immediately'}</option>`).join('')}</select></label>
-          <label class="field">Crawler speed: <span id="gCSV">${s.crawler.speed}</span>/10<input type="range" id="gCS" min="1" max="10" value="${s.crawler.speed}"></label>
-          <label class="field">Crawler text size: <span id="gCFV">${s.crawler.fontSize}</span>px<input type="range" id="gCF" min="18" max="56" value="${s.crawler.fontSize}"></label>
         </div>
-        <p class="muted small">The TV shows only the music video, the song title &amp; artist, this round's winning pattern, and a scrolling list of every song played so far — directly below the video.</p>
+        <div class="row" style="margin-top:12px">${toggleHtml('gOvOn', 'Show song title & artist on the TV', s.overlay.enabled !== false)}</div>
+        <p class="muted small">The TV shows only the music video, the song title &amp; artist, the winning pattern${s.mode === 'checklist' ? ' (here: your rules checklist)' : ''}, and a scrolling list of every song played so far — directly below the video.</p>
       </div>
-      <div><div class="eyebrow" style="margin-bottom:8px">Layout preview</div>
-        <div style="aspect-ratio:16/9;background:#000;border-radius:10px;position:relative;overflow:hidden;display:flex;flex-direction:column">
-          <div style="flex:1;position:relative;background:linear-gradient(135deg,#3b1d6e,#7a1d63)">
-            <div id="pvPat" style="position:absolute;width:22%;padding:6px;background:rgba(26,16,51,.9);border:1px solid var(--pink);border-radius:6px">${patternGridHtml(CMBPatterns.examples(1)[0])}</div>
-            <div id="pvOv" style="position:absolute;background:rgba(15,9,30,.8);border-left:4px solid var(--pink);padding:6px 10px;border-radius:4px"><div class="display" style="font-size:16px">BILLIE JEAN</div><div class="small" style="color:var(--lilac)">Michael Jackson</div></div>
-          </div>
-          <div style="height:12%;background:#24164a;border-top:2px solid var(--pink);display:flex;align-items:center;font-size:11px;white-space:nowrap;overflow:hidden"><span style="background:var(--pink);padding:0 8px;height:100%;display:flex;align-items:center;font-weight:800">PLAYED</span>&nbsp; <span style="color:var(--pink)">01</span>&nbsp;<b>Dancing Queen</b>&nbsp;— <span class="muted">ABBA</span>&nbsp; <span style="color:var(--pink)">◆ 02</span>&nbsp;<b>Wonderwall</b>&nbsp;— <span class="muted">Oasis</span></div>
-        </div></div></div>`;
-    const pv = () => {
-      const pp = $('#gPP', b).value, op = $('#gOP', b).value; const P = $('#pvPat', b).style, O = $('#pvOv', b).style;
-      P.top = P.bottom = P.left = P.right = O.top = O.bottom = O.left = O.right = O.transform = '';
-      P[pp.startsWith('top') ? 'top' : 'bottom'] = '5%'; P[pp.endsWith('right') ? 'right' : 'left'] = '3%';
-      if (op === 'top-left') { O.top = '6%'; O.left = '4%'; } else { O.bottom = '8%'; if (op === 'bottom-center') { O.left = '50%'; O.transform = 'translateX(-50%)'; } else O.left = '4%'; }
+      <div><div id="gTvp"></div></div></div>`;
+    const prev = tvPreview($('#gTvp', b), { caption: 'Live TV preview — exactly what the TV will show' });
+    const read = () => {
+      s.patternPosition = $('#gPP', b).value;
+      Object.assign(s.overlay, { position: $('#gOP', b).value, titleSize: Number($('#gTS', b).value), artistSize: Math.round(Number($('#gTS', b).value) * 0.6), revealDelay: Number($('#gRev', b).value), enabled: $('#gOvOn', b).checked });
+      Object.assign(s.crawler, { speed: Number($('#gCS', b).value), fontSize: Number($('#gCF', b).value), height: Number($('#gCH', b).value), separator: $('#gSep', b).value });
+      [['gTSV', 'gTS'], ['gCSV', 'gCS'], ['gCFV', 'gCF'], ['gCHV', 'gCH']].forEach(([l, i]) => { $('#' + l, b).textContent = $('#' + i, b).value; });
+      prev.update({ overlay: s.overlay, crawler: s.crawler, patternPosition: s.patternPosition, mode: s.mode, checklist: s.checklist, rounds: App.settings.gameDefaults.rounds, roundCount: App.settings.gameDefaults.roundCount, name: this.data.name });
     };
-    pv(); $('#gPP', b).onchange = pv; $('#gOP', b).onchange = pv;
-    $('#gCS', b).oninput = e => { $('#gCSV', b).textContent = e.target.value; };
-    $('#gCF', b).oninput = e => { $('#gCFV', b).textContent = e.target.value; };
-    this.collectFn = () => { s.screens = Object.assign({ welcome: true, end: true }, s.screens || {}, { startTime: $('#gStartAt', b).value, message: $('#gWMsg', b).value }); s.overlay.revealDelay = Number($('#gRev', b).value); s.patternPosition = $('#gPP', b).value; s.overlay.position = $('#gOP', b).value; s.crawler.speed = Number($('#gCS', b).value); s.crawler.fontSize = Number($('#gCF', b).value); };
+    b.querySelectorAll('input, select').forEach(x => { x.addEventListener('input', read); x.addEventListener('change', read); });
+    read();
+    this.collectFn = () => { read(); prev.destroy(); s.screens = Object.assign({ welcome: true, end: true }, s.screens || {}, { startTime: $('#gStartAt', b).value, message: $('#gWMsg', b).value }); };
   },
   step5(b) {
     const d = this.data;

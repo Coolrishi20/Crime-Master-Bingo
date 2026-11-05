@@ -2,7 +2,7 @@
 <html lang="en" data-theme="dark">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self' file: data:; media-src file: data: blob:; img-src file: data: blob:; style-src 'self' 'unsafe-inline' file:; script-src 'self' file:">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' file: data:; media-src file: data: blob:; img-src file: data: blob:; style-src 'self' 'unsafe-inline' file:; script-src 'self' file:; frame-src https://www.youtube-nocookie.com https://www.youtube.com http://127.0.0.1:*">
 <title>Anthem Square — Audience</title>
 <link rel="stylesheet" href="../shared/theme.css">
 <link rel="stylesheet" href="audience.css">
@@ -79,6 +79,8 @@
 </div>
 <script src="../shared/patterns.js"></script>
 <script src="../shared/ticker.js"></script>
+<script src="preview-shim.js"></script>
+<script src="youtube.js"></script>
 <script src="audience.js"></script>
 </body>
 </html>

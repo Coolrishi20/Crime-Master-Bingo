@@ -11,6 +11,22 @@ const { Worker } = require('worker_threads');
 const { execFileSync } = require('child_process');
 const { gainFor, introEnd } = require('./loudness');
 
+/*
+ * The analysis worker is started from CODE, not from a file on disk. Files inside the packaged
+ * app (app.asar) can't be loaded by a worker thread, and the old "unpacked" copies next to the
+ * app could be removed by antivirus software or Windows temp clean-up (the portable EXE runs
+ * from %TEMP%) — which crashed the app at start-up (1.8.0, "ENOENT … loudness.js"). Reading the
+ * two source files from inside the package always works.
+ */
+let WORKER_CODE = null;
+function workerCode() {
+  if (WORKER_CODE) return WORKER_CODE;
+  const loud = fs.readFileSync(path.join(__dirname, 'loudness.js'), 'utf8');
+  const worker = fs.readFileSync(path.join(__dirname, 'audio-worker.js'), 'utf8').replace("require('./loudness')", '__loudness');
+  WORKER_CODE = 'const __loudness = (function () { const module = { exports: {} }; const exports = module.exports;\n' + loud + '\n; return module.exports; })();\n' + worker;
+  return WORKER_CODE;
+}
+
 function findFfmpeg(resourcesPath) {
   const exe = process.platform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg';
   const candidates = [];
@@ -68,6 +84,7 @@ class AudioAnalyser {
   }
 
   needs(s) {
+    if (s.source === 'youtube') return false; // nothing to decode: YouTube plays it
     if (['missing', 'unsupported', 'needs-conversion', 'converting'].includes(s.status) || !s.fingerprint) return false;
     const a = s.audio;
     if (!a) return true;
@@ -108,8 +125,9 @@ class AudioAnalyser {
 
   start(s) {
     s.audio = { status: 'analysing', fp: s.fingerprint };
-    const workerFile = path.join(__dirname, 'audio-worker.js').replace('app.asar' + path.sep, 'app.asar.unpacked' + path.sep);
-    const w = new Worker(workerFile, { workerData: { ffmpeg: this.ffmpeg, file: s.path, lowPriority: true } });
+    let w;
+    try { w = new Worker(workerCode(), { eval: true, workerData: { ffmpeg: this.ffmpeg, file: s.path, lowPriority: true } }); }
+    catch (e) { s.audio = { status: 'error', fp: s.fingerprint, error: 'Analysis unavailable: ' + e.message }; this.library.save(); this.onChange(); return; }
     this.running.set(s.id, w);
     this.onChange();
     const done = (msg) => {

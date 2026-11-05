@@ -1,5 +1,5 @@
 'use strict';
-const { app, BrowserWindow, ipcMain, dialog, screen, shell, Menu, powerSaveBlocker } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, screen, shell, Menu, powerSaveBlocker, net, session } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -138,8 +138,9 @@ function scanGameMedia() {
   const eng = engine; const map = {};
   const songs = Object.values(eng.game.songs);
   // async existence checks — a sleeping USB drive must not freeze the app
-  return Promise.all(songs.map(s => (s.path ? fs.promises.access(s.path).then(() => true, () => false) : Promise.resolve(false)).then(ok => {
-    if (!ok) map[s.id] = 'Video file missing — relink it or grant Technical Credit';
+  const online = net.isOnline();
+  return Promise.all(songs.map(s => (s.source === 'youtube' ? Promise.resolve(online) : s.path ? fs.promises.access(s.path).then(() => true, () => false) : Promise.resolve(false)).then(ok => {
+    if (!ok) map[s.id] = s.source === 'youtube' ? 'YouTube video — this laptop is offline' : 'Video file missing — relink it or grant Technical Credit';
     else { const l = library.get(s.id); if (l && l.status === 'unsupported') map[s.id] = 'Video cannot be played: ' + (l.statusNote || 'unsupported'); }
   }))).then(() => {
     if (engine !== eng) return;
@@ -248,9 +249,10 @@ function enrichUpNext(st, forPhone) {
   if (!n) return st;
   const gs = engine.game.songs[n.songId];
   const lib = library.get(n.songId);
-  const exists = !!(gs && gs.path && fs.existsSync(gs.path));
-  n.fileFound = exists;
-  if (!exists) { n.ready = false; n.problem = n.problem || 'Video file missing — relink it before it is due'; }
+  const yt = !!(gs && gs.source === 'youtube');
+  const exists = yt ? net.isOnline() : !!(gs && gs.path && fs.existsSync(gs.path));
+  n.fileFound = exists; n.youtube = yt;
+  if (!exists) { n.ready = false; n.problem = n.problem || (yt ? 'YouTube video — no internet connection' : 'Video file missing — relink it before it is due'); }
   n.levelling = lib && lib.audio ? lib.audio.status : 'pending';
   if (lib && lib.status === 'unsupported') { n.ready = false; n.problem = n.problem || ('Video cannot be played: ' + (lib.statusNote || 'unsupported')); }
   if (!forPhone && lib && lib.thumb) n.thumb = lib.thumb;
@@ -264,6 +266,36 @@ function fullHostState() {
   st.cardNumbers = { min: engine.game.cards.length ? Math.min(...engine.game.cards.map(c => c.no)) : null, max: engine.game.cards.length ? Math.max(...engine.game.cards.map(c => c.no)) : null };
   st.playlistName = engine.game.playlistName;
   return { game: st };
+}
+
+/* ---------------- YouTube songs (Beta) */
+function youtubeIdOf(u) {
+  const s = String(u || '').trim();
+  if (/^[A-Za-z0-9_-]{11}$/.test(s)) return s;
+  let m = /(?:youtube(?:-nocookie)?\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/|live\/|v\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/i.exec(s);
+  return m ? m[1] : null;
+}
+async function fetchWithTimeout(url, ms) {
+  const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), ms);
+  try { return await net.fetch(url, { signal: ctl.signal }); } finally { clearTimeout(t); }
+}
+/** Title, artist and thumbnail from YouTube's public oEmbed endpoint (also tells us if embedding is allowed). */
+async function youtubeMeta(id) {
+  const base = (IS_TEST && process.env.CMB_YT_OEMBED) || 'https://www.youtube.com/oembed?format=json&url=';
+  let res;
+  try { res = await fetchWithTimeout(base + encodeURIComponent('https://www.youtube.com/watch?v=' + id), 10000); } catch (e) { throw new Error('No internet connection — YouTube could not be reached'); }
+  if (res.status === 401 || res.status === 403) throw new Error('The video’s owner does not allow it to be played in other apps');
+  if (res.status === 404 || res.status === 400) throw new Error('Video not found, private or removed');
+  if (!res.ok) throw new Error('YouTube answered with an error (' + res.status + ')');
+  const j = await res.json();
+  const { parseFilename } = require('./mp4meta');
+  const g = parseFilename(String(j.title || '') + '.mp4');
+  const author = String(j.author_name || '').replace(/\s*-\s*Topic$/i, '').replace(/VEVO$/i, '').replace(/\s*Official$/i, '').trim();
+  const meta = { id, title: g.title || String(j.title || ''), artist: g.artist || author, thumb: null };
+  if (j.thumbnail_url && /^https:\/\//.test(j.thumbnail_url) || (IS_TEST && j.thumbnail_url)) {
+    try { const tr = await fetchWithTimeout(j.thumbnail_url, 8000); if (tr.ok) { const dir = path.join(DATA_DIR, 'thumbs'); fs.mkdirSync(dir, { recursive: true }); const f = path.join(dir, 'yt_' + id + '.jpg'); fs.writeFileSync(f, Buffer.from(await tr.arrayBuffer())); meta.thumb = f; } } catch (e) { /* thumbnail optional */ }
+  }
+  return meta;
 }
 
 /** Library import that also understands .m3u/.m3u8 files (dropped, picked or passed together with videos). */
@@ -315,7 +347,6 @@ function onEngineChanged(kind) {
   updateBackgroundWork();
   // keep the laptop awake while a game is live
   const live = engine.game.status === 'live';
-  if (!live && updater && updater.status.state === 'available' && settings.updates.auto !== false) updater.download();
   if (live && powerBlock === null) powerBlock = powerSaveBlocker.start('prevent-display-sleep');
   if (!live && powerBlock !== null) { powerSaveBlocker.stop(powerBlock); powerBlock = null; }
 }
@@ -553,6 +584,23 @@ const handlers = {
     return r.canceled ? null : library.importPaths(r.filePaths);
   },
   'library:importPaths': (paths) => importAny(paths),
+  'library:addYouTube': async ({ urls }) => {
+    const out = { added: [], already: [], failed: [] };
+    const ids = []; const seen = new Set();
+    String(urls || '').split(/[\r\n,]+/).map(x => x.trim()).filter(Boolean).forEach(u => {
+      const id = youtubeIdOf(u);
+      if (!id) { if (/list=/.test(u)) out.failed.push({ url: u, reason: 'Playlists are not supported — add the videos one by one' }); else out.failed.push({ url: u, reason: 'Not a YouTube video link' }); return; }
+      if (!seen.has(id)) { seen.add(id); ids.push([u, id]); }
+    });
+    for (const [u, id] of ids.slice(0, 200)) {
+      try {
+        const meta = await youtubeMeta(id);
+        const r = library.addYouTube(meta);
+        (r.already ? out.already : out.added).push({ id: r.song.id, title: r.song.title, artist: r.song.artist });
+      } catch (e) { out.failed.push({ url: u, reason: e.message }); }
+    }
+    return out;
+  },
   'library:bulkTag': ({ ids, add, remove, year }) => library.bulkTag(ids || [], { add, remove, year }),
   'library:tagSummary': () => library.tagSummary(),
   'playlists:build': (opts) => library.buildPlaylist(opts || {}),
@@ -824,7 +872,7 @@ const handlers = {
   'shell:open': (p) => shell.openPath(p),
   'shell:showItem': (p) => showInFolder(typeof p === 'string' ? p : (p && p.path)),
   /** Show a library video in File Explorer, highlighted. Missing → offer relink. */
-  'library:showInFolder': ({ id }) => { const s = library.get(id); if (!s) return { ok: false, reason: 'not-found', message: 'This song is no longer in the library.' }; return Object.assign(showInFolder(s.path), { id }); },
+  'library:showInFolder': ({ id }) => { const s = library.get(id); if (!s) return { ok: false, reason: 'not-found', message: 'This song is no longer in the library.' }; if (s.source === 'youtube') { shell.openExternal('https://www.youtube.com/watch?v=' + s.youtubeId); return { ok: true, opened: 'youtube' }; } return Object.assign(showInFolder(s.path), { id }); },
 
   /* host game */
   'game:state': () => fullHostState(),
@@ -856,9 +904,9 @@ const handlers = {
 
   /* audio levelling */
   'audio:status': () => (analyser ? analyser.status() : { available: false }),
-  'audio:pause': () => { analyser.setPaused(true); return analyser.status(); },
-  'audio:resume': () => { analyser.setPaused(false); return analyser.status(); },
-  'audio:reanalyse': ({ ids }) => { analyser.reanalyse(ids || library.songs().map(s => s.id)); return analyser.status(); },
+  'audio:pause': () => { if (!analyser) return { available: false }; analyser.setPaused(true); return analyser.status(); },
+  'audio:resume': () => { if (!analyser) return { available: false }; analyser.setPaused(false); return analyser.status(); },
+  'audio:reanalyse': ({ ids }) => { if (!analyser) return { available: false }; analyser.reanalyse(ids || library.songs().map(s => s.id)); return analyser.status(); },
 
   /* backup & restore */
   'backup:estimate': ({ id, includeMedia }) => backup.estimate(getGameObj(id), !!includeMedia),
@@ -935,6 +983,7 @@ const handlers = {
 function audienceAppSettings() {
   const sl = settings.slides || {};
   return { logo: settings.appearance.logo ? pathToFileURL(settings.appearance.logo).href : null, aspect: settings.video.aspect, audioDeviceId: settings.video.audioDeviceId, lowResource: lowRes(),
+    youtube: { embedBase: (IS_TEST && process.env.CMB_YT_EMBED) || 'https://www.youtube-nocookie.com/embed/' },
     slides: { enabled: sl.enabled !== false, seconds: Math.max(3, Math.min(60, Number(sl.seconds) || 8)), images: (sl.images || []).filter(i => fs.existsSync(i.file)).map(i => pathToFileURL(i.file).href) } };
 }
 
@@ -1086,7 +1135,9 @@ function preflight() {
   const add = (key, label, ok, detail, warn) => checks.push({ key, label, ok: !!ok, warn: !!warn && !ok, detail });
   if (!engine) return { checks: [{ key: 'game', label: 'Game loaded', ok: false, detail: 'Create or open a game first.' }] };
   const g = engine.game;
-  const missing = Object.values(g.songs).filter(s => !fs.existsSync(s.path));
+  const missing = Object.values(g.songs).filter(s => s.source !== 'youtube' && !fs.existsSync(s.path));
+  const ytSongs = Object.values(g.songs).filter(s => s.source === 'youtube');
+  if (ytSongs.length) add('youtube', 'YouTube songs (Beta)', net.isOnline(), `${ytSongs.length} song(s) play from YouTube — ${net.isOnline() ? 'internet connected. Adverts may play; volume levelling does not apply to them.' : 'NO internet connection: they will be skipped.'}`, true);
   add('songs', 'Playlist size', g.order.length >= cardsLib.MIN_SONGS, `${g.order.length} unique songs (minimum ${cardsLib.MIN_SONGS})`);
   add('media', 'Media files', missing.length === 0, missing.length ? `${missing.length} file(s) missing: ${missing.slice(0, 3).map(s => s.title).join(', ')} — use “Relink videos” (the printed song identity never changes)` : 'All video files found');
   const lib = library.songs().filter(s => g.songs[s.id]);
@@ -1119,21 +1170,65 @@ function preflight() {
   return { checks };
 }
 
+/* ---- portable self-update: download next to the EXE, verify, swap in after the app closes */
+function portableExe() { return process.env.PORTABLE_EXECUTABLE_FILE || process.execPath; }
+async function downloadPortableUpdate(asset, onProgress) {
+  const dir = path.dirname(portableExe());
+  const tmp = path.join(dir, '.anthem-square-update.download'); const done = path.join(dir, '.anthem-square-update.exe');
+  const res = await net.fetch(asset.url, { headers: { 'User-Agent': 'Anthem-Square-Updater' } });
+  if (!res.ok || !res.body) throw new Error('The download could not start (' + res.status + '). Check the internet connection and try again.');
+  const total = Number(res.headers.get('content-length')) || asset.size || 0;
+  const hash = require('crypto').createHash('sha256');
+  const out = fs.createWriteStream(tmp); let got = 0, lastPct = -1;
+  const reader = res.body.getReader();
+  try {
+    for (;;) {
+      const { done: end, value } = await reader.read(); if (end) break;
+      const buf = Buffer.from(value); hash.update(buf); got += buf.length;
+      if (!out.write(buf)) await new Promise(r => out.once('drain', r));
+      const pct = total ? Math.min(99, Math.floor(got / total * 100)) : 0; if (pct !== lastPct) { lastPct = pct; onProgress(pct); }
+    }
+  } catch (e) { out.destroy(); try { fs.unlinkSync(tmp); } catch (x) { /* */ } throw new Error('The download was interrupted. Try again when the connection is stable.'); }
+  await new Promise((r, j) => out.end(err => (err ? j(err) : r())));
+  if (asset.size && got !== asset.size) { try { fs.unlinkSync(tmp); } catch (x) { /* */ } throw new Error('The download was incomplete. Please try again.'); }
+  if (asset.digest && /^sha256:/i.test(asset.digest) && asset.digest.slice(7).toLowerCase() !== hash.digest('hex')) { try { fs.unlinkSync(tmp); } catch (x) { /* */ } throw new Error('The downloaded file did not pass its safety check. Please try again.'); }
+  try { fs.unlinkSync(done); } catch (x) { /* */ }
+  fs.renameSync(tmp, done);
+  return done;
+}
+/** A tiny helper waits for the app (and the portable launcher) to close, swaps the EXE in place, then reopens it. */
+function installPortableUpdate(file, relaunch) {
+  const exe = portableExe();
+  const helper = path.join(os.tmpdir(), 'anthem-square-update-' + Date.now() + '.cmd');
+  const script = ['@echo off', 'setlocal', 'set "OLD=%~1"', 'set "NEW=%~2"', 'set n=0',
+    ':move', 'timeout /t 1 /nobreak >nul', 'move /Y "%NEW%" "%OLD%" >nul 2>&1', 'if not errorlevel 1 goto moved',
+    'set /a n+=1', 'if %n% geq 90 goto done', 'goto move',
+    ':moved', relaunch ? 'start "" "%OLD%"' : 'rem no relaunch', ':done', '(goto) 2>nul & del "%~f0"'].join('\r\n') + '\r\n';
+  fs.writeFileSync(helper, script);
+  if (IS_TEST) { global.__updateInstall = { helper, exe, file, relaunch, script }; return; } // tests: inspect, don't quit
+  require('child_process').spawn('cmd.exe', ['/c', helper, exe, file], { detached: true, stdio: 'ignore', windowsHide: true }).unref();
+  if (relaunch) { app.isQuiting = true; app.quit(); }
+}
+
 /* App updates — optional; offline simply means "nothing to report". */
 function createUpdater() {
   const isPortable = !!process.env.PORTABLE_EXECUTABLE_DIR;
-  let mode = process.env.CMB_UPDATE_MODE || (!app.isPackaged ? 'disabled' : isPortable ? 'portable' : process.platform === 'win32' ? 'installer' : 'disabled');
+  let mode = (IS_TEST && process.env.CMB_UPDATE_MODE) || process.env.CMB_UPDATE_MODE || (!app.isPackaged ? 'disabled' : isPortable ? 'portable' : process.platform === 'win32' ? 'installer' : 'disabled');
   let autoUpdater = null;
   if (mode === 'installer') { try { autoUpdater = require('electron-updater').autoUpdater; } catch (e) { mode = 'disabled'; } }
   const u = new UpdateManager({
     currentVersion: app.getVersion(), mode, autoUpdater,
     fetchLatest: async () => {
       const { net } = require('electron');
-      const r = await net.fetch(`https://api.github.com/repos/${REPO.owner}/${REPO.repo}/releases/latest`, { headers: { 'User-Agent': 'Crime-Master-Bingo-Updater', Accept: 'application/vnd.github+json' } });
+      const api = (IS_TEST && process.env.CMB_UPDATE_API) || `https://api.github.com/repos/${REPO.owner}/${REPO.repo}/releases/latest`;
+      const r = await net.fetch(api, { headers: { 'User-Agent': 'Anthem-Square-Updater', Accept: 'application/vnd.github+json' } });
       if (!r.ok) throw new Error('HTTP ' + r.status);
       const j = await r.json();
-      return { version: j.tag_name, url: j.html_url };
+      return { version: j.tag_name, url: j.html_url, assets: (j.assets || []).map(a => ({ name: a.name, url: a.browser_download_url, size: a.size, digest: a.digest || null })) };
     },
+    canSelfUpdate: () => { try { fs.accessSync(path.dirname(portableExe()), fs.constants.W_OK); return true; } catch (e) { return false; } },
+    downloadPortable: (asset, onProgress) => downloadPortableUpdate(asset, onProgress),
+    installPortable: (file, relaunch) => installPortableUpdate(file, relaunch),
     isGameLive: () => !!(engine && engine.game.status === 'live'),
     isGamePlaying: () => !!(engine && ['playing', 'loading', 'between'].includes(engine.game.playback.status)),
     beforeInstall: () => { app.isQuiting = true; try { store.flush(); settings.cleanShutdown = true; store.writeNow('settings', settings); } catch (e) { /* */ } },
@@ -1163,7 +1258,16 @@ if (!gotLock) app.quit();
 else {
   app.on('second-instance', () => { if (hostWin) { if (hostWin.isMinimized()) hostWin.restore(); hostWin.focus(); } });
 
-  app.whenReady().then(async () => {
+  function youtubeReferrer() {
+  try {
+    session.defaultSession.webRequest.onBeforeSendHeaders({ urls: ['https://www.youtube-nocookie.com/embed/*', 'https://www.youtube.com/embed/*'] }, (d, cb) => {
+      if (!d.requestHeaders.Referer) d.requestHeaders.Referer = 'https://anthemsquare.app/';
+      cb({ requestHeaders: d.requestHeaders });
+    });
+  } catch (e) { /* not critical */ }
+}
+app.whenReady().then(async () => {
+  youtubeReferrer();
     Menu.setApplicationMenu(null);
     store = new Store(DATA_DIR);
     settings = loadSettings();
@@ -1173,7 +1277,8 @@ else {
     converter = new Converter({ dataDir: DATA_DIR, library, ffmpeg: require('./audio').findFfmpeg(process.resourcesPath), isAuto: () => settings.library.autoConvert !== false,
       hold: () => !!(engine && engine.game.status === 'live' && (lowRes() || ['playing', 'loading'].includes(engine.game.playback.status))), // TV video first
       onChange: () => { library.songs().forEach(s => { if (s.converted) relinkInGames(s); }); sendHost('library-convert', converter.status()); } });
-    analyser = new AudioAnalyser({ dataDir: DATA_DIR, library, resourcesPath: process.resourcesPath, onChange: () => sendHost('library-audio', analyser.status()) });
+    try { analyser = new AudioAnalyser({ dataDir: DATA_DIR, library, resourcesPath: process.resourcesPath, onChange: () => sendHost('library-audio', analyser.status()) }); }
+    catch (e) { analyser = null; console.error('Volume analysis unavailable:', e); } // the app must always open; levelling just stays off
     // Crash detection: cleanShutdown is cleared while running and set on normal exit.
     const lastGame = settings.lastGameId ? readGame(settings.lastGameId) : null;
     if (lastGame && lastGame.status !== 'finished') {
@@ -1187,6 +1292,7 @@ else {
 
   app.on('before-quit', () => {
     app.isQuiting = true;
+    if (updater && updater.onQuit) updater.onQuit(); // portable: a downloaded update is swapped in after closing
     try { if (store) { store.flush(); settings.cleanShutdown = true; store.writeNow('settings', settings); } } catch (e) { /* */ }
   });
   app.on('window-all-closed', () => app.quit());

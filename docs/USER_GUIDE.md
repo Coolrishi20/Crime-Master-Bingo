@@ -55,6 +55,17 @@ video stands out.
   if a flagged song is fine.
 - Moved your videos? **Relink folder…** finds them by file name.
 
+### YouTube songs (Beta) — *Music Library → ＋ YouTube…*
+Paste YouTube links, one per line (watch, youtu.be, shorts and music.youtube links all
+work). The app fills in the title, artist and thumbnail, and the songs are used like any
+other: playlists, cards, crawler.
+- They play on the TV in YouTube's own embedded player; nothing is downloaded. The song
+  title and winning-pattern panel move to a side column so the player is never covered.
+- Needs internet at the venue. Expect adverts. No volume levelling or intro skipping.
+- Some videos can't be embedded; the app says so when you add them.
+- **Edit → Open on YouTube** opens the video in your browser to check it.
+- This is a **Beta**: try a game at home first.
+
 ### Build a playlist — *Playlists*
 Create a playlist (e.g. *80s Classics*) and **Add songs**. Drag rows to reorder.
 A game needs **at least 40 unique, playable songs**. The playlist shows exactly how
@@ -113,8 +124,10 @@ The wizard has nine steps:
 2. **Playlist**: only playlists with 40+ songs can be chosen.
 3. **Playback**: clip length 20/30/**40**/60 s or full song, default start point, gap
    between songs, volume, shuffle, title overlay.
-4. **Audience screen**: where the winning-pattern panel and song title sit, and the
-   crawler speed and size (with a live preview).
+4. **Audience screen**: where the winning-pattern panel and song title sit, title size,
+   and the crawler speed, text size and height. A **live TV preview** beside the fields
+   shows the real TV screen, with your rules or checklist, and changes as you move each
+   slider. *Settings* has the same preview for your defaults.
 5. **Bingo cards**: how many (1–999). Clicking *Next* creates the game, shuffles and
    saves the play order, and generates the cards.
 6. **Printing**: see below.
@@ -437,17 +450,23 @@ immediately. You can change it live during a game (Host Game → TV crawler tab)
 game (Create Game, step 4). Choose **Immediately** to turn it off.
 
 ## 8. App updates
-The installed app keeps itself up to date from the official GitHub releases.
-- It checks quietly in the background and downloads new versions, but never during a
-  live game.
-- When an update is ready, a pink **⟳ Restart to update** button appears in the
-  sidebar. Click it when convenient. If a song is playing it asks first. Your game is
-  saved and reopens paused exactly where it was. Closing the app also installs a
-  waiting update.
+Both the installer and the portable EXE update themselves from the official GitHub releases,
+only when you click.
+1. The app checks quietly. When a new version exists, **⬆ Update to 2.x.x** appears in the
+   sidebar (and in *Settings → App updates*).
+2. Click it, then **⬇ Update now**. A progress bar shows the download; you can hide it and
+   keep working.
+3. When it's ready, choose:
+   - **⟳ Restart now**: the app closes and reopens on the new version. If a song is playing
+     it asks first. Your game is saved and reopens paused exactly where it was.
+   - **Later**: the update is installed the next time you close the app.
+- The portable EXE is replaced under the same file name, so your shortcuts still work. If
+  its folder can't be written to (for example a read-only USB stick), you get a download
+  link instead.
+- Every download is checked before use; a damaged one is deleted and you can try again.
 - **Settings → App updates** shows your version and has **Check now** and an
   **automatic checks** on/off switch.
 - No internet at the venue? Nothing happens; the app works fully offline.
-- The **portable** EXE can't replace itself, so it shows a download link instead.
 
 ## 9. Saving, recovery and backups
 

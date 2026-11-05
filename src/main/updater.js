@@ -2,11 +2,14 @@
 /**
  * App updates from the project's GitHub releases.
  *
+ * Click-to-update (same flow for both builds): the app checks quietly; when a new version
+ * exists the host clicks "Update", sees the download progress, then chooses "Restart now"
+ * (or later — an installer update then installs when the app is closed).
  * - Installer builds: electron-updater (latest.yml + blockmaps on the release).
- *   Checks quietly, downloads in the background when no game is live, and installs
- *   only when the host chooses "Restart to update" or when the app is closed.
- * - Portable builds can't replace themselves: they only get "a new version is
- *   available" with a link to the release page.
+ * - Portable builds: the new portable EXE is downloaded next to the current one, checked
+ *   (size + SHA-256 from GitHub), and swapped in by a tiny helper after the app closes, keeping
+ *   the same file name so shortcuts still work. If that folder can't be written, the host gets
+ *   the download link instead.
  * - Completely optional: offline / blocked networks simply mean "no update found";
  *   nothing ever interrupts a game.
  */
@@ -51,8 +54,7 @@ class UpdateManager {
       au.on('checking-for-update', () => this.set({ state: 'checking' }));
       au.on('update-not-available', () => this.set({ state: 'up-to-date', checkedAt: new Date().toISOString() }));
       au.on('update-available', (info) => {
-        this.set({ state: 'available', version: info.version, notes: info.releaseNotes || null, checkedAt: new Date().toISOString() });
-        if (!this.o.isGameLive || !this.o.isGameLive()) this.download();
+        this.set({ state: 'available', version: info.version, checkedAt: new Date().toISOString() }); // downloads only when the host clicks Update
       });
       au.on('download-progress', (p) => this.set({ state: 'downloading', percent: Math.round(p.percent || 0) }));
       au.on('update-downloaded', (info) => this.set({ state: 'downloaded', version: info.version, percent: 100 }));
@@ -62,7 +64,7 @@ class UpdateManager {
 
   set(patch) {
     this.status = Object.assign({}, this.status, patch);
-    if (patch.state && patch.state !== 'error') delete this.status.error;
+    if (patch.state && patch.state !== 'error' && !('error' in patch)) delete this.status.error; // keep a message that comes with this change
     if (this.o.onChange) this.o.onChange(this.status);
   }
 
@@ -87,7 +89,9 @@ class UpdateManager {
       } else {
         this.set({ state: 'checking' });
         const latest = await this.o.fetchLatest();
-        if (latest && compareVersions(latest.version, this.current) > 0) this.set({ state: 'portable-available', version: latest.version.replace(/^v/, ''), url: latest.url || RELEASES_URL, checkedAt: new Date().toISOString() });
+        const asset = latest && (latest.assets || []).find(a => /Portable.*\.exe$/i.test(a.name));
+        if (latest && compareVersions(latest.version, this.current) > 0 && asset && this.o.canSelfUpdate && this.o.canSelfUpdate()) { this.latest = Object.assign({}, latest, { asset }); this.set({ state: 'available', version: latest.version.replace(/^v/, ''), url: latest.url || RELEASES_URL, size: asset.size, checkedAt: new Date().toISOString() }); }
+        else if (latest && compareVersions(latest.version, this.current) > 0) this.set({ state: 'portable-available', version: latest.version.replace(/^v/, ''), url: latest.url || RELEASES_URL, checkedAt: new Date().toISOString() });
         else this.set({ state: 'up-to-date', checkedAt: new Date().toISOString() });
       }
     } catch (e) {
@@ -98,9 +102,17 @@ class UpdateManager {
   }
 
   async download() {
-    if (this.mode !== 'installer' || !['available', 'error'].includes(this.status.state) || !this.status.version) return this.status;
+    if (!['available', 'error'].includes(this.status.state) || !this.status.version) return this.status;
     this.set({ state: 'downloading', percent: 0 });
-    try { await this.o.autoUpdater.downloadUpdate(); } catch (e) { this.set({ state: 'available', error: friendly(e) }); }
+    if (this.mode === 'portable') {
+      try {
+        const file = await this.o.downloadPortable(this.latest.asset, (pct) => { if (pct !== this.status.percent) this.set({ state: 'downloading', percent: pct }); });
+        this.set({ state: 'downloaded', percent: 100, file });
+      } catch (e) { this.set({ state: 'available', error: e.message || friendly(e) }); }
+      return this.status;
+    }
+    // installer: progress arrives through electron-updater's events
+    this.o.autoUpdater.downloadUpdate().catch(e => this.set({ state: 'available', error: friendly(e) }));
     return this.status;
   }
 
@@ -112,9 +124,12 @@ class UpdateManager {
       e.code = 'PLAYING'; throw e;
     }
     if (this.o.beforeInstall) this.o.beforeInstall();
+    if (this.mode === 'portable') { this.o.installPortable(this.status.file, true); return true; }
     this.o.autoUpdater.quitAndInstall(true, true);
     return true;
   }
+  /** Portable: a downloaded update that wasn't installed is still swapped in when the app closes. */
+  onQuit() { if (this.mode === 'portable' && this.status.state === 'downloaded' && this.status.file && this.o.installPortable) { try { this.o.installPortable(this.status.file, false); } catch (e) { /* next time */ } } }
 
   stop() { clearInterval(this.timer); }
 }

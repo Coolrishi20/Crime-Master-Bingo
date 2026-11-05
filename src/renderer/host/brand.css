@@ -203,3 +203,11 @@ html[data-theme] .sc-title { font-family: var(--display); font-weight: 800; font
 
 html[data-theme] .sl-thumb { width: 150px; display: flex; flex-direction: column; gap: 4px; }
 html[data-theme] .sl-thumb img { width: 150px; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 8px; background: #0B1B31; }
+
+/* live TV preview */
+html[data-theme] .tvp-cols { grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); align-items: start; }
+html[data-theme] .tvp { position: sticky; top: 0; }
+html[data-theme] .tvp-frame { position: relative; width: 100%; overflow: hidden; border-radius: 12px; background: #000; box-shadow: 0 0 0 1px var(--border); }
+html[data-theme] .tvp-frame iframe { position: absolute; left: 0; top: 0; border: 0; transform-origin: 0 0; pointer-events: none; }
+html[data-theme] .tvp-cap { margin-top: 6px; font-size: 12px; color: var(--lav); }
+@media (max-width: 1150px) { html[data-theme] .tvp-cols { grid-template-columns: 1fr; } }

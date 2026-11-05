@@ -1,3 +1,56 @@
+## Anthem Square 2.0.0 — click-to-update, live TV preview, YouTube (Beta) and a start-up fix
+
+2.0 includes everything from 1.9.0 (templates, smart playlists, song check, intermission
+slides, second TV) plus the following.
+
+### Fixed: the portable EXE could fail to open (1.8.0 / 1.9.0)
+- Some laptops showed *“Uncaught Exception … ENOENT … loudness.js”* when opening the portable
+  EXE. Windows or the antivirus had cleaned out part of the temporary folder the portable EXE
+  unpacks into.
+- The app no longer needs any unpacked files, so this can't happen any more. If volume
+  analysis ever fails, the app still opens and the songs simply play at their own volume.
+
+### Click to update — with a progress bar and “Restart now”
+- When a new version is out, the sidebar shows **⬆ Update to 2.x.x**. Click it, then
+  **⬇ Update now**: the new version downloads with a progress bar while you keep working.
+- When it's done, choose **⟳ Restart now** (the app reopens on the new version, your game
+  saved and paused exactly where it was) or **Later** (it is installed when you next close the
+  app).
+- This now works for **both** the installer and the **portable EXE**. The portable EXE swaps
+  itself in place under the same file name, so shortcuts and pinned icons keep working. Every
+  download is checked (size and SHA-256 from GitHub) before it is used; a damaged download is
+  thrown away and you can retry.
+- Nothing downloads without your click, and a restart during a song asks first.
+- *Note:* 1.8.0/1.9.0 portable users need to download 2.0.0 by hand once. From 2.0 on, it's
+  one click.
+
+### Live TV preview
+- **Create Game → Audience screen** and **Settings** now show a live, scaled-down copy of the
+  real TV screen. Move a slider and it changes immediately:
+  - crawler speed, text size, height and separator;
+  - the winning-pattern panel corner, with your actual rounds or your Rules Checklist;
+  - song title position, size, background and reveal;
+  - picture fit (fit / fill / stretch).
+- It uses your own song titles and a video thumbnail from your library, so what you see is
+  what the room sees.
+
+### YouTube songs (Beta)
+- **Music Library → ＋ YouTube…**: paste one or more YouTube links (one per line). The app
+  fetches the title, artist and thumbnail; they behave like any other song in playlists, cards
+  and the crawler.
+- They play through YouTube's **official embedded player** on the TV. Nothing is downloaded.
+- **Please read the limits:**
+  - it needs a working internet connection at the venue;
+  - YouTube may show adverts;
+  - volume levelling and quiet-intro detection don't apply;
+  - some owners block embedding (the app tells you when you add the link);
+  - the song check skips YouTube songs.
+- The pre-flight test warns when a game contains YouTube songs and the laptop is offline.
+  If a YouTube video fails during a game, the app moves on as with any broken video
+  (Technical Credit).
+- **Beta:** tested against a stand-in for YouTube's player, not against live YouTube. Try it
+  at home before relying on it at a venue.
+
 ## Anthem Square 1.9.0 — templates, smart playlists, song check, slides and a second TV
 
 ### Game templates

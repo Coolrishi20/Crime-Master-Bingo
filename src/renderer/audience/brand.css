@@ -74,3 +74,19 @@ html.low-res .im-slides img { transition: none; }
 
 /* second screen (mirror) — identical picture, silent */
 html.mirror #video { pointer-events: none; }
+
+/* YouTube songs (Beta): the official player is never covered. It takes the left of the stage;
+   the song title and the pattern/checklist panel move into a side column. */
+#ytFrame { position: absolute; left: 0; top: 0; bottom: 0; width: 76%; height: 100%; border: 0; background: #000; }
+body.yt-mode #video { display: none; }
+body.yt-mode #stage { background: #0B1B31; }
+body.yt-mode #pattern { left: auto !important; right: 1.2% !important; top: 3% !important; bottom: auto !important; width: 21.5% !important; }
+body.yt-mode #overlay { left: auto !important; right: 1.2% !important; bottom: 4% !important; top: auto !important; transform: none !important; max-width: 21.5% !important; width: 21.5%; }
+body.yt-mode #overlay #ovTitle { white-space: normal; font-size: calc(var(--title-size, 64px) * var(--s) * .55); }
+body.yt-mode #overlay #ovArtist { white-space: normal; font-size: calc(var(--artist-size, 38px) * var(--s) * .6); }
+body.yt-mode .yt-badge { display: block; }
+
+/* preview mode (Create Game / Settings): a still picture stands in for the music video */
+html.preview #stage { background: #0B1B31 var(--preview-bg, none) center / cover no-repeat; }
+html.preview #idle { display: none !important; }
+html.preview #video { display: none; }

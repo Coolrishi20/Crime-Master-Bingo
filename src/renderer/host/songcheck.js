@@ -53,6 +53,7 @@
       stop(); const s = list[i]; draw(); $b('#scErr').hidden = true;
       const st = startFor(s);
       if (s.status === 'missing' || !s.path) return fail('File missing');
+      if (s.source === 'youtube') { v.removeAttribute('src'); $b('#scErr').hidden = false; $b('#scErr').textContent = 'YouTube song — it plays on the TV only; check it with Edit → Open on YouTube'; timer = setTimeout(() => next(), 1800); return; }
       v.src = fileUrl(s.path);
       v.onloadedmetadata = () => { try { v.currentTime = Math.min(st.t, Math.max(0, (v.duration || st.t + 1) - 1)); } catch (e) { /* */ } if (!paused) v.play().catch(() => {}); };
       v.onerror = () => fail('This video will not play');

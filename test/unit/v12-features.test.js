@@ -24,11 +24,14 @@ test('version comparison', () => {
   assert.strictEqual(compareVersions('1.2', '1.2.0'), 0);
 });
 
-test('installer: finds, downloads in the background and installs only when asked', async () => {
+test('installer: click-to-update — finds it, downloads only when the host clicks, installs only when asked', async () => {
   const au = fakeUpdater({ version: '1.3.0' }); const seen = [];
   const u = new UpdateManager(Object.assign({ currentVersion: '1.2.0', mode: 'installer', autoUpdater: au, isGameLive: () => false, isGamePlaying: () => false, onChange: (s) => seen.push(s.state) }, noTimers));
   assert.strictEqual(au.autoDownload, false); assert.strictEqual(au.autoInstallOnAppQuit, true);
   await u.check(false); await new Promise(r => setImmediate(r));
+  assert.strictEqual(u.status.state, 'available', 'found, not downloaded by itself'); assert.ok(!au.calls.includes('download'));
+  await u.download(); await new Promise(r => setImmediate(r));
+  assert.ok(seen.includes('downloading'), 'progress shown');
   assert.strictEqual(u.status.state, 'downloaded'); assert.strictEqual(u.status.version, '1.3.0');
   assert.ok(!au.calls.includes('install'), 'never installs by itself');
   u.install(false);

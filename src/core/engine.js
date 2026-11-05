@@ -299,7 +299,7 @@ class GameEngine {
   loadCmd(index, position, autoplay) {
     const song = this.song(this.game.order[index]);
     const clip = this.clipFor(song);
-    return { cmd: 'load', token: this.loadToken, index, src: song.path, start: position != null ? position : clip.start, clipStart: clip.start, clipEnd: clip.end, autoplay, volume: this.settings.volume, audio: this.audioFor(song, clip) };
+    return { cmd: 'load', token: this.loadToken, index, src: song.path, youtube: song.source === 'youtube' ? song.youtubeId : undefined, start: position != null ? position : clip.start, clipStart: clip.start, clipEnd: clip.end, autoplay, volume: this.settings.volume, audio: this.audioFor(song, clip) };
   }
 
   loadIndex(index, { autoplay = true, position = null } = {}) {
@@ -1746,7 +1746,7 @@ function createGame({ name, date, venue, logo, songs, playlistId, playlistName, 
   if (ids.length < MIN_SONGS) throw new Error(`A game needs at least ${MIN_SONGS} unique songs — add ${MIN_SONGS - ids.length} more.`);
   const map = {};
   songs.forEach(s => {
-    map[s.id] = { id: s.id, title: s.title, artist: s.artist, displayTitle: s.displayTitle || '', printTitle: s.printTitle || '', path: s.path, fileName: s.fileName || '', size: s.size || 0, fingerprint: s.fingerprint || '', duration: s.duration || 0, clipStart: s.clipStart != null ? s.clipStart : null, clipEnd: s.clipEnd != null ? s.clipEnd : null };
+    map[s.id] = { id: s.id, source: s.source || undefined, youtubeId: s.youtubeId || undefined, title: s.title, artist: s.artist, displayTitle: s.displayTitle || '', printTitle: s.printTitle || '', path: s.path, fileName: s.fileName || '', size: s.size || 0, fingerprint: s.fingerprint || '', duration: s.duration || 0, clipStart: s.clipStart != null ? s.clipStart : null, clipEnd: s.clipEnd != null ? s.clipEnd : null };
   });
   const st = Object.assign(defaultGameSettings(), settings || {});
   st.audio = Object.assign(defaultAudio(), (settings && settings.audio) || {});

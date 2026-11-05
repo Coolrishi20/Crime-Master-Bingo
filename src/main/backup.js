@@ -58,7 +58,7 @@ function mediaManifest(game) {
 function estimate(game, includeMedia) {
   const gameBytes = Buffer.byteLength(JSON.stringify(game));
   let mediaBytes = 0; const missing = [];
-  if (includeMedia) Object.values(game.songs).forEach(s => { try { mediaBytes += fs.statSync(s.path).size; } catch (e) { missing.push({ songId: s.id, title: s.title }); } });
+  if (includeMedia) Object.values(game.songs).forEach(s => { if (s.source === 'youtube') return; try { mediaBytes += fs.statSync(s.path).size; } catch (e) { missing.push({ songId: s.id, title: s.title }); } });
   return { gameBytes, mediaBytes, totalBytes: gameBytes + mediaBytes, songs: Object.keys(game.songs).length, cards: game.cards.length, missing };
 }
 
