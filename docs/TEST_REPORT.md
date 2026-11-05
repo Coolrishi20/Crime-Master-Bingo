@@ -15,7 +15,25 @@
 - **Logo:** traced from the supplied artwork (potrace) and recoloured. Rebuilt from
   `tools/brand/`: SVG icons, PNGs from 16 to 1024 px, the `.ico`, lock-ups, print and
   one-colour versions.
-- **Regression:** see the table below (all re-run on this build).
+- **Regression (all re-run on this build):**
+
+  | Suite | Result |
+  |---|---|
+  | v24 | 33/33 |
+  | v23 | 28/28 |
+  | v22 | 12/12 |
+  | v21 | 14/14 |
+  | v20 | 26/26 |
+  | v19 | 9/9 |
+  | v18 | 10/10 |
+  | v17 | 22/22 |
+  | v16 | 34/34 |
+  | acceptance | 85/85 |
+  | v15 | 28/28 |
+  | v14 | 38/38 |
+  | v13 | 13/13 |
+  | print | 12/12 |
+  | reveal | 7/7 |
 
 
 ## v2.4.0 (media check, presets + pacing, Ready for Bingo?, backups, usage report, onboarding, signed updates)
