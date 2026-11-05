@@ -1,3 +1,18 @@
+## Anthem Square 2.5.2 — quieter portable updates
+
+- **Fixed:** after clicking *Restart now* on the portable EXE, a “timeout /t 1 /nobreak” window
+  kept flashing for about 90 seconds. Closing the app started a second swap helper that had
+  nothing left to do and kept retrying in a visible window. The update itself was already
+  installed.
+  - Only one helper now runs.
+  - It runs hidden.
+  - It stops as soon as the swap is done.
+  - A newly opened app ends any helper an older version left running.
+- The previous version is kept once for *Go back* (instead of being copied every second while
+  waiting), and *Go back* is only offered when that copy really is a different version.
+- **Note:** this update is installed by the version you are on now (2.5.1 or older). It may show
+  the flashing window one last time, briefly, until 2.5.2 starts and ends the helper.
+
 ## Anthem Square 2.5.1 — signed updates switched on
 
 - The first release signed with Anthem Square's update key. From now on, copies on 2.4 or

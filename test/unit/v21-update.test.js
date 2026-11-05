@@ -50,3 +50,12 @@ test('portable: folder not writable → download link instead; failed download �
   const same = make({ currentVersion: '2.1.0' }); await same.u.check(true); assert.strictEqual(same.u.status.state, 'up-to-date');
   same.u.onQuit(); assert.strictEqual(same.calls.installs.length, 0, 'nothing to apply');
 });
+
+test('portable: Restart now starts exactly ONE swap helper — closing the app afterwards does not start a second', async () => {
+  const { u, calls } = make();
+  await u.check(true); await u.download();
+  u.install(false);
+  u.onQuit(); // the app closes as part of the restart
+  assert.strictEqual(calls.installs.length, 1, 'a second helper used to retry for ~90 s with a flashing window');
+  assert.strictEqual(u.status.state, 'installing');
+});

@@ -85,6 +85,11 @@ const waitFor = async (fn, ms = 20000) => { const t = Date.now(); while (Date.no
   await host.click('#updRestart'); await sleep(500);
   const inst = await app.evaluate(() => global.__updateInstall);
   ok(inst && inst.exe === EXE && inst.file === staged && inst.relaunch === true && /move \/Y "%NEW%" "%OLD%"/.test(inst.script) && /start "" "%OLD%"/.test(inst.script), 'Restart now swaps the EXE in place (same name, shortcuts keep working) and reopens it');
+  ok(inst.launcher.includes('.Run "cmd.exe /c ' + '""""') && inst.launcher.includes(', 0, False') && inst.script.indexOf('copy /Y') < inst.script.indexOf(':move') && inst.script.includes('if not exist "%NEW%" goto done'),
+    'The swap helper runs hidden (no console windows), keeps the old version once, and stops as soon as the swap is done', inst.launcher.trim());
+  await app.evaluate(() => global.__cmb.updater.onQuit());
+  const again = await app.evaluate(() => global.__updateInstall.helper);
+  ok(again === inst.helper, 'Closing the app after Restart now does not start a second helper');
   await app.close(); srv.close();
   console.log(failed ? `\n${failed} FAILED` : '\nALL PASSED');
   process.exit(failed ? 1 : 0);

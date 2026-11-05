@@ -1,3 +1,16 @@
+# Anthem Square — Test report (v2.5.2)
+
+## v2.5.2 (portable update helper)
+- **Unit tests: 211 / 211 passed.** New: *Restart now* followed by closing the app starts
+  exactly one swap helper.
+- **`v22-preview-update.js`: 14 / 14 passed.** New checks:
+  - the helper is launched hidden (Windows Script Host, window style 0);
+  - the old version is copied once before waiting;
+  - the helper stops when there is nothing left to swap;
+  - closing after *Restart now* does not start a second helper.
+- **Not tested here:** the hidden launch on a real Windows PC (it falls back to the old, visible
+  helper if Windows Script Host is unavailable).
+
 # Anthem Square — Test report (v2.5.0)
 
 ## v2.5.0 (new logo, simpler Settings page)

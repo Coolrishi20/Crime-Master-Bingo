@@ -1460,17 +1460,39 @@ async function downloadPortableUpdate(asset, onProgress, release) {
   return done;
 }
 /** A tiny helper waits for the app (and the portable launcher) to close, swaps the EXE in place, then reopens it. */
+let portableSwapStarted = false;
 function installPortableUpdate(file, relaunch) {
+  if (portableSwapStarted) return; // one helper per session (closing the app must not start a second one)
+  portableSwapStarted = true;
   const exe = portableExe();
-  const helper = path.join(os.tmpdir(), 'anthem-square-update-' + Date.now() + '.cmd');
+  const stamp = Date.now();
+  const helper = path.join(os.tmpdir(), 'anthem-square-update-' + stamp + '.cmd');
   const script = ['@echo off', 'setlocal', 'set "OLD=%~1"', 'set "NEW=%~2"', 'set n=0',
-    ':move', 'timeout /t 1 /nobreak >nul', 'copy /Y "%OLD%" "%~dp1.anthem-square-previous.exe" >nul 2>&1', 'move /Y "%NEW%" "%OLD%" >nul 2>&1', 'if not errorlevel 1 goto moved',
+    'copy /Y "%OLD%" "%~dp1.anthem-square-previous.exe" >nul 2>&1', // the version being replaced, for "Go back" (once)
+    ':move', 'if not exist "%NEW%" goto done', 'timeout /t 1 /nobreak >nul', 'move /Y "%NEW%" "%OLD%" >nul 2>&1', 'if not errorlevel 1 goto moved',
     'set /a n+=1', 'if %n% geq 90 goto done', 'goto move',
     ':moved', relaunch ? 'start "" "%OLD%"' : 'rem no relaunch', ':done', '(goto) 2>nul & del "%~f0"'].join('\r\n') + '\r\n';
   fs.writeFileSync(helper, script);
-  if (IS_TEST) { global.__updateInstall = { helper, exe, file, relaunch, script }; return; } // tests: inspect, don't quit
-  require('child_process').spawn('cmd.exe', ['/c', helper, exe, file], { detached: true, stdio: 'ignore', windowsHide: true }).unref();
-  if (relaunch) { app.isQuiting = true; app.quit(); }
+  // Run it hidden: a tiny Windows Script Host launcher starts cmd with a hidden console, so the
+  // one-second waits never open a window. If Script Host is unavailable, start cmd directly.
+  const vbs = path.join(os.tmpdir(), 'anthem-square-update-' + stamp + '.vbs');
+  // cmd /c ""a" "b" "c"" — the outer pair is stripped by cmd, so paths with spaces stay intact; VBS doubles each quote
+  const cmdline = 'cmd.exe /c ""' + [helper, exe, file].map(x => String(x).replace(/"/g, '')).join('" "') + '""';
+  fs.writeFileSync(vbs, 'CreateObject("WScript.Shell").Run "' + cmdline.replace(/"/g, '""') + '", 0, False\r\n' +
+    'CreateObject("Scripting.FileSystemObject").DeleteFile WScript.ScriptFullName, True\r\n');
+  if (IS_TEST) { global.__updateInstall = { helper, vbs, exe, file, relaunch, script, launcher: fs.readFileSync(vbs, 'utf8') }; return; } // tests: inspect, don't quit
+  const cp = require('child_process');
+  const direct = () => { try { cp.spawn('cmd.exe', ['/c', helper, exe, file], { detached: true, stdio: 'ignore', windowsHide: true }).unref(); } catch (e) { /* */ } };
+  try { const w = cp.spawn(path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'wscript.exe'), ['//B', '//NoLogo', vbs], { detached: true, stdio: 'ignore', windowsHide: true }); w.on('error', direct); w.unref(); }
+  catch (e) { direct(); }
+  if (relaunch) { app.isQuiting = true; setTimeout(() => app.quit(), 300); }
+}
+/* At start-up: end any update helper an older version left running (deleting its script stops
+   cmd at the next line) and remove a stale downloaded update. */
+function cleanupUpdateLeftovers() {
+  if (process.platform !== 'win32') return;
+  try { fs.readdirSync(os.tmpdir()).filter(f => /^anthem-square-update-\d+\.(cmd|vbs)$/.test(f)).forEach(f => { try { fs.unlinkSync(path.join(os.tmpdir(), f)); } catch (e) { /* in use */ } }); } catch (e) { /* */ }
+  try { const left = path.join(path.dirname(portableExe()), '.anthem-square-update.exe'); if (fs.existsSync(left) && Date.now() - fs.statSync(left).mtimeMs > 10 * 60000) fs.unlinkSync(left); } catch (e) { /* */ }
 }
 
 async function fetchRelease(tag) {
@@ -1484,7 +1506,9 @@ async function fetchRelease(tag) {
    the installer build downloads that version's signed installer. Never during a game. */
 function rollbackInfo() {
   const prev = settings.updates && settings.updates.previous;
-  const portablePrev = !!process.env.PORTABLE_EXECUTABLE_DIR && fs.existsSync(path.join(path.dirname(portableExe()), '.anthem-square-previous.exe'));
+  const prevFile = path.join(path.dirname(portableExe()), '.anthem-square-previous.exe');
+  let portablePrev = false;
+  try { portablePrev = !!process.env.PORTABLE_EXECUTABLE_DIR && fs.existsSync(prevFile) && fs.statSync(prevFile).size !== fs.statSync(portableExe()).size; } catch (e) { portablePrev = false; }
   return { available: !!prev, version: prev ? prev.version : null, at: prev ? prev.at : null, portableCopy: portablePrev, snapshots: (() => { try { return fs.readdirSync(path.join(DATA_DIR, 'snapshots')).sort().reverse(); } catch (e) { return []; } })() };
 }
 async function rollback() {
@@ -1592,6 +1616,7 @@ app.whenReady().then(async () => {
       recoveryInfo = { gameId: lastGame.id, name: lastGame.name, crashed: settings.cleanShutdown === false, played: (lastGame.played || []).length, round: lastGame.round ? lastGame.round.number : 0, updatedAt: lastGame.updatedAt };
     }
     settings.cleanShutdown = false; store.writeNow('settings', settings);
+    try { cleanupUpdateLeftovers(); } catch (e) { /* */ }
     createHostWindow();
     createRemote();
     if (settings.remote.autoStart && !process.env.CMB_NO_REMOTE) remote.start();

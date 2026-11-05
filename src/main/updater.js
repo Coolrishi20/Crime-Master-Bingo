@@ -130,7 +130,7 @@ class UpdateManager {
       e.code = 'PLAYING'; throw e;
     }
     if (this.o.beforeInstall) this.o.beforeInstall();
-    if (this.mode === 'portable') { this.o.installPortable(this.status.file, true); return true; }
+    if (this.mode === 'portable') { const file = this.status.file; this.set({ state: 'installing' }); this.o.installPortable(file, true); return true; }
     this.o.autoUpdater.quitAndInstall(true, true);
     return true;
   }
