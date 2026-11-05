@@ -28,10 +28,10 @@
   | v23 | 28/28 |
   | v22 | 14/14 |
   | v21 | 14/14 |
-  | v20 | V20RES |
-  | v19 | V19RES |
+  | v20 | 26/26 |
+  | v19 | 9/9 |
   | v18 | 10/10 |
-  | v17 | V17RES (updated: the sidebar now has 12 items) |
+  | v17 | 22/22 (updated: the sidebar now has 12 items) |
   | v16 | 34/34 |
   | acceptance | 85/85 |
   | v15 | 28/28 |
