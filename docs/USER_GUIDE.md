@@ -681,6 +681,10 @@ beside the card result. Add it to your home screen for an app-style icon.
   devices* shows this.
 
 ## 11. Troubleshooting
+**Something not working?** *Settings → Updates & about → Save diagnostics…* saves one file you can
+send for help. It contains versions, settings, status and recent errors. It never contains your
+videos, phone pairing secrets, passwords or player names.
+
 
 | Problem | Fix |
 |---|---|

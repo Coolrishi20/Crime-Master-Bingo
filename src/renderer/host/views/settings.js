@@ -28,7 +28,7 @@ App.register('settings', {
     const infos = await api('rules:roundsInfo', { rounds: st.gameDefaults.rounds, count: cnt });
     const presets = st.rulePresets || []; const customs = st.customPatterns || [];
     box.innerHTML = `<div class="row"><span class="grow"></span><button class="btn sm" id="brStd">Restore standard rules</button></div>
-      <p class="muted small">How many rounds and which winning patterns for <b style="color:#fff">new games</b>: 3 rounds of One Line → Two Parallel Lines → Full House as standard, or choose L Shape, T Shape, Diagonal, Fast 5 or your own patterns. Tick several for a round and any of them wins. A game's rules can also be changed in <b style="color:#fff">Host Game → Rules</b> until that round starts. Every check — laptop or phone — uses the same rules.</p>
+      <p class="st-hint" style="margin:0 0 12px">Tick several rules in a round and any of them wins. A game\'s own rules can still be changed on Host Game → Rules until that round starts.</p>
       ${roundCountHtml(cnt)}
       ${roundsSummaryHtml(infos)}
       <div class="row" style="margin-top:10px;flex-wrap:wrap">${Object.keys(infos).map(Number).map(n => `<button class="btn sm" data-chg="${n}">Change Round ${n}…</button>`).join('')}</div>
@@ -155,6 +155,8 @@ App.register('settings', {
           <div class="st-hint">Updates install only between games, and only if they carry Anthem Square's signature. Your games and settings are copied first, and you can go back to the previous version. Offline? Nothing happens.</div>
           <h3>Licence &amp; devices</h3><div id="licBox" class="muted small">…</div>
           <details class="st-more"><summary>Your music, your responsibility</summary><p class="small" style="margin:8px 0 0">Anthem Square is software only. It does not supply music or videos, and it does not provide music licences or permission to run events or give prizes. You are responsible for using media you have the rights to play in public and for any permissions your event needs. The music usage report is a record to help you; it is not legal advice.</p></details>
+          <h3>Help</h3>
+          <div class="st-row" style="margin-top:0;border-top:0;padding-top:0"><div><b>Save diagnostics</b><div class="st-hint">One file to send when something goes wrong: version, Windows, hardware, settings, library and game status, recent errors. No videos, phone secrets, passwords or player names.</div></div><button class="btn sm" id="stDiag">Save diagnostics…</button></div>
           <p class="muted tiny" style="margin-top:12px">Data folder: ${esc(App.info.dataDir)}</p>`)}
         </div>
       </div>`;
@@ -181,6 +183,7 @@ App.register('settings', {
       act.textContent = st.state === 'downloaded' ? '⟳ Restart now' : st.state === 'available' ? `⬆ Update to ${st.version}` : 'Open download page';
       act.onclick = () => App.updateAction();
     };
+    $('#stDiag', el).onclick = async () => { const r = await api('diag:save', {}); if (r) toast('Diagnostics saved — ' + r.file.split(/[\\/]/).pop(), 'ok', 6000); };
     $('#upCheck', el).onclick = async () => { App.update = await api('update:check'); App.drawUpdateSettings(App.update); };
     App.drawUpdateSettings(); drawLicence();
     api('update:rollbackInfo').then(r => { const b = $('#upBack', el); if (!b || !r.available) return; b.innerHTML = `<button class="btn sm ghost" id="upRoll">Go back to ${esc(r.version)}</button><span class="muted tiny">${r.snapshots.length} data snapshot${r.snapshots.length === 1 ? '' : 's'} kept</span>`;

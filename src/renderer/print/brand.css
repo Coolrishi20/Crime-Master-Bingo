@@ -20,3 +20,24 @@ html, body { color: #102542; }
 body.bw .brand .as-w b + b { color: #000; }
 body.bw .pat rect.on { fill: #000 !important; }
 body.bw { --ink: #000 !important; --accent: #000 !important; --soft: #333 !important; --line: #555 !important; }
+
+/* ---- 2.5.3: print preview window in the Anthem Square palette (was the old pink/purple) ---- */
+body.preview { background: #0B1B31; }
+.pv-bar { background: #102542; color: #FFF2CF; border-bottom: 1px solid rgba(255,242,207,.12); box-shadow: 0 4px 18px rgba(0,0,0,.35); }
+.pv-brand { font-family: 'Montserrat', 'Inter', sans-serif; font-weight: 800; font-size: 16px; letter-spacing: 0; color: #FFF2CF; display: flex; align-items: center; }
+.pv-brand b { color: #FF5B32; font-weight: 800; }
+.pv-grp { background: #16304F; border-color: rgba(255,242,207,.14); }
+.pv-grp span { color: #B3B4AA; }
+.pv-bar button, .pv-box button { background: #1D3A5E; color: #FFF2CF; border-color: rgba(255,242,207,.18); }
+.pv-bar button:hover, .pv-box button:hover { border-color: #FFF2CF; }
+.pv-bar button:focus-visible, .pv-box button:focus-visible, .pv-bar input:focus-visible { outline: 2px solid #FF5B32; outline-offset: 2px; }
+.pv-bar button.pri, .pv-box button.pri { background: #FF5B32; border-color: #FF5B32; color: #171717; }
+.pv-bar input { background: #0B1B31; color: #FFF2CF; border-color: rgba(255,242,207,.18); }
+.pv-bar input::placeholder { color: #7E8A97; }
+.pv-status { background: #16304F; color: #B3B4AA; border-bottom-color: rgba(255,242,207,.12); }
+.pv-ok { color: #7FD8A4; } .pv-warn { color: #FFB38F; } .pv-bad { color: #FF8A6B; }
+body.preview .cell[data-warn] { outline-color: #FF5B32; }
+@keyframes cardHl { 0%, 60% { box-shadow: 0 0 0 2mm #FF5B32; } 100% { box-shadow: 0 0 0 0 transparent; } }
+.pv-modal { background: rgba(5,12,24,.75); }
+.pv-box { background: #102542; color: #FFF2CF; border-color: rgba(255,242,207,.18); }
+.pv-box h2 { font-family: 'Montserrat', 'Inter', sans-serif; font-weight: 800; font-size: 24px; color: #FFF2CF; }

@@ -28,6 +28,8 @@
       let audT = null; window.cmb.on('library-audio', (a) => { if (App.view === 'library' && views.library) { views.library.audio = a; views.library.drawAudio(); clearTimeout(audT); audT = setTimeout(() => { if (App.view === 'library') views.library.on_library(); }, 1500); } });
       window.cmb.on('backup-progress', (p) => this.emit('backup', p));
       window.cmb.on('autobackup', (p) => this.emit('autobackup', p));
+      window.addEventListener('error', (e) => { try { window.cmb.invoke('diag:log', { where: 'laptop', msg: (e.error && e.error.stack) || e.message }); } catch (x) { /* */ } });
+      window.addEventListener('unhandledrejection', (e) => { try { window.cmb.invoke('diag:log', { where: 'laptop', msg: 'Unhandled: ' + ((e.reason && e.reason.stack) || e.reason) }); } catch (x) { /* */ } });
       window.cmb.on('rehearsal-progress', (p) => this.emit('rehearsalProgress', p));
       window.cmb.on('cards-images', (p) => this.emit('cardsImages', p));
       window.cmb.on('players', (p) => { this.players = p; this.emit('players', p); });

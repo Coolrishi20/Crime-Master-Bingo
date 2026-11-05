@@ -47,6 +47,14 @@ const waitFor = async (fn, ms = 8000) => { const t = Date.now(); while (Date.now
   ok(!(await host.isVisible('#stApply .banner')), 'No “apply to this game” bar without a loaded game');
   await host.click('#stNav [data-go="about"]'); await sleep(600);
   ok(await host.isVisible('#upCheck') && /FREE EDITION/.test(await host.textContent('#licBox')), 'Side menu jumps to Updates & about');
+  /* 2.5.3: Help → Save diagnostics */
+  const df = path.join(DATA, 'diag.json');
+  await host.evaluate(() => window.cmb.invoke('diag:log', { where: 'laptop', msg: 'test error from the laptop window' }));
+  const dr = await inv('diag:save', { file: df });
+  const rep = JSON.parse(fs.readFileSync(df, 'utf8'));
+  ok(await host.isVisible('#stDiag') && dr && rep.system && rep.app.version && rep.library && rep.displays.length >= 1 && rep.recentErrors.some(l => /test error from the laptop window/.test(l)),
+    'Save diagnostics writes one readable file (system, app, library, displays, recent errors)', `${dr.bytes} bytes`);
+  ok(!/tokenHash"\s*:\s*"[0-9a-f]{20}/.test(JSON.stringify(rep)) && !JSON.stringify(rep).includes(os.homedir() + path.sep), 'No phone secrets or home-folder paths in the file');
   await app.close();
   console.log(failed ? `\n${failed} FAILED` : '\nALL PASSED');
   process.exit(failed ? 1 : 0);

@@ -26,6 +26,8 @@ const RENDERER = path.join(__dirname, '..', 'renderer');
 if (!process.env.CMB_DATA_DIR) app.setPath('userData', path.join(app.getPath('appData'), 'Crime Master Bingo'));
 const DATA_DIR = process.env.CMB_DATA_DIR || path.join(app.getPath('userData'), 'data');
 const IS_TEST = !!process.env.CMB_TEST;
+const diagnostics = require('./diagnostics');
+diagnostics.captureConsole();
 
 if (process.env.CMB_NO_SANDBOX) app.commandLine.appendSwitch('no-sandbox');
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
@@ -790,6 +792,17 @@ const handlers = {
   'onboarding:set': (patch) => { settings.onboarding = Object.assign({}, settings.onboarding || {}, patch || {}); saveSettings(); return onboardingStatus(); },
   'rehearsal:start': () => startRehearsal(),
   'rehearsal:end': () => endRehearsal(),
+  /* ---- Help → Save diagnostics (2.5.3) */
+  'diag:log': ({ where, msg } = {}) => { diagnostics.record('error', String(where || 'window').slice(0, 20), String(msg || '')); return true; },
+  'diag:save': async ({ file } = {}) => {
+    const rep = diagnostics.build(collectDiagnostics);
+    if (!file) {
+      const r = await dialog.showSaveDialog(hostWin, { title: 'Save diagnostics', defaultPath: path.join(app.getPath('downloads'), `anthem-square-diagnostics-${new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-')}.json`), filters: [{ name: 'Diagnostics', extensions: ['json'] }] });
+      if (r.canceled) return null; file = r.filePath;
+    }
+    fs.writeFileSync(file, JSON.stringify(rep, null, 2));
+    return { file, errors: rep.recentErrors.length, bytes: fs.statSync(file).size };
+  },
   'licence:status': () => Object.assign({ device: licensing ? licensing.deviceId() : null }, licensing ? licensing.status() : { edition: 'free', enforced: false, canStartGame: true }),
   'notice:accept': () => { settings.noticeAcceptedAt = new Date().toISOString(); saveSettings(); return true; },
   'games:create': (opts) => {
@@ -1350,6 +1363,29 @@ function endRehearsal() {
   }
   saveSettings();
   return onboardingStatus();
+}
+function collectDiagnostics() {
+  const songs = library ? library.songs() : [];
+  const byStatus = {}; songs.forEach(s => { byStatus[s.status || '?'] = (byStatus[s.status || '?'] || 0) + 1; });
+  const g = engine && engine.game; const mr = (() => { try { const r = mediaReport(); return { ready: r.ready, optimise: r.optimise, unsupported: r.unsupported, missing: r.missing, pending: r.pending }; } catch (e) { return null; } })();
+  return {
+    app: { version: app.getVersion(), packaged: app.isPackaged, portable: !!process.env.PORTABLE_EXECUTABLE_DIR, dataDir: DATA_DIR, lowResource: lowRes(), lowRamLaptop: LOW_RAM, test: IS_TEST,
+      lastShutdownClean: recoveryInfo ? !recoveryInfo.crashed : true, recovery: recoveryInfo ? { crashed: recoveryInfo.crashed, played: recoveryInfo.played, round: recoveryInfo.round } : null },
+    updates: updater ? Object.assign({}, updater.status, { previous: (settings.updates || {}).previous || null }) : null,
+    licence: licensing ? licensing.status() : null,
+    displays: screen.getAllDisplays().map(d => ({ id: d.id, size: `${d.size.width}×${d.size.height}`, scale: d.scaleFactor, primary: d.id === screen.getPrimaryDisplay().id })),
+    tv: { open: !!(audienceWin && !audienceWin.isDestroyed()), ready: audienceReady, hiddenForQuiz: tvHiddenForQuiz, secondScreen: !!(mirrorWin && !mirrorWin.isDestroyed()) },
+    phoneRemote: remote ? (() => { const i = remote.info(); return { running: i.running, port: i.port, secure: !!i.secureUrl, error: i.error, httpsError: i.httpsError, phonesConnected: (i.connected || []).length, pairedPhones: (i.devices || []).length }; })() : null,
+    library: { songs: songs.length, byStatus, youtube: songs.filter(s => s.source === 'youtube').length, playlists: library ? library.playlists().length : 0, media: mr,
+      volumeAnalysis: analyser ? analyser.status() : 'unavailable', converter: converter ? converter.status() : null },
+    game: g ? { id: g.id, status: g.status, mode: g.settings.mode, round: g.round, rounds: g.settings.roundCount, songs: g.order.length, cards: g.cards.length, printed: g.cards.filter(c => c.printed).length, locked: !!g.cardsLocked,
+      played: g.played.length, claims: g.claims.length, winners: g.claims.filter(c => c.status === 'confirmed').length, playback: { status: g.playback.status, index: g.playback.index },
+      quizNight: g.night ? { phase: g.night.phase, breaks: (g.night.breaks || []).length } : null, unavailableVideos: Object.keys(engine.unavailable || {}).length, lastError: engine.lastError,
+      settings: { clipMode: g.settings.clipMode, autoAdvance: g.settings.autoAdvance, gap: g.settings.autoAdvanceGap, audio: g.settings.audio },
+      recentLog: (g.log || []).slice(-80).map(l => `${l.at} ${l.msg}`) } : null,
+    backups: { settings: settings.backups, lastForThisGame: g ? (settings.backupLog || {})[g.id] || null : null },
+    settings: Object.assign({}, settings, { templates: `[${(settings.templates || []).length} template(s)]`, backupLog: `[${Object.keys(settings.backupLog || {}).length} game(s)]`, slides: settings.slides ? { enabled: settings.slides.enabled, images: (settings.slides.images || []).length } : null })
+  };
 }
 function recordBackup(gameId, info) {
   if (engine && engine.game.id === gameId && engine.game.rehearsal) return;

@@ -5,6 +5,8 @@
 (function () {
   'use strict';
   var $ = function (id) { return document.getElementById(id); };
+  // errors on the TV go to Help → Save diagnostics
+  window.addEventListener('error', function (e) { try { if (window.cmb && window.cmb.invoke) window.cmb.invoke('diag:log', { where: 'tv', msg: (e.error && e.error.stack) || e.message }); } catch (x) { /* */ } });
   var video = $('video');
   var overlay = $('overlay');
   var ticker = new CMBTicker.Ticker($('crawlViewport'), {});

@@ -1,3 +1,17 @@
+## Anthem Square 2.5.3 — polish and a diagnostics button
+
+- **Save diagnostics** (*Settings → Updates & about → Help*): one file to send when something
+  goes wrong. It contains:
+  - the app and Windows versions and the hardware;
+  - the displays;
+  - settings, library and game status;
+  - the most recent errors from the laptop and TV windows.
+
+  It never contains videos, phone pairing secrets, passwords or player names, and your Windows
+  user folder is shown as “~”.
+- **Print preview** now uses the Anthem Square colours (it still had the old pink and purple).
+- **Settings → Bingo rules** explains itself in one line instead of a paragraph.
+
 ## Anthem Square 2.5.2 — quieter portable updates
 
 - **Fixed:** after clicking *Restart now* on the portable EXE, a “timeout /t 1 /nobreak” window
