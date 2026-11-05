@@ -1,68 +1,60 @@
-"""Anthem Square 'a' mark — vector rebuild of the supplied logo in the approved palette.
-Geometry in the source image's 1286x1223 space, scaled into a viewBox."""
-import os
+"""Anthem Square 'a' mark — traced from the supplied logo (tools/brand/traced.json) and recoloured
+in the approved palette. Shapes are the original's; only the colours change."""
+import os, json
 NAVY, CREAM, ORANGE, GRAY = '#102542', '#FFF2CF', '#FF5B32', '#171717'
-OUT = os.path.dirname(os.path.abspath(__file__))
+HERE = os.path.dirname(os.path.abspath(__file__))
+T = json.load(open(os.path.join(HERE, 'traced.json')))
+FULL = (0, 0, T['w'], T['h'])
+def _real(c): return not (c['bbox'][0] <= 1 and c['bbox'][1] <= 1 and c['bbox'][2] >= T['w'] - 1)
+LIGHT = sorted([c for c in T['light'] if _real(c)], key=lambda c: -c['area'])
+ORANGE_C = [c for c in T['orange'] if _real(c)]
+RING_OUTER = LIGHT[0]['d']           # silhouette of the "a"
+BOWL = LIGHT[1]                       # the round opening that holds the grid
+CELLS = ''.join(c['d'] for c in LIGHT[2:])          # cream squares (with the note as a hole)
+ORANGE_D = ''.join(c['d'] for c in ORANGE_C)        # orange squares (with the note as a hole)
+LIGHT_D = ''.join(c['d'] for c in LIGHT)            # cream "a" + cream squares, navy left open
+BX0, BY0, BX1, BY1 = T['bbox']
+CX = (BOWL['bbox'][0] + BOWL['bbox'][2]) / 2; CY = (BOWL['bbox'][1] + BOWL['bbox'][3]) / 2
 
-# grid geometry (source space)
-COLS = [(110, 228), (243, 362), (377, 493), (508, 627), (641, 758), (773, 890), (905, 1020)]   # c-1..c5
-ROWS = [(150, 350), (365, 492), (508, 637), (652, 782), (798, 942), (958, 1100)]              # r0..r5
-O, C = 'O', 'C'
-PATTERN = [  # rows x 7 columns (c-1 .. c5)
-    [O, O, O, O, O, O, O],
-    [C, O, C, C, C, C, C],
-    [C, O, O, O, O, O, C],
-    [C, C, C, C, C, O, C],
-    [O, O, O, O, O, O, O],
-    [C, C, C, C, C, C, C],
-]
-CX, CY, R_LINE, R_CELLS = 563, 605, 428, 412
-STEM = ('M 926 66 H 1128 Q 1140 66 1140 78 V 822 Q 1142 870 1192 882 H 1226 Q 1238 882 1238 894 '
-        'V 1102 Q 1238 1114 1226 1114 H 1030 Q 940 1112 922 1010 Z')
-NOTE = ('<g transform="translate(548 578)"><ellipse cx="0" cy="0" rx="25" ry="22" transform="rotate(-20)"/>'
-        '<rect x="18" y="-62" width="9" height="62" rx="3"/>'
-        '<path d="M18 -64 C 40 -58 52 -50 54 -36 C 55 -28 52 -20 48 -16 C 48 -34 36 -42 27 -44 Z"/></g>')
-
-def mark(ring, line, orange, cream, note, uid):
-    cells = []
-    for ri, (y0, y1) in enumerate(ROWS):
-        for ci, (x0, x1) in enumerate(COLS):
-            col = orange if PATTERN[ri][ci] == O else cream
-            if col is None: continue
-            cells.append(f'<rect x="{x0}" y="{y0}" width="{x1-x0}" height="{y1-y0}" fill="{col}"/>')
-    note_svg = f'<g fill="{note}">{NOTE}</g>' if note else ''
-    return (f'<defs><clipPath id="{uid}"><circle cx="{CX}" cy="{CY}" r="{R_CELLS}"/></clipPath></defs>'
-            f'<ellipse cx="500" cy="602" rx="482" ry="547" fill="{ring}"/><path d="{STEM}" fill="{ring}"/>'
-            f'<circle cx="{CX}" cy="{CY}" r="{R_LINE}" fill="{line}"/>'
-            f'<g clip-path="url(#{uid})">{"".join(cells)}</g>{note_svg}')
-
-def svg(variant, bg=None, tile=False, pad=0.0):
-    """variant: dark | light | mono-blue | mono-cream | dark-on-tile"""
-    V = {
-        'dark':       dict(ring=CREAM, line=NAVY,  orange=ORANGE, cream=CREAM, note=NAVY),
-        'light':      dict(ring=NAVY,  line=NAVY,  orange=ORANGE, cream=CREAM, note=NAVY),
-        'mono-blue':  dict(ring=NAVY,  line='#FFFFFF', orange=NAVY, cream=None, note='#FFFFFF'),
-        'mono-cream': dict(ring=CREAM, line=NAVY,  orange=CREAM, cream=None, note=NAVY),
-    }[variant]
-    # content box of the mark: x 20..1240, y 55..1150 → 1220 x 1095
-    w, h = 1240, 1240
-    side = max(w, h) * (1 + 2 * pad)
-    ox = (side - 1220) / 2 - 20; oy = (side - 1095) / 2 - 55
-    out = [f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {side:.0f} {side:.0f}">']
-    if tile: out.append(f'<rect width="{side:.0f}" height="{side:.0f}" rx="{side*0.22:.0f}" fill="{bg}"/>')
-    elif bg: out.append(f'<rect width="{side:.0f}" height="{side:.0f}" fill="{bg}"/>')
-    out.append(f'<g transform="translate({ox:.1f} {oy:.1f})">{mark(uid="g" + variant.replace("-", ""), **V)}</g></svg>')
+def mark(ring, line, orange, cream, note=None, uid='m'):
+    """ring: the 'a'; line: grid lines + circle; orange/cream: squares. note follows the gaps (line)."""
+    if ring == cream and line is None:     # transparent gaps (cream "a" on a dark background)
+        return f'<path fill="{ring}" fill-rule="evenodd" d="{LIGHT_D}"/><path fill="{orange}" fill-rule="evenodd" d="{ORANGE_D}"/>'
+    out = [f'<path fill="{ring}" d="{RING_OUTER}"/>']
+    if line and line != ring: out.append(f'<path fill="{line}" d="{BOWL["d"]}"/>')
+    if cream: out.append(f'<path fill="{cream}" fill-rule="evenodd" d="{CELLS}"/>')
+    out.append(f'<path fill="{orange}" fill-rule="evenodd" d="{ORANGE_D}"/>')
     return ''.join(out)
 
-FILES = {
-    'mark-dark.svg': svg('dark'),                         # cream "a" for dark backgrounds (transparent)
-    'mark-light.svg': svg('light'),                       # navy "a" for light backgrounds (transparent)
-    'mark-mono-blue.svg': svg('mono-blue'),
-    'mark-mono-cream.svg': svg('mono-cream'),
-    'app-icon.svg': svg('dark', bg=NAVY, tile=True, pad=0.14),   # taskbar / installer / phone home screen
-    'app-icon-square.svg': svg('dark', bg=NAVY, pad=0.10),
-}
+def small_mark(ring, line, orange, cream, uid='s'):
+    """16–32 px: the traced 'a' and circle, with the grid simplified to bold bands (no thin lines, no note)."""
+    rows = [(150, 352), (370, 488), (506, 638), (656, 778), (796, 1100)]
+    pat = [['O'], [('O', 100, 362), ('C', 380, 1030)], ['O'], [('C', 100, 755), ('O', 773, 1030)], ['O']]
+    cells = []
+    for (y0, y1), p in zip(rows, pat):
+        if p == ['O']: cells.append(f'<rect x="100" y="{y0}" width="930" height="{y1-y0}" fill="{orange}"/>')
+        else:
+            for col, x0, x1 in p: cells.append(f'<rect x="{x0}" y="{y0}" width="{x1-x0}" height="{y1-y0}" fill="{orange if col == "O" else cream}"/>')
+    k = 0.955
+    return (f'<defs><clipPath id="{uid}"><path transform="translate({CX*(1-k):.1f} {CY*(1-k):.1f}) scale({k})" d="{BOWL["d"]}"/></clipPath></defs>'
+            f'<path fill="{ring}" d="{RING_OUTER}"/><path fill="{line}" d="{BOWL["d"]}"/><g clip-path="url(#{uid})">{"".join(cells)}</g>')
+
+def frame(inner, bg=None, shape='tile', pad=0.14):
+    w, h = BX1 - BX0, BY1 - BY0
+    side = max(w, h) * (1 + 2 * pad); ox = (side - w) / 2 - BX0; oy = (side - h) / 2 - BY0
+    out = [f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {side:.0f} {side:.0f}">']
+    if bg: out.append(f'<rect width="{side:.0f}" height="{side:.0f}"{f" rx=\"{side*0.22:.0f}\"" if shape == "tile" else ""} fill="{bg}"/>')
+    out.append(f'<g transform="translate({ox:.1f} {oy:.1f})">{inner}</g></svg>')
+    return ''.join(out)
+
+DARK = dict(ring=CREAM, line=None, orange=ORANGE, cream=CREAM)          # cream "a", gaps show the background
+LIGHT_V = dict(ring=NAVY, line=NAVY, orange=ORANGE, cream=CREAM)        # navy "a" for cream/light backgrounds
+PRINT = dict(ring=NAVY, line=NAVY, orange=ORANGE, cream='#FFFFFF')      # on white paper
+MONO_BLUE = dict(ring=NAVY, line=NAVY, orange=NAVY, cream='#FFFFFF')
+MONO_CREAM = dict(ring=CREAM, line=NAVY, orange=CREAM, cream=NAVY)
+
 if __name__ == '__main__':
-    for n, t in FILES.items():
-        open(os.path.join(OUT, n), 'w').write(t)
-    print('written', list(FILES))
+    for n, t in {'mark-dark.svg': frame(mark(**DARK), pad=0), 'mark-light.svg': frame(mark(**LIGHT_V), pad=0),
+                 'app-icon.svg': frame(mark(**DARK), NAVY), 'app-icon-small.svg': frame(small_mark(CREAM, NAVY, ORANGE, CREAM), NAVY, pad=0.08)}.items():
+        open(os.path.join(HERE, n), 'w').write(t)
+    print('ok')

@@ -6,41 +6,19 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import genlogo as G
 NAVY, CREAM, ORANGE = G.NAVY, G.CREAM, G.ORANGE
 REPO = sys.argv[1]
-FONTS = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'fonts')
+FONTS = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'anthem', 'fonts')
 
-def small_mark(ring, line, orange, cream, uid):
-    """Simplified for 16–32 px: no inner grid lines, bold S of orange bands, no note."""
-    rows = [(150, 352), (370, 488), (506, 638), (656, 778), (796, 1100)]
-    pat = [['O'], [('O', 110, 362), ('C', 380, 1020)], ['O'], [('C', 110, 755), ('O', 773, 1020)], ['O']]
-    cells = []
-    for (y0, y1), p in zip(rows, pat):
-        if p == ['O']: cells.append(f'<rect x="110" y="{y0}" width="910" height="{y1-y0}" fill="{orange}"/>')
-        else:
-            for col, x0, x1 in p: cells.append(f'<rect x="{x0}" y="{y0}" width="{x1-x0}" height="{y1-y0}" fill="{orange if col == "O" else cream}"/>')
-    return (f'<defs><clipPath id="{uid}"><circle cx="{G.CX}" cy="{G.CY}" r="400"/></clipPath></defs>'
-            f'<ellipse cx="500" cy="602" rx="482" ry="547" fill="{ring}"/><path d="{G.STEM}" fill="{ring}"/>'
-            f'<circle cx="{G.CX}" cy="{G.CY}" r="432" fill="{line}"/><g clip-path="url(#{uid})">{"".join(cells)}</g>')
-
-def frame(inner, bg=None, shape='tile', pad=0.14):
-    side = 1240 * (1 + 2 * pad); ox = (side - 1220) / 2 - 20; oy = (side - 1095) / 2 - 55
-    out = [f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {side:.0f} {side:.0f}">']
-    if bg: out.append(f'<rect width="{side:.0f}" height="{side:.0f}"{f" rx=\"{side*0.22:.0f}\"" if shape == "tile" else ""} fill="{bg}"/>')
-    out.append(f'<g transform="translate({ox:.1f} {oy:.1f})">{inner}</g></svg>')
-    return ''.join(out)
-
-DARK = dict(ring=CREAM, line=NAVY, orange=ORANGE, cream=CREAM, note=NAVY)
-LIGHT = dict(ring=NAVY, line=NAVY, orange=ORANGE, cream=CREAM, note=NAVY)
-def M(v, uid): return G.mark(uid=uid, **v)
-
+frame = G.frame
+DARK, LIGHT = G.DARK, G.LIGHT_V
 shape = sys.argv[2] if len(sys.argv) > 2 else 'tile'
-icon = frame(M(DARK, 'ai'), NAVY, shape)                      # app icon (tile or square)
-icon_small = frame(small_mark(CREAM, NAVY, ORANGE, CREAM, 'as'), NAVY, shape, pad=0.08)
-icon_square = frame(M(DARK, 'aq'), NAVY, 'square', pad=0.10)
-mark_dark = frame(M(DARK, 'md'), None, pad=0.0)                # cream "a", transparent
-mark_light = frame(M(LIGHT, 'ml'), None, pad=0.0)              # navy "a", transparent
-print_icon = frame(M(dict(ring=NAVY, line=NAVY, orange=ORANGE, cream='#FFFFFF', note=NAVY), 'pi'), None, pad=0.0)
-mono_blue = frame(G.mark(uid='mb', ring=NAVY, line='#FFFFFF', orange=NAVY, cream='#FFFFFF', note='#FFFFFF'), None, pad=0.0)
-mono_cream = frame(G.mark(uid='mc', ring=CREAM, line=NAVY, orange=CREAM, cream=NAVY, note=NAVY), None, pad=0.0)
+icon = frame(G.mark(**DARK), NAVY, shape)                      # app icon (tile or square)
+icon_small = frame(G.small_mark(CREAM, NAVY, ORANGE, CREAM, 'as'), NAVY, shape, pad=0.08)
+icon_square = frame(G.mark(**DARK), NAVY, 'square', pad=0.10)
+mark_dark = frame(G.mark(**DARK), None, pad=0.0)               # cream "a", transparent gaps
+mark_light = frame(G.mark(**LIGHT), None, pad=0.0)             # navy "a" for light backgrounds
+print_icon = frame(G.mark(**G.PRINT), None, pad=0.0)
+mono_blue = frame(G.mark(**G.MONO_BLUE), None, pad=0.0)
+mono_cream = frame(G.mark(**G.MONO_CREAM), None, pad=0.0)
 
 def font_css():
     d = lambda w: base64.b64encode(open(os.path.join(FONTS, f'montserrat-latin-{w}-normal.woff2'), 'rb').read()).decode()
