@@ -1,4 +1,47 @@
-# Anthem Square — Test report (v2.5.3)
+# Anthem Square — Test report (v2.6.0)
+
+
+## v2.6.0 (Talkover, Play on, MP3 songs, cards handed out tonight, Help & Guide, Venue Check)
+- **Unit tests: 220 / 220 passed.** New `v28-hosting`:
+  - a game saved a moment ago is listed and readable at once, and a deleted game is never written back;
+  - Play on (+30 s, full song) changes only the current song, keeps the game's clip length and survives a TV reconnect;
+  - Talkover ducks and releases, auto-releases after 30 s, is released when the phone holding it drops, and its level is clamped;
+  - cards handed out tonight: printed cards by default, the host's list wins, a claim on another card is flagged;
+  - ID3v2.3 and ID3v1 tags; MP3 imported as an audio song (not converted), WMA reported; audio-only media check; TV told a song is audio-only;
+  - the phone may send the three new actions.
+- **New integrated e2e `v26-hosting.js`: 23 / 23 passed.** Real app, real TV window and a real phone browser:
+  - a 90 s tagged MP3 imports with its title and artist and plays on the TV behind the music card;
+  - a new game is listed at once and the Cards page opens on it;
+  - holding Hold to talk on the phone takes the music to 0.20 and back to 1.00 without pausing; a phone closed mid-hold releases it;
+  - phone +30 s takes the clip end from 20 s to 50 s and the game's clip length stays 20 s;
+  - holding T on the laptop ducks and releases;
+  - checking card 057 with 001–048 handed out shows the warning;
+  - F1 opens Help at “Running the rounds”, search shows only matching sections, highlighted;
+  - Venue Check shows the test card and plays the test sound on the TV, passes the phone step when a phone connects, runs the video test, saves its results and hides the card on leaving.
+- **Full regression green:**
+
+  | Suite | Result |
+  |---|---|
+  | v26 (new) | 23/23 |
+  | v25 | 12/12 |
+  | v24 | 33/33 |
+  | v23 | 28/28 |
+  | v22 | 14/14 |
+  | v21 | 14/14 |
+  | v20 | V20RES |
+  | v19 | V19RES |
+  | v18 | 10/10 |
+  | v17 | V17RES (updated: the sidebar now has 12 items) |
+  | v16 | 34/34 |
+  | acceptance | 85/85 |
+  | v15 | 28/28 |
+  | v14 | 38/38 |
+  | v13 | 13/13 |
+  | print | 12/12 |
+  | reveal | 7/7 |
+  | TV screens | ran clean |
+- **Bug found by the new e2e and fixed:** the phone wasn't allowed to send Talkover, Play on or the handed-out list (the phone's action list had not been extended).
+- **Not tested here:** real HDMI audio, a real venue router, and a real 4 GB laptop (as before). Talkover adds one gain change on the existing audio chain; MP3 songs decode no video, so they use less CPU than video songs.
 
 ## v2.5.3 (print preview colours, Save diagnostics, Bingo rules text, Low Resource benchmark)
 - **Unit tests: 213 / 213 passed.** New: `v27-diagnostics` checks that the report:
