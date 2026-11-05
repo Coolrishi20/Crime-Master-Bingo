@@ -8,7 +8,7 @@ App.register('settings', {
     if (!box || !document.body.contains(box)) return;
     const p = await api('perf:status');
     const on = p.lowResource;
-    box.innerHTML = `<h2>⚡ Performance</h2>
+    box.innerHTML = `<h3>Low Resource Mode</h3>
       <div class="row">${toggleHtml('pfLow', 'Low Resource Mode', on)}<span class="grow"></span>${p.lowRam ? '<span class="badge warn">Recommended for this laptop</span>' : ''}</div>
       <p class="muted small" style="margin:8px 0">This laptop: <b style="color:#fff">${p.totalRamGB} GB</b> memory · Anthem Square is using about <b style="color:#fff">${p.appMemoryMB} MB</b> right now.</p>
       <div class="small" style="line-height:1.55">Low Resource Mode keeps <b>every game feature</b> — TV video, title overlay, winning patterns, crawler, phone remote, BINGO checks, saving. It reduces:<ul style="margin:6px 0 0 18px;padding:0" class="muted">
@@ -27,7 +27,7 @@ App.register('settings', {
     const cnt = st.gameDefaults.roundCount || 3;
     const infos = await api('rules:roundsInfo', { rounds: st.gameDefaults.rounds, count: cnt });
     const presets = st.rulePresets || []; const customs = st.customPatterns || [];
-    box.innerHTML = `<div class="row"><h2 class="grow" style="margin:0">🎯 Bingo Rules</h2><button class="btn sm" id="brStd">Restore standard rules</button></div>
+    box.innerHTML = `<div class="row"><span class="grow"></span><button class="btn sm" id="brStd">Restore standard rules</button></div>
       <p class="muted small">How many rounds and which winning patterns for <b style="color:#fff">new games</b>: 3 rounds of One Line → Two Parallel Lines → Full House as standard, or choose L Shape, T Shape, Diagonal, Fast 5 or your own patterns. Tick several for a round and any of them wins. A game's rules can also be changed in <b style="color:#fff">Host Game → Rules</b> until that round starts. Every check — laptop or phone — uses the same rules.</p>
       ${roundCountHtml(cnt)}
       ${roundsSummaryHtml(infos)}
@@ -59,69 +59,115 @@ App.register('settings', {
     let audioOut = [];
     try { audioOut = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'audiooutput'); } catch (e) { /* */ }
     const gd = s.gameDefaults;
-    el.innerHTML = `<div class="page-head"><div><div class="eyebrow">Preferences</div><h1>Settings</h1><p>Defaults for new games. Settings for the game in progress can be changed live on the Host Game screen.</p></div><button class="btn primary" id="sSave">Save settings</button></div>
-      <div class="cols c2">
-        <div class="panel"><h2>Appearance</h2>
-          <div class="row">${s.appearance.logo ? `<img src="${fileUrl(s.appearance.logo)}?v=${Date.now()}" style="max-height:56px;background:#fff;border-radius:8px;padding:6px">` : '<span class="muted">No logo</span>'}<button class="btn sm" id="sLogo">Upload logo…</button>${s.appearance.logo ? '<button class="btn sm ghost" id="sLogoX">Remove</button>' : ''}</div>
-          <div class="form-grid" style="margin-top:14px"><label class="field">Theme<select id="sTheme"><option value="dark" ${s.appearance.theme !== 'light' ? 'selected' : ''}>Dark (default) — best for live events</option><option value="light" ${s.appearance.theme === 'light' ? 'selected' : ''}>Light — for daytime preparation</option></select></label>
-          <label class="field">Interface scaling<select id="sScale">${[0.85, 0.9, 1, 1.1, 1.25, 1.4].map(v => `<option value="${v}" ${Number(s.appearance.scale) === v ? 'selected' : ''}>${Math.round(v * 100)}%</option>`).join('')}</select></label></div></div>
-        <div class="panel"><h2>Intermission slides (TV)</h2><div id="slPanel"></div></div>
-        <div class="panel"><h2>Video &amp; TV</h2><div class="form-grid">
-          <label class="field">Audience display<select id="sDisp"><option value="">Automatic (external screen)</option>${displays.map(d => `<option value="${d.id}" ${String(s.video.displayId) === String(d.id) ? 'selected' : ''}>${esc(d.label)} ${d.width}×${d.height}${d.primary ? ' (laptop)' : ''}</option>`).join('')}</select></label>
-          <label class="field">Video fit<select id="sAsp">${[['contain', 'Fit (letterbox)'], ['cover', 'Fill & crop'], ['fill', 'Stretch']].map(([v, l]) => `<option value="${v}" ${s.video.aspect === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
-          <label class="field">Audio output<select id="sAudio"><option value="default">Windows default</option>${audioOut.filter(d => d.deviceId !== 'default').map(d => `<option value="${esc(d.deviceId)}" ${s.video.audioDeviceId === d.deviceId ? 'selected' : ''}>${esc(d.label || 'Audio device')}</option>`).join('')}</select></label>
-          <label class="field">Default clip length<select id="sClip">${[20, 30, 40, 60, 'full'].map(m => `<option value="${m}" ${String(gd.clipMode) === String(m) ? 'selected' : ''}>${m === 'full' ? 'Full song' : m + ' seconds'}</option>`).join('')}</select></label>
-          <label class="field">Default start point (s)<input type="number" id="sStart" min="0" value="${gd.defaultStart}"></label></div>
-          <div class="row" style="margin-top:12px">${toggleHtml('sFs', 'Open audience window fullscreen on the TV', s.video.fullscreen)}</div></div>
-        <div class="panel"><h2>Live TV preview</h2><div id="sTvp"></div><p class="muted small">Change the song overlay, crawler, pattern panel or video fit below and watch this update. Click <b>Save</b> to keep the changes for new games.</p></div>
-        <div class="panel"><h2>Song overlay</h2><div class="form-grid">
-          <label class="field">Position<select id="oPos">${['bottom-left', 'bottom-center', 'top-left'].map(p => `<option ${gd.overlay.position === p ? 'selected' : ''}>${p}</option>`).join('')}</select></label>
-          <label class="field">Title size (px @1080p)<input type="number" id="oT" value="${gd.overlay.titleSize}"></label>
-          <label class="field">Artist size (px)<input type="number" id="oA" value="${gd.overlay.artistSize}"></label>
-          <label class="field">Opacity (%)<input type="number" id="oO" min="0" max="100" value="${Math.round(gd.overlay.opacity * 100)}"></label>
-          <label class="field">Display duration (s, 0 = whole song)<input type="number" id="oD" min="0" value="${gd.overlay.duration}"></label>
-          <label class="field">Reveal song title after<select id="oR">${[0, 5, 10, 15, 20, 30].map(v => `<option value="${v}" ${Number(gd.overlay.revealDelay || 0) === v ? 'selected' : ''}>${v === 0 ? 'Immediately (off)' : v + ' seconds'}</option>`).join('')}</select></label></div>
-          <p class="muted small">Delayed reveal: the TV shows “♪ Guess the song…” with a countdown, then the title — players have to recognise the song first. The countdown pauses when the music pauses. Your laptop and phone always show the title straight away.</p>
-          <div class="row" style="margin-top:12px">${toggleHtml('oOn', 'Show song title & artist', gd.overlay.enabled)}</div></div>
-        <div class="panel"><h2>Audience crawler</h2><div class="form-grid">
-          <label class="field">Scroll speed (1–10)<input type="number" id="cS" min="1" max="10" value="${gd.crawler.speed}"></label>
-          <label class="field">Font size (px)<input type="number" id="cF" min="18" max="56" value="${gd.crawler.fontSize}"></label>
-          <label class="field">Height (px)<input type="number" id="cH" min="48" max="140" value="${gd.crawler.height}"></label>
-          <label class="field">Separator<select id="cSep">${['diamond', 'bar', 'dot', 'star', 'note'].map(p => `<option ${gd.crawler.separator === p ? 'selected' : ''}>${p}</option>`).join('')}</select></label>
-          <label class="field">Winning-pattern panel<select id="pPos">${['top-right', 'top-left', 'bottom-right', 'bottom-left'].map(p => `<option ${gd.patternPosition === p ? 'selected' : ''}>${p}</option>`).join('')}</select></label></div>
-          <p class="muted small">The crawler always shows the complete played-song history in a continuous loop.</p></div>
-        <div class="panel"><h2>Bingo cards</h2><div class="form-grid"><label class="field">Printable text size (%)<input type="number" id="kT" min="80" max="125" step="5" value="${Math.round(s.cards.textScale * 100)}"></label></div>
-          <div class="row" style="margin-top:12px;gap:24px">${toggleHtml('kQ', 'QR codes on cards', s.cards.qr)}${toggleHtml('kB', 'Black & white printing', s.cards.bw)}${toggleHtml('kL', 'Logo on cards', s.cards.useLogo)}</div>
-          <p class="muted small">Cards are always printed two per A4 sheet.</p></div>
-        <div class="panel"><h2>Gameplay</h2><div class="form-grid"><label class="field">After a round is won<select id="gAW"><option value="ask" ${gd.afterWinner !== 'intermission' ? 'selected' : ''}>Ask me: intermission or next round</option><option value="intermission" ${gd.afterWinner === 'intermission' ? 'selected' : ''}>Go to intermission automatically</option></select></label><label class="field">Intermission length (minutes)<input type="number" id="gIM" min="0" max="120" value="${gd.intermissionMinutes != null ? gd.intermissionMinutes : 10}"></label><label class="field">Gap between songs (s)<input type="number" id="gG" min="0" max="30" value="${gd.autoAdvanceGap}"></label><label class="field">Volume (%)<input type="number" id="gV" min="0" max="100" value="${gd.volume}"></label></div>
-          <div style="display:flex;flex-direction:column;gap:10px;margin-top:12px">${toggleHtml('gWel', 'Welcome screen on the TV before Round 1', !gd.screens || gd.screens.welcome !== false)}${toggleHtml('gEnd', '“Thanks for playing!” screen after the game', !gd.screens || gd.screens.end !== false)}${toggleHtml('lConv', 'Convert unplayable videos to MP4 automatically', !s.library || s.library.autoConvert !== false)}${toggleHtml('gS', 'Shuffle playlist for new games', gd.shuffle)}${toggleHtml('gSA', 'Keep songs by the same artist apart', gd.spreadArtists !== false)}${toggleHtml('gSI', 'Skip quiet intros automatically', gd.skipIntros !== false)}${toggleHtml('gA', 'Auto-play next song', gd.autoAdvance)}${toggleHtml('gP', 'Pause music during bingo verification', gd.pauseOnClaim)}${toggleHtml('gW', 'Winner animation on TV', gd.winnerAnimation)}</div>
-          <p class="muted small">Winners are always confirmed by the host. Auto-save is always on (every change is saved immediately, crash-safe).</p></div>
-        <div class="panel"><h2>Audio — automatic volume levelling</h2>
-          <div class="row">${toggleHtml('aLev', 'AUTO VOLUME LEVELLING', gd.audio.levelling)}</div>
-          <div class="form-grid" style="margin-top:12px">
-            <label class="field">Loudness target (LUFS)<select id="aT">${[-12, -14, -16, -18, -20, -23].map(v => `<option value="${v}" ${Number(gd.audio.targetLufs) === v ? 'selected' : ''}>${v} LUFS${v === -16 ? ' (recommended)' : v === -14 ? ' (louder)' : v === -20 ? ' (quieter)' : ''}</option>`).join('')}</select></label>
-            <label class="field">Maximum amplification (dB)<input type="number" id="aB" min="0" max="20" value="${gd.audio.maxBoostDb}"></label>
-            <label class="field">Peak ceiling (dBTP)<select id="aC">${[0, -0.5, -1, -1.5, -2, -3].map(v => `<option value="${v}" ${Number(gd.audio.ceilingDbtp) === v ? 'selected' : ''}>${v} dBTP${v === -1 ? ' (recommended)' : v === 0 ? ' (no headroom)' : v <= -2 ? ' (cheap speakers / PA)' : ''}</option>`).join('')}</select></label>
-            <label class="field">Fade in (seconds, 0 = off)<input type="number" id="aFi" min="0" max="5" step="0.1" value="${gd.audio.fadeIn}"></label>
-            <label class="field">Fade out (seconds, 0 = off)<input type="number" id="aFo" min="0" max="8" step="0.1" value="${gd.audio.fadeOut}"></label></div>
-          <p class="muted small">Every video's loudness is measured once in the background (EBU R128). Playback is then turned up or down so every song sounds equally loud — without touching the original files and never above ${gd.audio.ceilingDbtp} dBTP, so nothing clips. Very quiet videos are boosted by at most the maximum amplification.</p></div>
-        <div class="panel"><h2>About</h2><div class="as-about"><img src="../shared/brand/icon.svg" alt="Anthem Square"><div><div class="wm">ANTHEM<em>SQUARE</em></div><div class="muted small" style="margin-top:8px">Music video bingo · version ${esc((App.info && App.info.version) || '')}</div><div class="tl">HEAR IT. MARK IT. <b>OWN IT.</b></div></div></div></div>
-        <div class="panel"><h2>Licence &amp; devices</h2><div id="licBox" class="muted small">…</div>
-          <details style="margin-top:10px"><summary class="small" style="cursor:pointer;font-weight:700">Your music, your responsibility</summary><p class="small" style="margin:8px 0 0">Anthem Square is software only. It does not supply music or videos, and it does not provide music licences or permission to run events or give prizes. You are responsible for using media you have the rights to play in public and for any permissions your event needs. The music usage report is a record to help you; it is not legal advice.</p></details></div>
-        <div class="panel"><h2>App updates</h2>
-          <div class="row"><span class="muted">Version <b style="color:#fff">${esc(App.info.version)}</b></span><span class="grow"></span><span id="upState" class="small"></span></div>
-          <div class="row" style="margin-top:12px">${toggleHtml('upAuto', 'Check for updates automatically', s.updates ? s.updates.auto !== false : true)}</div>
-          <div class="row" style="margin-top:12px"><button class="btn sm" id="upCheck">Check now</button><button class="btn sm primary" id="upAct" style="display:none"></button></div>
+    const tog = (id, label, on, hint) => `<div class="st-tog">${toggleHtml(id, label, on)}${hint ? `<div class="st-hint">${hint}</div>` : ''}</div>`;
+    const sec = (id, icon, title, sub, body) => `<section class="st-sec" id="st-${id}" data-sec="${id}"><div class="st-head"><span class="st-ico"><svg viewBox="0 0 24 24" aria-hidden="true">${icon}</svg></span><div><h2>${title}</h2><p>${sub}</p></div></div>${body}</section>`;
+    const SECTIONS = [['general', 'General'], ['tv', 'TV screen'], ['play', 'Gameplay'], ['rules', 'Bingo rules'], ['sound', 'Sound'], ['cards', 'Cards & printing'], ['phone', 'Phone & home play'], ['perf', 'Library & performance'], ['about', 'Updates & about']];
+    el.innerHTML = `<div class="page-head"><div><div class="eyebrow">Preferences</div><h1>Settings</h1><p>Defaults for new games. The game in progress can be changed live on Host Game.</p></div>
+        <div class="row"><input type="search" id="stFind" placeholder="Find a setting…" style="width:220px"><span id="stSaved" class="st-saved">✓ All changes saved</span><button class="btn primary" id="sSave" title="Changes save automatically — this saves immediately">Save now</button></div></div>
+      <div id="stApply"></div>
+      <div class="st-layout">
+        <nav class="st-nav" id="stNav">${SECTIONS.map(([k, l], i) => `<a href="#" data-go="${k}" class="${i ? '' : 'on'}">${l}</a>`).join('')}</nav>
+        <div class="st-body" id="stBody">
+        ${sec('general', '<path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/>', 'General', 'How Anthem Square looks on this laptop.', `
+          <div class="form-grid">
+            <label class="field">Theme<select id="sTheme"><option value="dark" ${s.appearance.theme !== 'light' ? 'selected' : ''}>Dark (recommended)</option><option value="light" ${s.appearance.theme === 'light' ? 'selected' : ''}>Light</option></select></label>
+            <label class="field">Interface size<select id="sScale">${[0.85, 0.9, 1, 1.1, 1.25, 1.4].map(v => `<option value="${v}" ${Number(s.appearance.scale) === v ? 'selected' : ''}>${Math.round(v * 100)}%</option>`).join('')}</select></label></div>
+          <div class="st-row"><div><b>Your logo</b><div class="st-hint">Shown on cards and the TV next to the Anthem Square mark.</div></div><div class="row">${s.appearance.logo ? `<img src="${fileUrl(s.appearance.logo)}?v=${Date.now()}" style="max-height:44px;background:#fff;border-radius:8px;padding:4px">` : '<span class="muted small">No logo</span>'}<button class="btn sm" id="sLogo">Upload logo…</button>${s.appearance.logo ? '<button class="btn sm ghost" id="sLogoX">Remove</button>' : ''}</div></div>`)}
+        ${sec('tv', '<rect x="3" y="5" width="18" height="12" rx="2"/><path d="M8 21h8M12 17v4"/>', 'TV screen', 'What the room sees. The preview updates as you change anything here.', `
+          <div class="st-tv">
+            <div class="st-tv-fields">
+              <h3>Display</h3>
+              <div class="form-grid">
+                <label class="field">TV / projector<select id="sDisp"><option value="">Automatic</option>${displays.map(d => `<option value="${d.id}" ${String(s.video.displayId) === String(d.id) ? 'selected' : ''}>${esc(d.label)} ${d.width}×${d.height}${d.primary ? ' (laptop)' : ''}</option>`).join('')}</select></label>
+                <label class="field">Picture fit<select id="sAsp">${[['contain', 'Fit (letterbox)'], ['cover', 'Fill & crop'], ['fill', 'Stretch']].map(([v, l]) => `<option value="${v}" ${s.video.aspect === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label></div>
+              ${tog('sFs', 'Open the TV window full screen', s.video.fullscreen)}
+              <h3>Song title &amp; artist</h3>
+              ${tog('oOn', 'Show song title & artist on the TV', gd.overlay.enabled)}
+              <div class="form-grid">
+                <label class="field">Position<select id="oPos">${[['bottom-left', 'Bottom left'], ['bottom-center', 'Bottom centre'], ['top-left', 'Top left']].map(([v, l]) => `<option value="${v}" ${gd.overlay.position === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
+                <label class="field">Reveal the title after<select id="oR">${[0, 5, 10, 15, 20, 30].map(v => `<option value="${v}" ${Number(gd.overlay.revealDelay || 0) === v ? 'selected' : ''}>${v === 0 ? 'Straight away' : v + ' seconds'}</option>`).join('')}</select></label>
+                <label class="field">Title size (px)<input type="number" id="oT" value="${gd.overlay.titleSize}"></label>
+                <label class="field">Artist size (px)<input type="number" id="oA" value="${gd.overlay.artistSize}"></label>
+                <label class="field">Background opacity (%)<input type="number" id="oO" min="0" max="100" value="${Math.round(gd.overlay.opacity * 100)}"></label>
+                <label class="field">Show for (s, 0 = whole song)<input type="number" id="oD" min="0" value="${gd.overlay.duration}"></label></div>
+              <div class="st-hint">With a delayed reveal the TV shows “♪ Guess the song…” and a countdown first. Your laptop and phone always show the title.</div>
+              <h3>Played-songs crawler &amp; winning patterns</h3>
+              <div class="form-grid">
+                <label class="field">Crawler speed (1–10)<input type="number" id="cS" min="1" max="10" value="${gd.crawler.speed}"></label>
+                <label class="field">Text size (px)<input type="number" id="cF" min="18" max="56" value="${gd.crawler.fontSize}"></label>
+                <label class="field">Height (px)<input type="number" id="cH" min="48" max="140" value="${gd.crawler.height}"></label>
+                <label class="field">Separator<select id="cSep">${['diamond', 'bar', 'dot', 'star', 'note'].map(p => `<option ${gd.crawler.separator === p ? 'selected' : ''}>${p}</option>`).join('')}</select></label>
+                <label class="field">Winning-pattern panel<select id="pPos">${[['top-right', 'Top right'], ['top-left', 'Top left'], ['bottom-right', 'Bottom right'], ['bottom-left', 'Bottom left']].map(([v, l]) => `<option value="${v}" ${gd.patternPosition === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label></div>
+              <h3>Extra TV screens <span class="badge">OPTIONAL</span></h3>
+              ${tog('gW', 'Winner screen and animation', gd.winnerAnimation)}
+              ${tog('gWel', 'Welcome screen before Round 1', !!(gd.screens && gd.screens.welcome))}
+              ${tog('gEnd', '“Thanks for playing!” screen after the game', !!(gd.screens && gd.screens.end))}
+              <details class="st-more"><summary>Intermission slides</summary><div id="slPanel"></div></details>
+            </div>
+            <div class="st-tv-prev"><div id="sTvp"></div></div>
+          </div>`)}
+        ${sec('play', '<circle cx="12" cy="12" r="9"/><path d="M10 8.5v7l5.5-3.5z"/>', 'Gameplay', 'How songs play in new games. Change the current game on Host Game.', `
+          <div class="form-grid">
+            <label class="field">Clip length<select id="sClip">${[20, 30, 40, 60, 'full'].map(m => `<option value="${m}" ${String(gd.clipMode) === String(m) ? 'selected' : ''}>${m === 'full' ? 'Full song' : m + ' seconds'}</option>`).join('')}</select></label>
+            <label class="field">Start each clip at (s)<input type="number" id="sStart" min="0" value="${gd.defaultStart}"></label>
+            <label class="field">Gap between songs (s)<input type="number" id="gG" min="0" max="30" value="${gd.autoAdvanceGap}"></label>
+            <label class="field">Volume (%)<input type="number" id="gV" min="0" max="100" value="${gd.volume}"></label>
+            <label class="field">After a round is won<select id="gAW"><option value="ask" ${gd.afterWinner !== 'intermission' ? 'selected' : ''}>Ask me</option><option value="intermission" ${gd.afterWinner === 'intermission' ? 'selected' : ''}>Go to the intermission</option></select></label>
+            <label class="field">Intermission length (min)<input type="number" id="gIM" min="0" max="120" value="${gd.intermissionMinutes != null ? gd.intermissionMinutes : 10}"></label></div>
+          <div class="st-togs">
+            ${tog('gA', 'Play the next song automatically', gd.autoAdvance)}
+            ${tog('gSI', 'Skip quiet intros', gd.skipIntros !== false, 'Clips start where the music starts.')}
+            ${tog('gS', 'Shuffle the playlist', gd.shuffle)}
+            ${tog('gSA', 'Keep songs by the same artist apart', gd.spreadArtists !== false)}
+            ${tog('gP', 'Pause the music while checking a BINGO', gd.pauseOnClaim)}</div>
+          <div class="st-hint">Winners are always confirmed by you. Every change during a game is saved straight away.</div>`)}
+        ${sec('rules', '<rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/>', 'Bingo rules', 'Rounds and winning patterns for new games, presets and your own patterns.', '<div id="rulesPanel" class="st-plain"></div>')}
+        ${sec('sound', '<path d="M4 9v6h4l5 4V5L8 9z"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/>', 'Sound', 'Where the sound comes out, and automatic volume levelling.', `
+          <div class="form-grid"><label class="field">Sound output<select id="sAudio"><option value="default">Windows default</option>${audioOut.filter(d => d.deviceId !== 'default').map(d => `<option value="${esc(d.deviceId)}" ${s.video.audioDeviceId === d.deviceId ? 'selected' : ''}>${esc(d.label || 'Audio device')}</option>`).join('')}</select></label></div>
+          ${tog('aLev', 'Automatic volume levelling', gd.audio.levelling, 'Every song plays equally loud. Your video files are never changed.')}
+          <details class="st-more"><summary>Levelling details</summary><div class="form-grid" style="margin-top:10px">
+            <label class="field">Loudness target<select id="aT">${[-12, -14, -16, -18, -20, -23].map(v => `<option value="${v}" ${Number(gd.audio.targetLufs) === v ? 'selected' : ''}>${v} LUFS${v === -16 ? ' (recommended)' : v === -14 ? ' (louder)' : v === -20 ? ' (quieter)' : ''}</option>`).join('')}</select></label>
+            <label class="field">Peak ceiling<select id="aC">${[0, -0.5, -1, -1.5, -2, -3].map(v => `<option value="${v}" ${Number(gd.audio.ceilingDbtp) === v ? 'selected' : ''}>${v} dBTP${v === -1 ? ' (recommended)' : v === 0 ? ' (no headroom)' : v <= -2 ? ' (small speakers / PA)' : ''}</option>`).join('')}</select></label>
+            <label class="field">Maximum boost (dB)<input type="number" id="aB" min="0" max="20" value="${gd.audio.maxBoostDb}"></label>
+            <label class="field">Fade in (s, 0 = off)<input type="number" id="aFi" min="0" max="5" step="0.1" value="${gd.audio.fadeIn}"></label>
+            <label class="field">Fade out (s, 0 = off)<input type="number" id="aFo" min="0" max="8" step="0.1" value="${gd.audio.fadeOut}"></label></div>
+            <div class="st-hint">Loudness is measured once per video (EBU R128); playback never goes above the peak ceiling, so nothing clips.</div></details>`)}
+        ${sec('cards', '<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/>', 'Cards & printing', 'Defaults for printed cards. Footer message and font are on the Bingo Cards page.', `
+          <div class="form-grid"><label class="field">Text size (%)<input type="number" id="kT" min="80" max="125" step="5" value="${Math.round(s.cards.textScale * 100)}"></label></div>
+          <div class="st-togs">${tog('kQ', 'QR code on each card', s.cards.qr, 'Lets you check a claim by scanning the card.')}${tog('kL', 'Your logo on cards', s.cards.useLogo)}${tog('kB', 'Black & white (saves ink)', s.cards.bw)}</div>
+          <div class="st-hint">Always two cards per A4 sheet.</div>`)}
+        ${sec('phone', '<rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/>', 'Phone & home play', 'Your phone as a remote, and options for players at home.', `
+          ${tog('rA', 'Start the phone remote when the app opens', s.remote.autoStart, 'Pairing PIN, QR code and paired phones: <a href="#" id="rGo">Mobile Host Connection</a>.')}
+          <h3>Home play</h3>
+          <div class="st-togs">${tog('hImg', 'Share cards as images (e.g. WhatsApp)', !!(s.home && s.home.shareImages), 'Adds “Share cards as images” to Bingo Cards &amp; Printing.')}
+          ${tog('hPhone', 'Phone cards for players', !!(s.home && s.home.phoneCards), 'Players scan a QR code and get their own card on their phone. Manage them under <a href="#" id="hGo">Mobile Host Connection</a>.')}
+          ${tog('hTv', 'Show the “Join on your phone” QR on the welcome screen', !s.home || s.home.joinOnTv !== false)}</div>`)}
+        ${sec('perf', '<path d="M13 2L4 14h7l-1 8 9-12h-7z"/>', 'Library & performance', 'Video conversion, Low Resource Mode and smaller copies for slow laptops.', `
+          ${tog('lConv', 'Convert unplayable videos to MP4 automatically', !s.library || s.library.autoConvert !== false, 'A copy is made; your original file is never changed.')}
+          <div id="perfPanel" class="st-plain"></div>`)}
+        ${sec('about', '<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/>', 'Updates & about', 'Version, updates, licence and the data folder.', `
+          <div class="as-about"><img src="../shared/brand/icon.svg" alt="Anthem Square"><div><div class="wm">ANTHEM<em>SQUARE</em></div><div class="muted small" style="margin-top:8px">Music video bingo · version ${esc((App.info && App.info.version) || '')}</div><div class="tl">HEAR IT. MARK IT. <b>OWN IT.</b></div></div></div>
+          <h3>App updates</h3>
+          <div class="row"><span class="muted">Version <b>${esc(App.info.version)}</b></span><span class="grow"></span><span id="upState" class="small"></span></div>
+          ${tog('upAuto', 'Check for updates automatically', s.updates ? s.updates.auto !== false : true)}
+          <div class="row" style="margin-top:8px"><button class="btn sm" id="upCheck">Check now</button><button class="btn sm primary" id="upAct" style="display:none"></button></div>
           <div id="upBack" class="row" style="margin-top:10px"></div>
-          <p class="muted small">Updates come from the Anthem Square releases on GitHub and are installed only between games. Every update must carry Anthem Square's signature, checked on this laptop before anything is installed; an unsigned or altered file is never run. Your games and settings are copied before each update, and you can go back to the previous version. No internet? Nothing happens — the app works fully offline.</p></div>
-        <div class="panel" id="perfPanel"></div>
-        <div class="panel" id="rulesPanel" style="grid-column:1 / -1"></div>
-        <div class="panel"><h2>🏠 Home play</h2>
-          <div style="display:flex;flex-direction:column;gap:10px">${toggleHtml('hImg', 'Share cards as images (for WhatsApp)', !!(s.home && s.home.shareImages))}${toggleHtml('hPhone', 'Phone cards for players', !!(s.home && s.home.phoneCards))}${toggleHtml('hTv', 'Show the “Join on your phone” QR code on the TV welcome screen', !s.home || s.home.joinOnTv !== false)}</div>
-          <p class="muted small"><b style="color:#fff">Share as images:</b> adds “Share cards as images” to Bingo Cards &amp; Printing — each card is saved as a picture, optionally with a player's name on it.<br><b style="color:#fff">Phone cards:</b> players scan a QR code, type their name and get their own card on their phone. They tap songs to mark them, and pressing BINGO is checked instantly on this laptop. Manage players under <a href="#" id="hGo" style="color:var(--pink)">Mobile Host Connection</a>. Phones must be on the same Wi-Fi.</p></div>
-        <div class="panel"><h2>Mobile remote</h2>${toggleHtml('rA', 'Start the remote service when the app opens', s.remote.autoStart)}<p class="muted small">Address, PIN, paired devices and port: see <a href="#" id="rGo" style="color:var(--pink)">Mobile Host Connection</a>.</p>
-          <p class="muted tiny">Data folder: ${esc(App.info.dataDir)}</p></div>
+          <div class="st-hint">Updates install only between games, and only if they carry Anthem Square's signature. Your games and settings are copied first, and you can go back to the previous version. Offline? Nothing happens.</div>
+          <h3>Licence &amp; devices</h3><div id="licBox" class="muted small">…</div>
+          <details class="st-more"><summary>Your music, your responsibility</summary><p class="small" style="margin:8px 0 0">Anthem Square is software only. It does not supply music or videos, and it does not provide music licences or permission to run events or give prizes. You are responsible for using media you have the rights to play in public and for any permissions your event needs. The music usage report is a record to help you; it is not legal advice.</p></details>
+          <p class="muted tiny" style="margin-top:12px">Data folder: ${esc(App.info.dataDir)}</p>`)}
+        </div>
       </div>`;
+    // section navigation, highlight on scroll, and quick find
+    const body = $('#stBody', el);
+    $$('#stNav a', el).forEach(a => a.onclick = (e) => { e.preventDefault(); const t = $('#st-' + a.dataset.go, el); if (t) t.scrollIntoView({ behavior: 'smooth', block: 'start' }); });
+    const spy = () => { const secs = $$('.st-sec', el); let cur = secs[0]; secs.forEach(x => { if (x.getBoundingClientRect().top < 160) cur = x; }); $$('#stNav a', el).forEach(a => a.classList.toggle('on', cur && a.dataset.go === cur.dataset.sec)); };
+    const scroller = el.closest('#main') || window; scroller.addEventListener('scroll', spy, { passive: true }); this._spy = () => scroller.removeEventListener('scroll', spy);
+    $('#stFind', el).oninput = (e) => {
+      const q = e.target.value.trim().toLowerCase();
+      $$('.st-sec', el).forEach(x => { const hit = !q || x.textContent.toLowerCase().includes(q) || Array.from(x.querySelectorAll('option')).some(o => o.textContent.toLowerCase().includes(q)); x.classList.toggle('st-hide', !hit); });
+      $$('.st-sec .field, .st-sec .st-tog', el).forEach(f => f.classList.toggle('st-hit', !!q && f.textContent.toLowerCase().includes(q)));
+    };
     this.drawRules($('#rulesPanel', el));
     this.drawPerf($('#perfPanel', el));
     const v = id => $(id, el).value, c = id => $(id, el).checked, n = id => Number($(id, el).value);
@@ -170,7 +216,10 @@ App.register('settings', {
     };
     ['#oOn', '#oPos', '#oT', '#oA', '#oO', '#oR', '#cS', '#cF', '#cH', '#cSep', '#pPos', '#sAsp'].forEach(id => { const x = $(id, el); if (x) { x.addEventListener('input', readTv); x.addEventListener('change', readTv); } });
     readTv();
-    $('#sSave', el).onclick = async () => {
+    let saveT = null; const saved = $('#stSaved', el);
+    const autoSave = () => { clearTimeout(saveT); saved.textContent = 'Saving…'; saved.classList.add('busy'); saveT = setTimeout(() => $('#sSave', el).onclick({ auto: true }), 700); };
+    $$('#stBody input, #stBody select', el).forEach(x => { if (['stFind'].includes(x.id) || x.closest('#rulesPanel, #perfPanel, #slPanel')) return; x.addEventListener('change', autoSave); if (x.type === 'number') x.addEventListener('input', autoSave); });
+    $('#sSave', el).onclick = async (ev) => {
       const patch = {
         appearance: { scale: Number(v('#sScale')), theme: v('#sTheme') },
         video: { displayId: v('#sDisp') || null, aspect: v('#sAsp'), audioDeviceId: v('#sAudio'), fullscreen: c('#sFs') },
@@ -187,8 +236,14 @@ App.register('settings', {
       };
       App.settings = await api('settings:update', patch);
       App.applyAppearance();
-      toast('Settings saved', 'ok');
-      if (App.game && await confirmBox('Apply to the current game?', 'Also apply the overlay, crawler, clip and gameplay settings to the game that is loaded now?', 'Apply')) {
+      saved.textContent = '✓ All changes saved'; saved.classList.remove('busy');
+      if (!(ev && ev.auto)) toast('Settings saved', 'ok');
+      // a game is loaded: offer to apply these defaults to it as well (never automatically)
+      const ap = $('#stApply', el);
+      if (App.game && ap && !ap.firstChild) { ap.innerHTML = '<div class="banner"><div class="grow"><h3>A game is loaded</h3><div class="muted">These are defaults for new games. Apply the TV, clip and gameplay settings to the loaded game too?</div></div><button class="btn primary" id="stApplyGo">Apply to this game</button><button class="btn ghost" id="stApplyNo">Not now</button></div>'; $('#stApplyNo', ap).onclick = () => { ap.innerHTML = ''; }; $('#stApplyGo', ap).onclick = async () => { ap.innerHTML = ''; await applyToGame(); toast('Applied to the loaded game', 'ok'); }; }
+    };
+    const applyToGame = async () => {
+      { const patch = { gameDefaults: App.settings.gameDefaults };
         const g = patch.gameDefaults;
         await App.cmd('setOverlay', g.overlay); await App.cmd('setCrawler', g.crawler); await App.cmd('setAudio', g.audio);
         await App.cmd('setGameSettings', { afterWinner: g.afterWinner, intermissionMinutes: g.intermissionMinutes, clipMode: g.clipMode, autoAdvance: g.autoAdvance, autoAdvanceGap: g.autoAdvanceGap, pauseOnClaim: g.pauseOnClaim, winnerAnimation: g.winnerAnimation, patternPosition: g.patternPosition, defaultStart: g.defaultStart });
