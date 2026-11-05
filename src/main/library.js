@@ -13,6 +13,14 @@ const AUDIO_EXT = ['.mp3', '.m4a', '.aac', '.flac', '.wav', '.ogg', '.oga', '.wm
 const PLAYABLE_EXT = ['.mp4', '.m4v', '.mov', '.webm', '.mkv', '.ogv'];
 const KNOWN_VIDEO_EXT = PLAYABLE_EXT.concat(['.avi', '.wmv', '.flv', '.mpg', '.mpeg', '.3gp', '.ts', '.vob', '.divx', '.m2ts']);
 
+/** Tags: trimmed, de-duplicated (case-insensitive), at most 12 of 30 characters. */
+function cleanTags(t) {
+  const arr = Array.isArray(t) ? t : String(t || '').split(',');
+  const seen = new Set(); const out = [];
+  arr.forEach(x => { const v = String(x || '').trim().replace(/\s+/g, ' ').slice(0, 30); const k = v.toLowerCase(); if (v && !seen.has(k)) { seen.add(k); out.push(v); } });
+  return out.slice(0, 12);
+}
+const decadeOf = (y) => (y ? Math.floor(y / 10) * 10 + 's' : null);
 function uid(p) { return p + crypto.randomBytes(5).toString('hex'); }
 function norm(s) { return String(s || '').toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '').replace(/\(.*?\)|\[.*?\]/g, '').replace(/[^a-z0-9ऀ-ॿ]+/g, ' ').replace(/^the /, '').trim(); }
 function songKey(s) { return norm(s.title) + '|' + norm(s.artist); }
@@ -86,6 +94,7 @@ class Library {
       const song = {
         id: uid('s_'), path: f, fileName: path.basename(f), ext,
         title: tags.title || guess.title || '', artist: tags.artist || guess.artist || '',
+        year: tags.year || null, tags: tags.genre ? [tags.genre] : [],
         displayTitle: '', printTitle: '',
         duration: 0, width: 0, height: 0, thumb: null,
         clipStart: null, clipEnd: null,
@@ -132,6 +141,9 @@ class Library {
   update(id, fields) {
     const s = this.get(id); if (!s) throw new Error('Song not found');
     ['title', 'artist', 'displayTitle', 'printTitle'].forEach(k => { if (k in fields) s[k] = String(fields[k] || '').trim(); });
+    if ('year' in fields) { const y = Number(fields.year); s.year = Number.isInteger(y) && y >= 1900 && y <= 2100 ? y : null; }
+    if ('tags' in fields) s.tags = cleanTags(fields.tags);
+    if ('flag' in fields) s.flag = fields.flag && fields.flag.reason ? { reason: String(fields.flag.reason).slice(0, 60), note: String(fields.flag.note || '').slice(0, 200), at: new Date().toISOString() } : null;
     ['clipStart', 'clipEnd'].forEach(k => {
       if (k in fields) {
         const v = fields[k];
@@ -280,6 +292,51 @@ class Library {
     return { file, count: songs.length, missing: songs.filter(s => s.status === 'missing').length };
   }
 
+  /** Add / remove tags and set the year on many songs at once. */
+  bulkTag(ids, { add = [], remove = [], year } = {}) {
+    const rm = new Set(cleanTags(remove).map(x => x.toLowerCase())); const ad = cleanTags(add); let n = 0;
+    ids.forEach(id => { const s = this.get(id); if (!s) return;
+      s.tags = cleanTags((s.tags || []).filter(t => !rm.has(t.toLowerCase())).concat(ad));
+      if (year !== undefined) { const y = Number(year); s.year = Number.isInteger(y) && y >= 1900 && y <= 2100 ? y : null; }
+      n++; });
+    this.save(); return { updated: n };
+  }
+
+  /** Tag and decade counts over songs that could go into a game. */
+  tagSummary() {
+    const tags = new Map(), decades = new Map(); let untagged = 0;
+    this.data.songs.filter(s => this.isPlayable(s) && !s.duplicateOf).forEach(s => {
+      (s.tags || []).forEach(t => { const k = t.toLowerCase(); const e = tags.get(k) || { tag: t, count: 0 }; e.count++; tags.set(k, e); });
+      const d = decadeOf(s.year); if (d) decades.set(d, (decades.get(d) || 0) + 1);
+      if (!(s.tags || []).length && !s.year) untagged++;
+    });
+    return { tags: Array.from(tags.values()).sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag)), decades: Array.from(decades.entries()).map(([decade, count]) => ({ decade, count })).sort((a, b) => a.decade.localeCompare(b.decade)), untagged };
+  }
+
+  /**
+   * Smart playlist: playable, unique songs matching the chosen decades (any of them) AND the
+   * chosen tags (any of them). Picks `count` at random, never two versions of the same song.
+   */
+  buildPlaylist({ name, decades = [], tags = [], count = 75, dryRun = false } = {}, pick = (arr, n) => arr.sort(() => Math.random() - 0.5).slice(0, n)) {
+    const dset = new Set(decades); const tset = new Set(cleanTags(tags).map(t => t.toLowerCase()));
+    const seen = new Set(); const pool = [];
+    this.data.songs.forEach(s => {
+      if (!this.isPlayable(s)) return;
+      if (dset.size && !dset.has(decadeOf(s.year))) return;
+      if (tset.size && !(s.tags || []).some(t => tset.has(t.toLowerCase()))) return;
+      const k = songKey(s); if (seen.has(k) || seen.has(s.fingerprint)) return; seen.add(k); seen.add(s.fingerprint);
+      pool.push(s.id);
+    });
+    if (dryRun) return { matching: pool.length };
+    if (!pool.length) throw new Error('No playable songs match those choices.');
+    const n = Math.max(1, Math.min(Number(count) || 75, pool.length));
+    let base = String(name || '').trim() || [Array.from(dset).join(' + '), Array.from(cleanTags(tags)).join(' + ')].filter(Boolean).join(' · ') || 'Mixed playlist';
+    let nm = base, k = 2; while (this.pl.playlists.some(p => p.name.toLowerCase() === nm.toLowerCase())) nm = `${base} (${k++})`;
+    const p = this.createPlaylist(nm.slice(0, 80));
+    this.addToPlaylist(p.id, pick(pool.slice(), n));
+    return { playlistId: p.id, name: p.name, added: p.songIds.length, matching: pool.length, enoughForGame: p.songIds.length >= MIN_SONGS };
+  }
+
   isPlayable(s) { return s && s.status === 'ok' && !!String(s.title || '').trim() && !!String(s.artist || '').trim(); }
 
   problemFor(s) {
@@ -347,4 +404,4 @@ class Library {
   }
 }
 
-module.exports = { Library, PLAYABLE_EXT, KNOWN_VIDEO_EXT, songKey, fingerprint };
+module.exports = { Library, PLAYABLE_EXT, KNOWN_VIDEO_EXT, songKey, fingerprint, cleanTags, decadeOf };

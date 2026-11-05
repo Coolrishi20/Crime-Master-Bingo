@@ -46,6 +46,8 @@ function readMp4Tags(file) {
                 if (tag === '©nam') out.title = val;
                 else if (tag === '©ART') out.artist = val;
                 else if (tag === 'aART' && !out.artist) out.artist = val;
+                else if (tag === '©day') { const y = /(19|20)\d\d/.exec(val); if (y) out.year = Number(y[0]); }
+                else if (tag === '©gen' && val) out.genre = val.slice(0, 30);
                 return true;
               });
               return true;

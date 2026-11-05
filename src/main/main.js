@@ -51,6 +51,8 @@ function defaultSettings() {
     customPatterns: [],   // host-designed 5×5 patterns (Settings → Bingo Rules)
     rulePresets: [],      // saved rule sets for the three rounds
     checklistPresets: [], // saved Rules Checklists [{ name, items }]
+    templates: [],        // saved game set-ups [{ id, name, playlistId, cards, venue, settings }]
+    slides: { enabled: true, seconds: 8, images: [] }, // intermission slides on the TV [{ id, file, name }]
     lastGameId: null,
     cleanShutdown: true
   };
@@ -71,6 +73,8 @@ function loadSettings() {
   merged.customPatterns = Array.isArray(s.customPatterns) ? s.customPatterns : [];
   merged.rulePresets = Array.isArray(s.rulePresets) ? s.rulePresets : [];
   merged.checklistPresets = Array.isArray(s.checklistPresets) ? s.checklistPresets : [];
+  merged.templates = Array.isArray(s.templates) ? s.templates : [];
+  merged.slides = Object.assign({ enabled: true, seconds: 8, images: [] }, s.slides || {}); if (!Array.isArray(merged.slides.images)) merged.slides.images = [];
   merged.gameDefaults.mode = merged.gameDefaults.mode === 'checklist' ? 'checklist' : 'rounds';
   merged.gameDefaults.checklist = normaliseChecklist(merged.gameDefaults.checklist);
   if (!merged.gameDefaults.checklist.length) merged.gameDefaults.checklist = normaliseChecklist(DEFAULT_CHECKLIST);
@@ -277,6 +281,10 @@ async function importAny(paths) {
   return rep;
 }
 
+/** Everything about HOW a game is played (not its cards or history) — what a template keeps. */
+const TEMPLATE_KEYS = ['clipMode', 'defaultStart', 'skipIntros', 'spreadArtists', 'autoAdvance', 'autoAdvanceGap', 'shuffle', 'volume', 'pauseOnClaim', 'winnerAnimation', 'tvScreens', 'screens', 'overlay', 'crawler', 'audio', 'patternPosition', 'rounds', 'roundCount', 'mode', 'checklist', 'afterWinner', 'intermissionMinutes', 'intermissionMessage'];
+function pickTemplateSettings(s) { const o = {}; TEMPLATE_KEYS.forEach(k => { if (s && s[k] !== undefined) o[k] = JSON.parse(JSON.stringify(s[k])); }); return o; }
+
 function remoteState() {
   if (!engine) return { game: null, theme: uiTheme() };
   const st = enrichUpNext(engine.hostState(), true);
@@ -313,7 +321,11 @@ function onEngineChanged(kind) {
 }
 
 function sendHost(ch, data) { if (hostWin && !hostWin.isDestroyed()) hostWin.webContents.send(ch, data); }
-function sendAudience(ch, data) { if (audienceWin && !audienceWin.isDestroyed()) audienceWin.webContents.send(ch, data); }
+function sendAudience(ch, data) {
+  if (audienceWin && !audienceWin.isDestroyed()) audienceWin.webContents.send(ch, data);
+  if (mirrorWin && !mirrorWin.isDestroyed()) mirrorWin.webContents.send(ch, data); // second screen sees exactly the same
+}
+let mirrorWin = null;
 
 /* Single ordered command path for desktop + phone */
 let cmdQueue = Promise.resolve();
@@ -378,6 +390,28 @@ function openAudienceWindow(opts = {}) {
   sendHost('audience', { open: true });
 }
 
+
+/** Second TV screen: a silent mirror of the audience window on another display. */
+function openMirrorWindow(displayId) {
+  if (mirrorWin && !mirrorWin.isDestroyed()) { mirrorWin.show(); mirrorWin.focus(); return mirrorStatus(); }
+  const displays = screen.getAllDisplays(); const primary = screen.getPrimaryDisplay();
+  const tvId = audienceWin && !audienceWin.isDestroyed() ? screen.getDisplayMatching(audienceWin.getBounds()).id : null;
+  const d = (displayId && displays.find(x => String(x.id) === String(displayId))) || displays.find(x => x.id !== primary.id && x.id !== tvId) || displays.find(x => x.id !== primary.id) || primary;
+  const external = d.id !== primary.id && d.id !== tvId; const b = d.bounds;
+  mirrorWin = new BrowserWindow({
+    x: b.x + (external ? 0 : Math.round(b.width * 0.15)), y: b.y + (external ? 0 : Math.round(b.height * 0.15)),
+    width: external ? b.width : Math.round(b.width * 0.45), height: external ? b.height : Math.round(b.width * 0.45 * 9 / 16),
+    backgroundColor: '#0B1B31', title: 'Anthem Square — Second screen', autoHideMenuBar: true, show: false, icon: path.join(ROOT, 'assets', 'icon.png'),
+    webPreferences: { spellcheck: false, preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: false, backgroundThrottling: false, autoplayPolicy: 'no-user-gesture-required' }
+  });
+  mirrorWin.setMenuBarVisibility(false);
+  mirrorWin.loadFile(path.join(RENDERER, 'audience', 'index.html'), { query: { mirror: '1' } });
+  mirrorWin.once('ready-to-show', () => { if (IS_TEST && !process.env.CMB_SHOW) mirrorWin.showInactive(); else mirrorWin.show(); if (external && settings.video.fullscreen && !IS_TEST) mirrorWin.setFullScreen(true); });
+  mirrorWin.on('closed', () => { mirrorWin = null; sendHost('mirror', mirrorStatus()); });
+  sendHost('mirror', { open: true });
+  return { open: true, displayId: d.id, external };
+}
+function mirrorStatus() { return { open: !!(mirrorWin && !mirrorWin.isDestroyed()), displays: screen.getAllDisplays().length }; }
 
 /* ======================================================================= card printing */
 function cardsForPrint(game, numbers) {
@@ -480,6 +514,22 @@ const handlers = {
     sendAudience('app-settings', audienceAppSettings());
     return settings;
   },
+  'slides:add': async ({ files } = {}) => {
+    if (!files) { const r = await dialog.showOpenDialog(hostWin, { title: 'Add intermission slides', properties: ['openFile', 'multiSelections'], filters: [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif'] }] }); if (r.canceled) return settings.slides; files = r.filePaths; }
+    const dir = path.join(DATA_DIR, 'slides'); fs.mkdirSync(dir, { recursive: true });
+    for (const f of files) {
+      if (!/\.(png|jpe?g|webp|gif)$/i.test(f)) continue;
+      if (fs.statSync(f).size > 25 * 1024 * 1024) continue; // a slide, not a poster print file
+      const id = 'sl_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+      const file = path.join(dir, id + path.extname(f).toLowerCase()); fs.copyFileSync(f, file);
+      settings.slides.images.push({ id, file, name: path.basename(f) });
+    }
+    settings.slides.images = settings.slides.images.slice(-60);
+    saveSettings(); sendAudience('app-settings', audienceAppSettings()); return settings.slides;
+  },
+  'slides:remove': ({ id }) => { const it = settings.slides.images.find(i => i.id === id); if (it) { try { fs.unlinkSync(it.file); } catch (e) { /* */ } } settings.slides.images = settings.slides.images.filter(i => i.id !== id); saveSettings(); sendAudience('app-settings', audienceAppSettings()); return settings.slides; },
+  'slides:move': ({ id, dir }) => { const a = settings.slides.images; const i = a.findIndex(x => x.id === id); const j = i + (dir < 0 ? -1 : 1); if (i >= 0 && j >= 0 && j < a.length) { [a[i], a[j]] = [a[j], a[i]]; saveSettings(); sendAudience('app-settings', audienceAppSettings()); } return settings.slides; },
+  'slides:set': ({ enabled, seconds }) => { if (enabled != null) settings.slides.enabled = !!enabled; if (seconds != null) settings.slides.seconds = Math.max(3, Math.min(60, Number(seconds) || 8)); saveSettings(); sendAudience('app-settings', audienceAppSettings()); return settings.slides; },
   'settings:pickLogo': async () => {
     const r = await dialog.showOpenDialog(hostWin, { title: 'Choose a logo', filters: [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'svg', 'webp'] }], properties: ['openFile'] });
     if (r.canceled || !r.filePaths[0]) return null;
@@ -503,6 +553,9 @@ const handlers = {
     return r.canceled ? null : library.importPaths(r.filePaths);
   },
   'library:importPaths': (paths) => importAny(paths),
+  'library:bulkTag': ({ ids, add, remove, year }) => library.bulkTag(ids || [], { add, remove, year }),
+  'library:tagSummary': () => library.tagSummary(),
+  'playlists:build': (opts) => library.buildPlaylist(opts || {}),
   'playlists:importM3U': async () => {
     const r = await dialog.showOpenDialog(hostWin, { title: 'Import M3U playlists', properties: ['openFile', 'multiSelections'], filters: [{ name: 'M3U playlists', extensions: ['m3u', 'm3u8'] }, { name: 'All files', extensions: ['*'] }] });
     return r.canceled ? null : importM3UFiles(r.filePaths);
@@ -557,11 +610,31 @@ const handlers = {
 
   /* games */
   'games:list': () => store.listGames().map(gameSummary).sort((a, b) => String(b.updatedAt || b.createdAt).localeCompare(String(a.updatedAt || a.createdAt))),
+  'templates:list': () => settings.templates.map(t => Object.assign({}, t, { playlistName: (library.playlist(t.playlistId) || {}).name || null })),
+  'templates:save': ({ name, fromGameId, playlistId, cards, venue, settings: st }) => {
+    name = String(name || '').trim().slice(0, 60); if (!name) throw new Error('Give the template a name.');
+    let t;
+    if (fromGameId) {
+      const g = engine && engine.game.id === fromGameId ? engine.game : readGame(fromGameId); if (!g) throw new Error('Game not found');
+      t = { playlistId: g.playlistId, cards: (g.cards || []).length || 100, venue: g.venue || '', settings: pickTemplateSettings(g.settings) };
+    } else {
+      const merged = JSON.parse(JSON.stringify(settings.gameDefaults));
+      Object.keys(st || {}).forEach(k => { merged[k] = st[k]; });
+      t = { playlistId: playlistId || null, cards: Math.max(1, Math.min(999, Number(cards) || 100)), venue: String(venue || ''), settings: pickTemplateSettings(merged) };
+    }
+    const old = settings.templates.find(x => x.name.toLowerCase() === name.toLowerCase());
+    const tpl = Object.assign({ id: old ? old.id : 't_' + Date.now().toString(36), name, savedAt: new Date().toISOString() }, t);
+    settings.templates = settings.templates.filter(x => x.id !== tpl.id).concat([tpl]).slice(-40);
+    saveSettings();
+    return tpl;
+  },
+  'templates:delete': ({ id }) => { settings.templates = settings.templates.filter(t => t.id !== id); saveSettings(); return true; },
   'games:create': (opts) => {
     const v = library.validatePlaylist(opts.playlistId);
     if (!v.ok) throw new Error(`This playlist has ${v.uniquePlayable} playable unique songs. Add ${v.needed} more song${v.needed === 1 ? '' : 's'} (minimum 40).`);
     const gs = JSON.parse(JSON.stringify(settings.gameDefaults));
     if (opts.settings) Object.keys(opts.settings).forEach(k => { if (typeof opts.settings[k] === 'object' && opts.settings[k] && !Array.isArray(opts.settings[k])) gs[k] = Object.assign(gs[k] || {}, opts.settings[k]); else gs[k] = opts.settings[k]; });
+    if (opts.settings && opts.settings.rounds) gs.rounds = JSON.parse(JSON.stringify(opts.settings.rounds)); // a template's rounds replace the defaults
     const game = createGame({ name: opts.name, date: opts.date, venue: opts.venue, logo: opts.logo || null, songs: v.songs, playlistId: v.playlistId, playlistName: v.name, settings: gs });
     if (opts.cards) game.cards = cardsLib.generateCards(game.order, Number(opts.cards), []);
     saveGame(game);
@@ -844,6 +917,14 @@ const handlers = {
 
   /* audience-window → main */
   'player:ready': () => { audienceReady = true; lastTvJson = null; ipcMain.emit('audience:ready-once'); if (engine) engine.playerReady(); return { appSettings: audienceAppSettings(), state: engine ? audienceStateWithJoin() : null }; },
+  'mirror:ready': (p, e) => {
+    // joining mid-song: give the second screen the current song at the main TV's position
+    setTimeout(() => { try { if (!engine || !e || e.sender.isDestroyed()) return; const pb = engine.game.playback; if (pb.index >= 0 && ['playing', 'loading', 'paused'].includes(pb.status)) e.sender.send('player', engine.loadCmd(pb.index, pb.position || 0, pb.status !== 'paused')); } catch (err) { /* */ } }, 250);
+    return { appSettings: audienceAppSettings(), state: engine ? audienceStateWithJoin() : null };
+  },
+  'audience:openMirror': ({ displayId } = {}) => openMirrorWindow(displayId),
+  'audience:closeMirror': () => { if (mirrorWin && !mirrorWin.isDestroyed()) mirrorWin.close(); return { open: false }; },
+  'audience:mirrorStatus': () => mirrorStatus(),
   'player:started': ({ token }) => { if (engine) engine.playerStarted(token); return true; },
   'player:time': ({ token, t }) => { if (engine) engine.playerTime(token, t); return true; },
   'player:ended': ({ token }) => { if (engine) engine.playerEnded(token); return true; },
@@ -852,7 +933,9 @@ const handlers = {
 };
 
 function audienceAppSettings() {
-  return { logo: settings.appearance.logo ? pathToFileURL(settings.appearance.logo).href : null, aspect: settings.video.aspect, audioDeviceId: settings.video.audioDeviceId, lowResource: lowRes() };
+  const sl = settings.slides || {};
+  return { logo: settings.appearance.logo ? pathToFileURL(settings.appearance.logo).href : null, aspect: settings.video.aspect, audioDeviceId: settings.video.audioDeviceId, lowResource: lowRes(),
+    slides: { enabled: sl.enabled !== false, seconds: Math.max(3, Math.min(60, Number(sl.seconds) || 8)), images: (sl.images || []).filter(i => fs.existsSync(i.file)).map(i => pathToFileURL(i.file).href) } };
 }
 
 /**
@@ -1063,11 +1146,16 @@ function createUpdater() {
 ipcMain.handle('invoke', async (e, channel, payload) => {
   const h = handlers[channel];
   if (!h) throw new Error('Unknown request: ' + channel);
+  if (mirrorWin && !mirrorWin.isDestroyed() && e.sender === mirrorWin.webContents && /^player:/.test(channel)) return true; // the second screen never drives the game
   try { return await h(payload || {}, e); }
   finally { if (flushQueued) flushEngineChanges(); } // windows get the new state before the reply
 });
 ipcMain.on('print:ready', (e, info) => ipcMain.emit('print:ready:' + e.sender.id, e, info));
-ipcMain.on('player:time-sync', (e, d) => { if (engine) engine.playerTime(d.token, d.t); });
+ipcMain.on('player:time-sync', (e, d) => {
+  if (mirrorWin && e.sender === mirrorWin.webContents) return;
+  if (engine) engine.playerTime(d.token, d.t);
+  if (mirrorWin && !mirrorWin.isDestroyed()) mirrorWin.webContents.send('mirror-sync', d); // keep the second screen in step
+});
 
 /* ======================================================================= lifecycle */
 const gotLock = IS_TEST ? true : app.requestSingleInstanceLock();

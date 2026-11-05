@@ -15,8 +15,11 @@
   /* Single Web Audio chain: <video> → gain → speakers. Levelling, fades, volume and
      mute are ONE gain stage, so there is never a second stream or any overlap. */
   var actx = null, gainNode = null;
+  /* second screen: same picture, always silent, never reports back (the main TV runs the game) */
+  var MIRROR = /[?&]mirror=1/.test(location.search);
+  if (MIRROR) { document.documentElement.classList.add('mirror'); }
   function ensureAudio() {
-    if (actx) return;
+    if (actx || MIRROR) return;
     try {
       actx = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: 'playback' });
       var src = actx.createMediaElementSource(video);
@@ -31,6 +34,7 @@
     else if (video.setSinkId) video.setSinkId(id).catch(function () {});
   }
   function setGain(v, tc) {
+    if (MIRROR) { video.muted = true; video.volume = 0; return; }
     if (gainNode) { gainNode.gain.setTargetAtTime(v, actx.currentTime, tc || 0.02); video.volume = 1; }
     else video.volume = Math.max(0, Math.min(1, v));
   }
@@ -101,7 +105,7 @@
   });
   video.addEventListener('playing', function () {
     video.classList.add('show');
-    if (!cur.test) window.cmb.invoke('player:started', { token: cur.token });
+    if (!cur.test && !MIRROR) window.cmb.invoke('player:started', { token: cur.token });
   });
   video.addEventListener('seeked', function () { if (cur.token != null) video.classList.add('show'); });
   video.addEventListener('error', function () {
@@ -122,7 +126,12 @@
 
   function stopTest() { clear(); renderOverlay(); }
 
-  function report(ch, data) { window.cmb.invoke(ch, data); }
+  function report(ch, data) { if (!MIRROR) window.cmb.invoke(ch, data); }
+  // the second screen keeps to the main TV's position (drift corrected above 0.35 s)
+  if (MIRROR) window.cmb.on('mirror-sync', function (d) {
+    if (!d || d.token !== cur.token || video.paused || video.readyState < 2) return;
+    if (Math.abs(video.currentTime - d.t) > 0.35) { try { video.currentTime = d.t + 0.05; } catch (e) { /* */ } }
+  });
 
   // High-resolution clip-end watch (timeupdate alone is only ~4 Hz)
   function watch() {
@@ -131,7 +140,7 @@
       setGain(effectiveVolume(t));
       if (cur.clipEnd != null && t >= cur.clipEnd - 0.04) finish();
       var now = performance.now();
-      if (now - lastReport > 250 && !cur.test) { lastReport = now; window.cmb.send('player:time-sync', { token: cur.token, t: t }); }
+      if (now - lastReport > 250 && !cur.test && !MIRROR) { lastReport = now; window.cmb.send('player:time-sync', { token: cur.token, t: t }); }
     }
     tickReveal();
     requestAnimationFrame(watch);
@@ -282,6 +291,24 @@
   /* ------------------------------------------------------------- state */
   /* ------------------------------------------------------------- welcome / end pages */
   var wlTimer = null, logoUrl = null, endKey = null, imTimer = null;
+  /* intermission slides: the host's own images, rotating; countdown kept in a band at the bottom */
+  var slideCfg = { enabled: false, seconds: 8, images: [] }, slideTimer = null, slideIdx = 0, slideFront = 'A', lastScreen = null;
+  var slideKey = null;
+  function runSlides(sc) {
+    var on = sc && sc.mode === 'intermission' && slideCfg.enabled && slideCfg.images.length > 0;
+    var key = on ? JSON.stringify(slideCfg) : null;
+    if (key === slideKey) return; // same intermission, same slides: keep rotating
+    slideKey = key; clearInterval(slideTimer); slideTimer = null;
+    $('intermission').classList.toggle('with-slides', !!on);
+    if (!on) return;
+    var show = function () {
+      var url = slideCfg.images[slideIdx % slideCfg.images.length]; slideIdx++;
+      var back = slideFront === 'A' ? 'B' : 'A', b = $('imSlide' + back), f = $('imSlide' + slideFront);
+      b.onload = function () { b.classList.add('on'); f.classList.remove('on'); slideFront = back; };
+      b.src = url;
+    };
+    show(); if (slideCfg.images.length > 1) slideTimer = setInterval(show, slideCfg.seconds * 1000);
+  }
   /* Gentle end-screen scroller: rest at the top, glide down, rest, fade back to the top, repeat. */
   var esRaf = null;
   function startEndScroll(list, vp) {
@@ -348,7 +375,9 @@
     $('endscreen').classList.toggle('hidden', sc.mode !== 'end');
     $('intermission').classList.toggle('hidden', sc.mode !== 'intermission');
     clearInterval(imTimer); imTimer = null;
+    lastScreen = sc; runSlides(sc);
     if (sc.mode === 'intermission') {
+      $('imBandMsg').textContent = sc.message || '';
       $('imName').textContent = sc.name || '';
       $('imMsg').textContent = sc.message || 'Grab a drink — back soon!';
       $('imNextN').textContent = sc.checklist ? 'STILL TO WIN' : 'NEXT: ROUND ' + sc.next.n;
@@ -357,7 +386,7 @@
       var imTick = function () {
         if (!sc.until) { $('imCount').textContent = ''; return; }
         var left = Math.round((new Date(sc.until) - new Date()) / 1000);
-        $('imCount').textContent = left > 0 ? 'BACK IN ' + Math.floor(left / 60) + ':' + ('0' + (left % 60)).slice(-2) : 'STARTING SOON!';
+        $('imCount').textContent = left > 0 ? 'BACK IN ' + Math.floor(left / 60) + ':' + ('0' + (left % 60)).slice(-2) : 'STARTING SOON!'; $('imBandCount').textContent = $('imCount').textContent;
       };
       imTick(); imTimer = setInterval(imTick, 1000);
     }
@@ -451,6 +480,7 @@
   function applyAppSettings(a) {
     if (!a) return;
     lowRes = !!a.lowResource; document.documentElement.classList.toggle('low-res', lowRes);
+    slideCfg = a.slides || slideCfg; if (lastScreen && lastScreen.mode === 'intermission') runSlides(lastScreen);
     logoUrl = a.logo ? a.logo + '?v=' + Date.now() : null;
     var img = $('idleLogo');
     if (a.logo) { img.src = a.logo + '?v=' + Date.now(); img.classList.add('has'); $('idle').classList.add('withlogo'); }
@@ -524,7 +554,7 @@
   }
   function stopConfetti() { if (confettiRaf) cancelAnimationFrame(confettiRaf); confettiRaf = null; var cv = $('confetti'); cv.getContext('2d').clearRect(0, 0, cv.width, cv.height); }
 
-  window.cmb.invoke('player:ready').then(function (r) {
+  window.cmb.invoke(MIRROR ? 'mirror:ready' : 'player:ready').then(function (r) {
     applyAppSettings(r.appSettings);
     if (r.state) applyState(r.state);
     else { state = { round: { number: 0 }, history: [], overlay: {}, crawler: {} }; renderPattern(); ticker.setItems([]); }

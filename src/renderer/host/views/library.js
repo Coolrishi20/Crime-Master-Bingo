@@ -8,12 +8,13 @@ App.register('library', {
         <div class="row"><button class="btn" id="lFolderPl" title="Each sub-folder becomes a playlist">Import folders as playlists…</button><button class="btn" id="lFolder">Import folder</button><button class="btn primary" id="lFiles">Import videos</button></div></div>
       <div class="panel" style="margin-bottom:14px"><div class="row">
         <input type="search" id="lSearch" placeholder="Search title, artist or file…" style="width:280px" value="${esc(this.q)}">
-        <div class="seg" id="lFilter">${[['all', 'All'], ['issues', 'Needs attention'], ['dupes', 'Duplicates'], ['ok', 'Ready']].map(([k, l]) => `<button data-f="${k}" class="${this.filter === k ? 'on' : ''}">${l}</button>`).join('')}</div>
+        <select id="lTag" title="Filter by decade or tag"><option value="">All decades &amp; tags</option></select>
+        <div class="seg" id="lFilter">${[['all', 'All'], ['issues', 'Needs attention'], ['flagged', 'Flagged'], ['dupes', 'Duplicates'], ['ok', 'Ready']].map(([k, l]) => `<button data-f="${k}" class="${this.filter === k ? 'on' : ''}">${l}</button>`).join('')}</div>
         <span class="grow"></span>
         <button class="btn sm" id="lCheck">Check files</button><button class="btn sm" id="lRelinkF">Relink folder…</button>
       </div>
       <div class="row" id="lSelBar" style="margin-top:12px;display:none"><span id="lSelN" class="badge pink"></span>
-        <select id="lPl"></select><button class="btn sm primary" id="lAdd">Add to playlist</button><button class="btn sm danger" id="lDel">Remove from library</button><button class="btn sm ghost" id="lClr">Clear selection</button></div>
+        <select id="lPl"></select><button class="btn sm primary" id="lAdd">Add to playlist</button><button class="btn sm" id="lTagB">Tag selected…</button><button class="btn sm danger" id="lDel">Remove from library</button><button class="btn sm ghost" id="lClr">Clear selection</button></div>
       </div>
       <div class="row" style="margin:0 4px 8px"><div id="lSummary" class="muted small grow"></div><span id="lAudio" class="muted small"></span><button class="btn sm ghost" id="lAudioPause">Pause analysis</button></div>
       <div class="panel" style="padding:8px 12px"><table class="list"><thead><tr><th style="width:30px"><input type="checkbox" id="lAll"></th><th style="width:76px"></th><th>Song</th><th>Duration</th><th title="Automatic volume levelling">Loudness</th><th>Clip</th><th>Status</th><th style="width:220px"></th></tr></thead><tbody id="lBody"></tbody></table></div>`;
@@ -24,6 +25,15 @@ App.register('library', {
     $('#lCheck', el).onclick = async () => { const n = await api('library:checkFiles'); toast(n ? `${n} file(s) missing — use Relink` : 'All files found', n ? 'err' : 'ok'); this.load(); };
     $('#lRelinkF', el).onclick = async () => { const n = await api('library:relinkFolder'); if (n != null) { toast(`${n} missing file(s) relinked`, 'ok'); this.load(); } };
     $('#lSearch', el).oninput = (e) => { this.q = e.target.value; this.draw(); };
+    $('#lTag', el).onchange = (e) => { this.tagF = e.target.value; this.draw(); };
+    $('#lTagB', el).onclick = async () => {
+      const ids = Array.from(this.selected); if (!ids.length) return;
+      const r = await modal({ title: `Tag ${ids.length} song(s)`, body: `<div class="form-grid"><label class="field">Add tags (comma-separated)<input type="text" id="tA" placeholder="e.g. Bollywood, Party"></label><label class="field">Remove tags<input type="text" id="tR" placeholder="optional"></label><label class="field">Year (leave empty to keep)<input type="number" id="tY" min="1900" max="2100" placeholder="e.g. 1994"></label></div><p class="muted small">Tags and years power <b>Playlists → Build a playlist…</b> (e.g. “80s + Bollywood, 75 songs”).</p>`,
+        buttons: [{ label: 'Cancel', value: null }, { label: 'Apply', kind: 'primary', value: (b) => ({ add: b.querySelector('#tA').value, remove: b.querySelector('#tR').value, year: b.querySelector('#tY').value }) }] });
+      if (!r) return;
+      const x = await api('library:bulkTag', { ids, add: r.add, remove: r.remove, year: r.year === '' ? undefined : r.year });
+      toast(`${x.updated} song(s) updated`, 'ok'); this.load();
+    };
     $$('#lFilter button', el).forEach(b => b.onclick = () => { this.filter = b.dataset.f; $$('#lFilter button', el).forEach(x => x.classList.toggle('on', x === b)); this.draw(); });
     $('#lAll', el).onchange = (e) => { this.visible.forEach(s => e.target.checked ? this.selected.add(s.id) : this.selected.delete(s.id)); this.draw(); };
     $('#lClr', el).onclick = () => { this.selected.clear(); this.draw(); };
@@ -85,6 +95,12 @@ App.register('library', {
     this.songs = lib.songs; this.pls = pls; this.audio = null; this.drawAudio();
     const sel = $('#lPl', this.el);
     if (sel) sel.innerHTML = pls.map(p => `<option value="${p.id}">${esc(p.name)} (${p.songIds.length})</option>`).join('') + '<option value="__new">＋ New playlist…</option>';
+    const tf = $('#lTag', this.el);
+    if (tf) {
+      const dec = new Map(), tg = new Map();
+      this.songs.forEach(s => { if (s.year) { const d = Math.floor(s.year / 10) * 10 + 's'; dec.set(d, (dec.get(d) || 0) + 1); } (s.tags || []).forEach(t => { const k = t.toLowerCase(); const e = tg.get(k) || [t, 0]; e[1]++; tg.set(k, e); }); });
+      tf.innerHTML = '<option value="">All decades &amp; tags</option>' + Array.from(dec.entries()).sort().map(([d, n]) => `<option value="d:${d}" ${this.tagF === 'd:' + d ? 'selected' : ''}>${d} (${n})</option>`).join('') + Array.from(tg.entries()).sort((a, b) => a[1][0].localeCompare(b[1][0])).map(([k, [t, n]]) => `<option value="t:${esc(k)}" ${this.tagF === 't:' + k ? 'selected' : ''}>${esc(t)} (${n})</option>`).join('');
+    }
     this.draw();
   },
   draw() {
@@ -92,9 +108,11 @@ App.register('library', {
     const q = this.q.trim().toLowerCase();
     const issue = s => ['missing', 'unsupported'].includes(s.status) || !s.title || !s.artist;
     this.visible = this.songs.filter(s => {
-      if (q && !(`${s.title} ${s.artist} ${s.fileName}`.toLowerCase().includes(q))) return false;
+      if (q && !(`${s.title} ${s.artist} ${s.fileName} ${(s.tags || []).join(' ')}`.toLowerCase().includes(q))) return false;
+      if (this.tagF) { const [k, v] = this.tagF.split(':'); if (k === 'd' ? !(s.year && Math.floor(s.year / 10) * 10 + 's' === v) : !(s.tags || []).some(t => t.toLowerCase() === v)) return false; }
       if (this.filter === 'issues') return issue(s) || s.status === 'unchecked';
       if (this.filter === 'dupes') return !!s.duplicateOf;
+      if (this.filter === 'flagged') return !!s.flag;
       if (this.filter === 'ok') return s.status === 'ok' && s.title && s.artist;
       return true;
     });
@@ -105,7 +123,8 @@ App.register('library', {
     $('#lSelN', el).textContent = `${this.selected.size} selected`;
     const body = $('#lBody', el);
     if (!this.visible.length) { body.innerHTML = `<tr><td colspan="8"><div class="empty">${total ? 'No songs match this filter.' : 'Your library is empty. Click <b>Import videos</b>, <b>Import folder</b>, or drag music videos onto this page.'}</div></td></tr>`; return; }
-    const stBadge = s => {
+    const stBadge = s => (s.flag ? `<span class="badge warn" title="Flagged in a song check${s.flag.note ? ': ' + esc(s.flag.note) : ''}">⚑ ${esc(s.flag.reason)}</span> ` : '') + stBadge0(s);
+    const stBadge0 = s => {
       if (s.status === 'missing') return '<span class="badge bad">MISSING FILE</span>';
       if (s.status === 'unsupported') return `<span class="badge bad" title="${esc(s.statusNote)}">UNSUPPORTED</span>`;
       if (s.status === 'unchecked') return '<span class="badge">CHECKING…</span>';
@@ -119,7 +138,7 @@ App.register('library', {
     body.innerHTML = rows.map(s => `<tr data-id="${s.id}" class="${this.selected.has(s.id) ? 'sel' : ''}">
       <td><input type="checkbox" data-sel ${this.selected.has(s.id) ? 'checked' : ''}></td>
       <td>${s.thumb ? `<img class="thumb" loading="lazy" decoding="async" width="96" height="54" src="${fileUrl(s.thumb)}">` : '<div class="thumb"></div>'}</td>
-      <td><div class="song-cell"><b>${esc(s.title || '— no title —')}</b><span>${esc(s.artist || '— no artist —')}${s.displayTitle ? ` · TV: “${esc(s.displayTitle)}”` : ''}</span><span class="tiny">${esc(s.fileName)}</span></div></td>
+      <td><div class="song-cell"><b>${esc(s.title || '— no title —')}</b><span>${esc(s.artist || '— no artist —')}${s.displayTitle ? ` · TV: “${esc(s.displayTitle)}”` : ''}</span><span class="tiny">${esc(s.fileName)}</span>${s.year || (s.tags || []).length ? `<span class="tiny">${s.year ? Math.floor(s.year / 10) * 10 + 's · ' + s.year : ''}${s.year && (s.tags || []).length ? ' · ' : ''}${esc((s.tags || []).join(', '))}</span>` : ''}</div></td>
       <td class="muted">${s.duration ? fmtTime(s.duration) : '–'}</td>
       <td class="small">${audioCell(s)}</td>
       <td class="muted small">${s.clipStart != null || s.clipEnd != null ? `${fmtTime(s.clipStart || 0)}–${s.clipEnd != null ? fmtTime(s.clipEnd) : 'auto'}` : (s.audio && s.audio.introEnd > 0 ? `from ${fmtTime(s.audio.introEnd)} <span title="Quiet intro detected">(intro)</span>` : 'default')}</td>
@@ -150,6 +169,8 @@ async function editSong(s, after) {
       <label class="field">Artist *<input type="text" id="eA" value="${esc(s.artist)}"></label>
       <label class="field">TV display title (optional)<input type="text" id="eD" value="${esc(s.displayTitle)}" placeholder="Shown on the TV overlay & crawler"></label>
       <label class="field">Printed title (optional)<input type="text" id="eP" value="${esc(s.printTitle)}" placeholder="Shorter title for the cards"></label>
+      <label class="field">Year<input type="number" min="1900" max="2100" id="eY" value="${s.year || ''}" placeholder="e.g. 1985 — for decade playlists"></label>
+      <label class="field">Tags (comma-separated)<input type="text" id="eG" value="${esc((s.tags || []).join(', '))}" placeholder="e.g. Bollywood, Dance, 80s Party"></label>
       <label class="field">Clip start (seconds)<input type="number" min="0" step="0.5" id="eS" value="${s.clipStart != null ? s.clipStart : ''}" placeholder="default"></label>
       <label class="field">Clip end (seconds)<input type="number" min="0" step="0.5" id="eE" value="${s.clipEnd != null ? s.clipEnd : ''}" placeholder="start + clip length"></label>
     </div>
@@ -162,7 +183,7 @@ async function editSong(s, after) {
   body.querySelector('#eSetS').onclick = () => { body.querySelector('#eS').value = Math.round(v.currentTime * 2) / 2; };
   body.querySelector('#eSetE').onclick = () => { body.querySelector('#eE').value = Math.round(v.currentTime * 2) / 2; };
   body.querySelector('#eClr').onclick = () => { body.querySelector('#eS').value = ''; body.querySelector('#eE').value = ''; };
-  const r = await modal({ title: 'Edit song', size: 'mid', body, buttons: [{ label: 'Cancel', value: null }, { label: 'Save', kind: 'primary', value: (b) => ({ title: b.querySelector('#eT').value, artist: b.querySelector('#eA').value, displayTitle: b.querySelector('#eD').value, printTitle: b.querySelector('#eP').value, clipStart: b.querySelector('#eS').value, clipEnd: b.querySelector('#eE').value }) }] });
+  const r = await modal({ title: 'Edit song', size: 'mid', body, buttons: [{ label: 'Cancel', value: null }, { label: 'Save', kind: 'primary', value: (b) => ({ title: b.querySelector('#eT').value, artist: b.querySelector('#eA').value, displayTitle: b.querySelector('#eD').value, printTitle: b.querySelector('#eP').value, year: b.querySelector('#eY').value || null, tags: b.querySelector('#eG').value, clipStart: b.querySelector('#eS').value, clipEnd: b.querySelector('#eE').value }) }] });
   v.pause(); v.removeAttribute('src');
   if (!r) return;
   if (!r.title.trim() || !r.artist.trim()) toast('Title and artist are required before the song can be used in a game', 'err', 5000);

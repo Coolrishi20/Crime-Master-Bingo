@@ -1,3 +1,43 @@
+## Anthem Square 1.9.0 — templates, smart playlists, song check, slides and a second TV
+
+### Game templates
+- Save a whole game set-up and start the next game from it in one click. A template keeps the
+  playlist, number of cards, venue, game mode, rounds or checklist, clip length, intro and
+  artist settings, and TV screens.
+- *Create Game → Save these choices as a template…*, or *Game History → Save as template…*
+  (copies a game you've already played).
+- *Create Game → Start from a template* fills everything in; you can still change anything.
+
+### Decades, tags and the playlist builder
+- Songs now have a **year** and **tags** (Bollywood, Dance, Party…). Videos whose files contain
+  a year or genre are tagged automatically on import.
+- **Music Library:** *Tag selected…* tags many songs at once, and a new filter shows one decade
+  or tag. The song editor has Year and Tags fields.
+- **Playlists → Build a playlist…:** pick decades and/or tags (for example 1980s + Bollywood).
+  It shows live how many songs match, then picks 75 (or your number) at random. Only playable
+  songs count, never two versions of the same song.
+
+### Song check run-through
+- *Playlists → ▶ Check songs…* plays 3, 5 or 8 seconds of every song from where the game will
+  start it (your start point, then the default start, then the detected intro). It plays on the
+  laptop only; the TV is never used.
+- Flag problems with one tap (wrong video, bad start, sound, picture), and fix a start point
+  straight away. The summary lists the flagged songs. Flags stay on the songs (*Music Library
+  → Flagged*) until you clear them.
+
+### Intermission slides
+- *Settings → Intermission slides* lets you add your own pictures: venue, food & drink offers,
+  sponsors, next week's date. They rotate full-screen on the TV during intermissions, with the
+  countdown and your message in a band at the bottom.
+- Choose 5–30 seconds per slide. The images are copied into the app, so moving the originals is
+  fine.
+
+### Second TV screen
+- *Host Game → ＋ TV 2* mirrors the audience screen on another display, for big rooms.
+- It's always silent (no echo), stays in step with the main TV, and can never move the game on
+  by itself. On a 4 GB laptop it plays the video twice, so use it with care in Low Resource
+  Mode.
+
 ## Anthem Square 1.8.0 — songs start where the music starts, and artists stay apart
 
 ### Skip quiet intros automatically (on by default)

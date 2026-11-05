@@ -51,9 +51,18 @@ App.register('create', {
     this.step++; this.draw();
   },
 
+  async applyTemplate(t) {
+    const gd = App.settings.gameDefaults; const d = this.data;
+    const base = { clipMode: gd.clipMode, defaultStart: gd.defaultStart, skipIntros: gd.skipIntros !== false, spreadArtists: gd.spreadArtists !== false, shuffle: gd.shuffle, volume: gd.volume, autoAdvance: gd.autoAdvance, autoAdvanceGap: gd.autoAdvanceGap, overlay: Object.assign({}, gd.overlay), crawler: Object.assign({}, gd.crawler), screens: Object.assign({}, gd.screens || {}), patternPosition: gd.patternPosition, mode: gd.mode || 'rounds', checklist: JSON.parse(JSON.stringify(gd.checklist || [])) };
+    d.settings = Object.assign(base, JSON.parse(JSON.stringify(t.settings || {})));
+    if (t.playlistId && t.playlistName) d.playlistId = t.playlistId;
+    d.cards = t.cards || d.cards; if (t.venue) d.venue = t.venue;
+    d.templateId = t.id;
+    toast(`Using template “${t.name}”${t.playlistId && !t.playlistName ? ' — its playlist no longer exists, choose another' : ''}`, t.playlistId && !t.playlistName ? 'err' : 'ok', 5000);
+  },
   step1(b) {
     const d = this.data;
-    b.innerHTML = `<h2>Game details</h2><div class="form-grid">
+    b.innerHTML = `<div id="gTpl"></div><h2>Game details</h2><div class="form-grid">
       <label class="field">Game name *<input type="text" id="gName" value="${esc(d.name)}" placeholder="e.g. Thursday Night Music Bingo"></label>
       <label class="field">Date<input type="date" id="gDate" value="${esc(d.date)}"></label>
       <label class="field">Venue (optional)<input type="text" id="gVenue" value="${esc(d.venue)}" placeholder="e.g. The Red Lion"></label></div>
@@ -64,6 +73,12 @@ App.register('create', {
     const ck = checklistEditor($('#gCkEd', b), d.settings.checklist, (l) => { d.settings.checklist = l; });
     $$('input[name=gmode]', b).forEach(r => r.onchange = () => { d.settings.mode = r.value; $$('.mode-card', b).forEach(c => c.classList.toggle('on', c.querySelector('input').checked)); $('#gCk', b).style.display = r.value === 'checklist' ? '' : 'none'; });
     $('#gPick', b).onclick = async () => { this.collectFn(); const p = await api('settings:pickLogo'); if (p) { App.settings = await api('settings:get'); App.applyAppearance(); this.data.useLogo = true; this.draw(); } };
+    api('templates:list').then(ts => {
+      const box = $('#gTpl', b); if (!box || !ts.length) return;
+      box.innerHTML = `<div class="row" style="margin-bottom:16px;padding:12px 14px;border-radius:12px;background:var(--bg-2)"><b>Start from a template</b><select id="gTplSel"><option value="">— none —</option>${ts.map(t => `<option value="${t.id}" ${d.templateId === t.id ? 'selected' : ''}>${esc(t.name)}${t.playlistName ? ' · ' + esc(t.playlistName) : ''}</option>`).join('')}</select><button class="btn sm ghost" id="gTplDel" ${d.templateId ? '' : 'disabled'}>Delete template</button><span class="muted small">Fills in the playlist, cards, game mode, rules, clips and TV screens. You can still change anything.</span></div>`;
+      $('#gTplSel', b).onchange = async (e) => { const t = ts.find(x => x.id === e.target.value); if (!t) { d.templateId = null; return; } this.collectFn(); await this.applyTemplate(t); this.draw(); };
+      $('#gTplDel', b).onclick = async () => { const t = ts.find(x => x.id === d.templateId); if (!t) return; if (await confirmBox('Delete this template?', `“${esc(t.name)}” will be removed. Games made from it are not affected.`, 'Delete', true)) { await api('templates:delete', { id: t.id }); d.templateId = null; this.draw(); } };
+    });
     this.collectFn = () => { d.settings.checklist = ck.get(); d.name = $('#gName', b).value; d.date = $('#gDate', b).value; d.venue = $('#gVenue', b).value; d.useLogo = $('#gLogo', b).checked; };
   },
   async step2(b) {
@@ -138,6 +153,9 @@ App.register('create', {
     $('#gCards', b).oninput = upd; upd();
     $$('.seg button', b).forEach(x => x.onclick = () => { $('#gCards', b).value = x.dataset.n; upd(); });
     $('#cNext', this.el).textContent = 'Create game & generate cards ›';
+    const tb = document.createElement('button'); tb.className = 'btn'; tb.id = 'gTplSave'; tb.textContent = 'Save these choices as a template…'; tb.style.marginTop = '8px';
+    b.appendChild(tb);
+    tb.onclick = async () => { this.collectFn(); const name = await promptBox('Save as template', 'Template name (e.g. Friday Pub Night)', d.name || ''); if (!name) return; const t = await api('templates:save', { name, playlistId: d.playlistId, cards: d.cards, venue: d.venue, settings: d.settings }); d.templateId = t.id; toast(`Template “${t.name}” saved — pick it in step 1 next time`, 'ok', 5000); };
     this.collectFn = () => { d.cards = Number($('#gCards', b).value); };
   },
   step6(b) { $('#cNext', this.el).textContent = 'Next ›'; App.views.cards.renderPrintPanel(b, App.game && App.game.gameId); },

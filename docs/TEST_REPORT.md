@@ -1,4 +1,31 @@
-# Anthem Square — Test report (v1.8.0)
+# Anthem Square — Test report (v1.9.0)
+
+## v1.9.0 (templates, tags + builder, song check, intermission slides, second TV)
+- **Unit tests: 172 / 172 passed.** `v20-tags-builder.test.js` (3 tests) covers:
+  - tag cleaning;
+  - song-editor and bulk tagging;
+  - builder rules: any decade AND any tag, playable and unique only, preview count, random pick of N, unique names, too-few warning, summary counts.
+- **New e2e `v20-features.js`: 26 / 26 passed.**
+  - **Tags and builder:** the Library decade/tag filter; the builder UI giving 1980s + Bollywood → 15 with a warning, and 1980s → 25 random songs.
+  - **Song check:** plays on the laptop and never the TV; one-tap flag, auto-advance, summary, and the flag saved on the song.
+  - **Templates:** saved; picking one in Create Game applies the mode, checklist, playlist, 20 s clips, intro setting and 12 cards; the game is created with them; Game History → Save as template.
+  - **Intermission slides:** shown on the TV with the countdown and message band, rotating, and stopping when the intermission ends.
+  - **Second TV:** opens in mirror mode with the same song in step (4.5 s / 4.3 s), silent; its player messages can't move the game on; closes.
+- **Regression (all re-run on this build):**
+
+  | Suite | Result |
+  |---|---|
+  | v19 | 9/9 |
+  | v18 | 10/10 |
+  | v17 | 22/22 |
+  | v16 | 34/34 |
+  | acceptance | 85/85 |
+  | v15 | 28/28 |
+  | v14 | 38/38 |
+  | v13 | 13/13 |
+  | print | 12/12 |
+  | reveal | 7/7 |
+
 
 ## v1.8.0 (skip quiet intros, keep artists apart)
 - **Unit tests: 169 / 169 passed.** `v19-intros-artists.test.js` has 7 new tests:

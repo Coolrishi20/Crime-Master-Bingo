@@ -1,7 +1,7 @@
 {
   "name": "crime-master-bingo",
   "productName": "Anthem Square",
-  "version": "1.8.0",
+  "version": "1.9.0",
   "description": "Anthem Square - offline music video bingo for live events",
   "main": "src/main/main.js",
   "author": "Anthem Square",

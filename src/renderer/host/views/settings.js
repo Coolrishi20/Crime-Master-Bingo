@@ -61,6 +61,7 @@ App.register('settings', {
           <div class="row">${s.appearance.logo ? `<img src="${fileUrl(s.appearance.logo)}?v=${Date.now()}" style="max-height:56px;background:#fff;border-radius:8px;padding:6px">` : '<span class="muted">No logo</span>'}<button class="btn sm" id="sLogo">Upload logo…</button>${s.appearance.logo ? '<button class="btn sm ghost" id="sLogoX">Remove</button>' : ''}</div>
           <div class="form-grid" style="margin-top:14px"><label class="field">Theme<select id="sTheme"><option value="dark" ${s.appearance.theme !== 'light' ? 'selected' : ''}>Dark (default) — best for live events</option><option value="light" ${s.appearance.theme === 'light' ? 'selected' : ''}>Light — for daytime preparation</option></select></label>
           <label class="field">Interface scaling<select id="sScale">${[0.85, 0.9, 1, 1.1, 1.25, 1.4].map(v => `<option value="${v}" ${Number(s.appearance.scale) === v ? 'selected' : ''}>${Math.round(v * 100)}%</option>`).join('')}</select></label></div></div>
+        <div class="panel"><h2>Intermission slides (TV)</h2><div id="slPanel"></div></div>
         <div class="panel"><h2>Video &amp; TV</h2><div class="form-grid">
           <label class="field">Audience display<select id="sDisp"><option value="">Automatic (external screen)</option>${displays.map(d => `<option value="${d.id}" ${String(s.video.displayId) === String(d.id) ? 'selected' : ''}>${esc(d.label)} ${d.width}×${d.height}${d.primary ? ' (laptop)' : ''}</option>`).join('')}</select></label>
           <label class="field">Video fit<select id="sAsp">${[['contain', 'Fit (letterbox)'], ['cover', 'Fill & crop'], ['fill', 'Stretch']].map(([v, l]) => `<option value="${v}" ${s.video.aspect === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
@@ -132,6 +133,19 @@ App.register('settings', {
     $('#rGo', el).onclick = (e) => { e.preventDefault(); App.show('mobile'); };
     $('#hGo', el).onclick = (e) => { e.preventDefault(); App.show('mobile'); };
     $('#sTheme', el).onchange = async (e) => { App.settings = await api('settings:update', { appearance: { theme: e.target.value } }); App.applyAppearance(); toast(e.target.value === 'light' ? 'Light Mode on — the phone remote follows' : 'Dark Mode on — the phone remote follows', 'ok'); };
+    const drawSlides = (sl) => {
+      const box = $('#slPanel', el); if (!box) return;
+      box.innerHTML = `<p class="muted small" style="margin-top:0">Your own pictures — venue, food & drink offers, sponsors, next week's date — shown full-screen on the TV during intermissions, with the countdown kept at the bottom. Images are copied into the app, so moving the originals is fine.</p>
+        <div class="row" style="flex-wrap:wrap;gap:10px">${sl.images.map((i, k) => `<div class="sl-thumb"><img src="${fileUrl(i.file)}" alt=""><div class="row" style="gap:4px;justify-content:center"><button class="btn sm ghost" data-sl-up="${i.id}" ${k ? '' : 'disabled'}>◀</button><button class="btn sm ghost" data-sl-rm="${i.id}" title="Remove">✕</button><button class="btn sm ghost" data-sl-dn="${i.id}" ${k < sl.images.length - 1 ? '' : 'disabled'}>▶</button></div></div>`).join('') || '<div class="muted small">No slides yet.</div>'}</div>
+        <div class="row" style="margin-top:12px"><button class="btn sm primary" id="slAdd">＋ Add images…</button>${toggleHtml('slOn', 'Show slides during intermissions', sl.enabled !== false)}<label class="field" style="flex-direction:row;align-items:center;gap:8px">Each slide<select id="slSec">${[5, 8, 10, 15, 20, 30].map(n => `<option value="${n}" ${Number(sl.seconds) === n ? 'selected' : ''}>${n} s</option>`).join('')}</select></label></div>`;
+      $('#slAdd', box).onclick = async () => drawSlides(await api('slides:add'));
+      $('#slOn', box).onchange = async (e) => drawSlides(await api('slides:set', { enabled: e.target.checked }));
+      $('#slSec', box).onchange = async (e) => drawSlides(await api('slides:set', { seconds: Number(e.target.value) }));
+      $$('[data-sl-rm]', box).forEach(b => b.onclick = async () => drawSlides(await api('slides:remove', { id: b.dataset.slRm })));
+      $$('[data-sl-up]', box).forEach(b => b.onclick = async () => drawSlides(await api('slides:move', { id: b.dataset.slUp, dir: -1 })));
+      $$('[data-sl-dn]', box).forEach(b => b.onclick = async () => drawSlides(await api('slides:move', { id: b.dataset.slDn, dir: 1 })));
+    };
+    drawSlides(s.slides || { enabled: true, seconds: 8, images: [] });
     $('#sSave', el).onclick = async () => {
       const patch = {
         appearance: { scale: Number(v('#sScale')), theme: v('#sTheme') },

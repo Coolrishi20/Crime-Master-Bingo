@@ -90,6 +90,23 @@ With **Keep songs by the same artist apart** on (the default), a shuffled game n
 songs by the same artist back to back when the playlist allows it, and usually keeps them three
 or more songs apart. Featured artists and "The …" are ignored when comparing names.
 
+### Decades, tags and smart playlists
+Give songs a **year** and **tags** in the Music Library: select songs → *Tag selected…*, or
+*Edit* one song. Files that contain a year or genre are tagged on import. Then
+*Playlists → Build a playlist…*: tap decades and/or tags, check the live "songs match" count, set
+how many songs you want and build. Choosing a decade and a tag means songs must match both.
+
+### Check a playlist before the night
+*Playlists → ▶ Check songs…* plays a few seconds of every song on the laptop (not the TV), from
+exactly where the game will start it. Use **⚑** to flag anything wrong, **✎ Fix start** to
+correct it straight away, and → / Space / F on the keyboard to go faster. Flagged songs are
+listed at the end and under *Music Library → Flagged*.
+
+### Templates
+Run the same kind of night every week? In the last set-up step, click *Save these choices as a
+template…*, or use *Game History → Save as template…*. Next time, pick it at the top of
+*Create Game → Game details*.
+
 ### Create the game — *Create Game*
 The wizard has nine steps:
 1. **Details**: name, date, venue, logo.
@@ -163,6 +180,12 @@ crawler tab. The screen disappears automatically when Round 1 starts.
 After the game, the TV shows **THANKS FOR PLAYING!** with the full numbered list of
 every song played, handy for "what was that song?". Both screens can be switched off
 per game, and the defaults are in Settings → Gameplay.
+
+### Intermission slides and a second TV
+- **Slides:** add pictures in *Settings → Intermission slides*. They rotate on the TV during
+  every intermission, with the countdown at the bottom.
+- **Second TV:** in big rooms, click **＋ TV 2** at the top of Host Game to mirror the audience
+  screen on another display. It's silent and follows the main TV; click again to close it.
 
 ### Connect your phone — *Mobile Host Connection*
 1. Put the phone on the **same Wi-Fi** as the laptop. No internet is needed; a phone

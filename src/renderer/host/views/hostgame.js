@@ -19,7 +19,7 @@ App.register('host', {
         <div><div class="eyebrow" id="hgEyebrow">Host · now playing</div><h1 id="hgName"></h1></div>
         <span class="chip" id="hgRound"></span><span class="badge" id="hgLock"></span><span class="grow"></span>
         <div class="songcount" id="hgCount"></div>
-        <button class="btn" id="hgAud"></button>
+        <button class="btn" id="hgAud"></button><button class="btn" id="hgTv2" title="Mirror the TV on a second screen (silent)">TV 2</button>
       </div>
       <div id="hgRecover"></div><div id="hgSession"></div><div id="hgUnavail"></div>
       <div class="cols main-side">
@@ -93,6 +93,14 @@ App.register('host', {
     $('#bFreeze', el).onclick = () => App.openChecker();
     $('#hgCreditBtn', el).onclick = () => App.creditDialog();
     $('#hgProg', el).onclick = (e) => { const p = g().playback; const dur = (g().current && g().current.duration) || 0; if (!dur) return; const r = e.currentTarget.getBoundingClientRect(); App.cmd('seek', { position: dur * (e.clientX - r.left) / r.width }); };
+    const tv2 = async () => { const st = await api('audience:mirrorStatus'); $('#hgTv2', el).textContent = st.open ? '✕ Close TV 2' : '＋ TV 2'; };
+    $('#hgTv2', el).onclick = async () => {
+      const st = await api('audience:mirrorStatus');
+      if (st.open) { await api('audience:closeMirror'); toast('Second screen closed', 'ok'); }
+      else { const r = await api('audience:openMirror', {}); toast(r.external ? 'Second screen open on the other display — silent, follows the main TV' : 'Second screen opened in a window — drag it to the second display (F11 / double-click for full screen)', 'ok', 6000); if (App.settings.performance && App.settings.performance.lowResource) toast('Low Resource Mode: a second screen plays the video twice — watch for stutter on a 4 GB laptop', 'err', 7000); }
+      setTimeout(tv2, 400);
+    };
+    tv2();
     $('#hgAud', el).onclick = () => { if (g().audienceConnected) api('audience:fullscreen'); else api('audience:open'); };
     $('#rComplete', el).onclick = () => App.completeRound();
     $('#rRules', el).onclick = () => (App.game.mode === 'checklist' ? this.editChecklist() : this.editRules());

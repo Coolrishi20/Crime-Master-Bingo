@@ -5,11 +5,12 @@ App.register('playlists', {
     this.el = el;
     el.innerHTML = `
       <div class="page-head"><div><div class="eyebrow">Music bingo videos</div><h1>Playlists</h1><p>Every game needs at least <b>40 unique, playable songs</b>. 75+ gives longer, fairer games.</p></div>
-        <div class="row"><button class="btn" id="pM3U" title="VLC, Windows Media Player, Winamp… (.m3u / .m3u8)">Import M3U…</button><button class="btn" id="pFolders" title="Each sub-folder becomes a playlist">Import folders as playlists…</button><button class="btn primary" id="pNew">✚ New playlist</button></div></div>
+        <div class="row"><button class="btn" id="pBuild" title="e.g. 80s + Bollywood, 75 songs">Build a playlist…</button><button class="btn" id="pM3U" title="VLC, Windows Media Player, Winamp… (.m3u / .m3u8)">Import M3U…</button><button class="btn" id="pFolders" title="Each sub-folder becomes a playlist">Import folders as playlists…</button><button class="btn primary" id="pNew">✚ New playlist</button></div></div>
       <div class="cols" style="grid-template-columns: 300px minmax(0,1fr)">
         <div class="panel"><h2>Playlists</h2><div id="pList"></div></div>
         <div id="pDetail"></div>
       </div>`;
+    $('#pBuild', el).onclick = () => this.builder();
     $('#pM3U', el).onclick = async () => { const r = await api('playlists:importM3U'); if (r) { m3uReport(r); const ok = r.find(x => x.playlistId); if (ok) this.current = ok.playlistId; this.load(); } };
     // drop .m3u / .m3u8 files (or videos) onto this page
     el.ondragover = (e) => { if (e.dataTransfer && Array.from(e.dataTransfer.items || []).some(i => i.kind === 'file')) e.preventDefault(); };
@@ -24,6 +25,27 @@ App.register('playlists', {
     $('#pFolders', el).onclick = async () => { const r = await api('library:pickFolderPlaylists'); if (r) { folderPlaylistReport(r); this.load(); } };
     $('#pNew', el).onclick = async () => { const name = await promptBox('New playlist', 'Name (e.g. 80s Classics, Bollywood Bingo)'); if (!name) return; const p = await api('playlists:create', { name }); this.current = p.id; this.load(); };
     await this.load();
+  },
+  /** Build a playlist from decades and tags (Music Library tags / years). */
+  async builder() {
+    const sum = await api('library:tagSummary');
+    if (!sum.tags.length && !sum.decades.length) return modal({ title: 'Build a playlist', body: '<p>No songs have a year or tags yet.</p><p class="muted small">Add them in the <b>Music Library</b>: select songs → <b>Tag selected…</b>, or open a song with <b>Edit</b>. Videos whose files contain a year or genre are tagged automatically on import.</p>', buttons: [{ label: 'OK', kind: 'primary', value: true }] });
+    const pick = { d: new Set(), t: new Set() };
+    const body = document.createElement('div');
+    body.innerHTML = `${sum.decades.length ? `<div class="eyebrow">Decades (any of these)</div><div class="row" id="bD" style="flex-wrap:wrap;gap:6px;margin:6px 0 14px">${sum.decades.map(d => `<button class="btn sm" data-d="${d.decade}">${d.decade} <span class="muted">${d.count}</span></button>`).join('')}</div>` : ''}
+      ${sum.tags.length ? `<div class="eyebrow">Tags (any of these)</div><div class="row" id="bT" style="flex-wrap:wrap;gap:6px;margin:6px 0 14px">${sum.tags.map(t => `<button class="btn sm" data-t="${esc(t.tag)}">${esc(t.tag)} <span class="muted">${t.count}</span></button>`).join('')}</div>` : ''}
+      <div class="form-grid"><label class="field">How many songs<input type="number" id="bN" min="40" max="999" value="75"></label><label class="field">Playlist name<input type="text" id="bName" placeholder="automatic, e.g. 1980s · Bollywood"></label></div>
+      <p class="small" id="bInfo" style="margin-top:10px"></p>
+      <p class="muted tiny">Picking a decade and a tag means songs must match both (e.g. 1980s <i>and</i> Bollywood). Only playable songs count, never two versions of the same song. ${sum.untagged ? `${sum.untagged} song(s) have no year or tags yet.` : ''}</p>`;
+    const info = async () => { const r = await api('playlists:build', { decades: [...pick.d], tags: [...pick.t], dryRun: true }); const n = Number(body.querySelector('#bN').value) || 75; body.querySelector('#bInfo').innerHTML = !pick.d.size && !pick.t.size ? 'Choose at least one decade or tag.' : `<b>${r.matching}</b> song(s) match.${r.matching < 40 ? ' <span style="color:var(--amber)">A game needs at least 40.</span>' : r.matching < n ? ` The playlist will have all ${r.matching}.` : ` ${n} will be picked at random.`}`; };
+    body.querySelectorAll('[data-d],[data-t]').forEach(b => b.onclick = () => { const set = b.dataset.d ? pick.d : pick.t; const v = b.dataset.d || b.dataset.t; if (set.has(v)) set.delete(v); else set.add(v); b.classList.toggle('primary', set.has(v)); info(); });
+    body.querySelector('#bN').oninput = info; info();
+    const r = await modal({ title: 'Build a playlist', size: 'mid', body, buttons: [{ label: 'Cancel', value: null }, { label: 'Build playlist', kind: 'primary', value: (b) => ({ count: Number(b.querySelector('#bN').value) || 75, name: b.querySelector('#bName').value }) }] });
+    if (!r) return;
+    if (!pick.d.size && !pick.t.size) return toast('Choose at least one decade or tag', 'err');
+    const res = await api('playlists:build', { decades: [...pick.d], tags: [...pick.t], count: r.count, name: r.name });
+    toast(`“${res.name}” built with ${res.added} song(s)${res.enoughForGame ? '' : ' — add more for a game (40 minimum)'}`, res.enoughForGame ? 'ok' : 'err', 6000);
+    this.current = res.playlistId; this.load();
   },
   async load() {
     const [pls, lib] = await Promise.all([api('playlists:list'), api('library:list')]);
@@ -50,7 +72,7 @@ App.register('playlists', {
           <div class="stat"><span class="k">Unique playable songs</span><span class="big-num" style="color:${v.ok ? 'var(--green)' : 'var(--amber)'}">${v.uniquePlayable}</span></div>
           <div class="grow" style="padding-left:16px">${v.ok ? `<span class="badge ok">✓ READY FOR A GAME</span><div class="muted small" style="margin-top:6px">Minimum 40 met${v.uniquePlayable < 75 ? ' · 75+ recommended for longer games' : ''}.</div>` : `<span class="badge warn">ADD ${v.needed} MORE SONG${v.needed === 1 ? '' : 'S'}</span><div class="muted small" style="margin-top:6px">A game cannot be created until this playlist has 40 unique, playable songs with title and artist.</div>`}
           ${v.problems.length ? `<div class="small" style="color:var(--amber);margin-top:6px">${v.problems.length} song(s) not counted — see the warnings below.</div>` : ''}</div>
-          <button class="btn primary" id="pAdd">＋ Add songs</button></div>
+          <button class="btn" id="pCheck" title="Hear a few seconds of every song from where the game will start it">▶ Check songs…</button><button class="btn primary" id="pAdd">＋ Add songs</button></div>
       </div>
       <div class="panel" style="padding:8px 12px"><table class="list"><thead><tr><th style="width:34px">#</th><th>Song</th><th>Length</th><th>Status</th><th style="width:170px"></th></tr></thead><tbody id="pBody"></tbody></table></div>`;
     const body = $('#pBody', d);
@@ -76,6 +98,7 @@ App.register('playlists', {
     $('#pExp', d).onclick = async () => { const r = await api('playlists:exportM3U', { id: p.id }); if (!r) return; toast(`Exported ${r.count} song(s) to ${r.file.split(/[\\/]/).pop()}${r.missing ? ` — ${r.missing} file(s) are currently missing` : ''}`, r.missing ? 'err' : 'ok', 6000); };
     $('#pDel', d).onclick = async () => { if (await confirmBox('Delete playlist?', `Delete “${esc(p.name)}”? Songs stay in your library; games already created are not affected.`, 'Delete', true)) { await api('playlists:delete', { id: p.id }); this.current = null; this.load(); } };
     $('#pAdd', d).onclick = () => this.addSongs(p);
+    $('#pCheck', d).onclick = async () => { if (App.game && ['playing', 'loading'].includes(App.game.playback.status)) return toast('Pause the game first — the song check plays through this laptop', 'err', 5000); await songCheck(p); this.load(); };
   },
   async addSongs(p) {
     const inPl = new Set(p.songIds);
