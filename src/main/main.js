@@ -820,13 +820,13 @@ const handlers = {
     });
   },
   /** Music usage report (CSV): one game, or every game between two dates. */
-  'usage:export': async ({ id, from, to } = {}) => {
+  'usage:export': async ({ id, from, to, file } = {}) => {
     const usage = require('../core/usage');
     const games = id ? [getGameObj(id)] : store.listGames().filter(g => g && (!from || g.date >= from) && (!to || g.date <= to));
     const rows = []; games.sort((a, b) => String(a.date).localeCompare(String(b.date))).forEach(g => rows.push(...usage.usageRows(g, (sid) => library.get(sid))));
     if (!rows.length) throw new Error('No songs have been played in ' + (id ? 'this game' : 'those games') + ' yet.');
     const name = id ? `${games[0].name.replace(/[^\w -]/g, '')}-${games[0].date}-music-usage.csv` : `music-usage-${from || 'all'}${to ? '-to-' + to : ''}.csv`;
-    const r = await dialog.showSaveDialog(hostWin, { title: 'Save music usage report', defaultPath: name, filters: [{ name: 'CSV (Excel)', extensions: ['csv'] }] });
+    const r = file ? { filePath: file } : await dialog.showSaveDialog(hostWin, { title: 'Save music usage report', defaultPath: name, filters: [{ name: 'CSV (Excel)', extensions: ['csv'] }] });
     if (r.canceled) return null;
     fs.writeFileSync(r.filePath, usage.toCsv(rows));
     return { file: r.filePath, rows: rows.length, games: games.length, songs: usage.summary(rows).length };

@@ -1,3 +1,86 @@
+## Anthem Square 2.4.0 — media check, presets, Ready for Bingo?, automatic backups, signed updates
+
+2.4 brings together the planned 2.2 (media), 2.3 (game preparation) and 2.4 (recovery and
+commercial readiness) work in one release.
+
+### Getting started
+- **Get started guide** on first launch: nine set-up steps that tick themselves, from importing
+  videos to checking a sample claim. You can skip it and reopen it from the Dashboard.
+- **Rehearsal game**: a practice game with 40 generated test-pattern clips. No commercial
+  music is included. Nothing from it goes into your Game History, and it is deleted when you
+  end the rehearsal.
+- A short notice explains that **you are responsible for the rights to the music** you play.
+  Anthem Square is software only. *(The wording is a draft awaiting legal review.)*
+
+### Media
+- **Media check** (*Music Library → Media check…*): every video is checked for codec,
+  resolution, frame rate, bitrate, keyframe spacing and clip points, then marked **Ready**,
+  **Needs optimisation**, **Unsupported** or **Missing**, with the reason.
+  **Optimise all flagged** makes smaller or simpler copies. Your original files are never
+  changed. Nothing is decoded during the check.
+- **Find missing videos…**: one relink wizard for the library and for games. A banner names
+  where the videos used to be (for example a USB drive that isn't plugged in).
+  - Identical files are found even if renamed, and ticked for you.
+  - Same-name or same-title files are shown with a **Preview** for you to decide.
+- **Clip editor** (*Edit song → Clip*):
+  - a timeline over the song's loudness with draggable start and end markers;
+  - 20 / 30 / 40 / 60 s / Full length buttons;
+  - Play selection, Set start here, Set end here, Reset;
+  - a **loud section** suggestion. It is a suggestion, not chorus detection.
+- **Gap between songs**: None / 3 / 5 / 10 s / custom on Host Game. During the gap the TV holds
+  the last picture instead of going blank. On the phone, Next becomes **Skip gap**.
+- **Peak ceiling** for volume levelling is now adjustable in Settings.
+
+### Preparing a game
+- **Quick-start presets** at the top of Create Game:
+  - **Quick Bingo Break**;
+  - **Standard Bingo**;
+  - **Rules Checklist**;
+  - **Full Music Bingo Night**;
+  - **Custom**, which keeps your own choices.
+
+  Your saved templates are listed as *My presets*. Every value stays editable.
+- **Pacing estimate** (Create Game → cards step): 1,500 simulated shuffles of your playlist
+  against simulated cards show which song each round or rule is usually won by, how long it
+  takes, and what a planned break of N minutes is likely to produce. It is an estimate only and
+  never touches the real play order or cards.
+- **Ready for Bingo?** (Dashboard, Host Game, Create Game): every pre-game check in one place.
+  Problems are grouped as *Action required* / *Warning* / *Ready*, each with a button that fixes
+  it. New checks:
+  - media check;
+  - clip points;
+  - last backup;
+  - laptop memory;
+  - a 5-second off-screen **decode test** that counts dropped frames.
+- **Card footer message** and **song font** (Modern, Bold, Classic, Serif) for printed cards.
+  They only change how cards look: numbers and songs never change.
+- The TV extras (welcome and end screens, “Not a Bingo”, “one away” count) stay available, but
+  for **new installations** only the winner screen is on by default. Existing settings are
+  unchanged.
+
+### Backups and recovery
+- **⤓ Back up** on Host Game and **Back up game** on Backup & Restore: a compact backup in one
+  click, with no file dialog.
+- **Automatic backups** at five safe moments: after creating the game, after printing, at the
+  start, after confirming winners, and when the game ends.
+  - Never written while a song plays.
+  - Saved in *Documents\Anthem Square Backups*, keeping the last 10 per game.
+- **Music usage report (CSV)** in Game History: date, event, venue, time, title, artist,
+  seconds played and how. Optional **rights details** per song (ISRC, label/publisher, licence
+  reference) are included. It is a record to help with licensing returns, not legal advice.
+
+### Updates
+- **Signed updates**: from 2.4 on, an update is installed only if its files are signed with
+  Anthem Square's key, which is checked on the laptop. An unsigned or altered file is never
+  run; you get the download page instead.
+- Updates are installed **between games only**, never during one.
+- Your games and settings are **copied before every update**, and **Go back to x.y.z**
+  (Settings → App updates) returns to the previous version.
+
+### Licensing
+- The licensing framework is built in but **switched off**: Anthem Square is free, with no
+  licence, account or activation. *Settings → Licence & devices* says so.
+
 ## Anthem Square 2.1.0 — Quiz Intermission Mode
 
 ### Quiz Intermission Mode: switch between your quiz and the bingo in one click

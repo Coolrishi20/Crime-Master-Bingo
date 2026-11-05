@@ -16,6 +16,13 @@ code-signed yet. Click **More info → Run anyway**.
 The first time the phone remote starts, Windows Firewall asks about network access:
 tick **Private networks** and click **Allow**.
 
+### First launch — *Get started*
+The first time you open Anthem Square, the **Get started** page walks through the nine set-up
+steps; each ticks itself when you've done it. It ends with a **rehearsal game**: 40 generated
+test-pattern clips (no commercial music) to practise Play, Next, Return to Quiz and checking
+card 001. The rehearsal never appears in Game History and is deleted when you end it. Skip the
+page any time and reopen it from the Dashboard (*Get started guide*).
+
 ### Updating from Crime Master Bingo
 Install Anthem Square over your existing copy. Your music library, playlists, saved games,
 printed-card numbers, backups and phone pairings are kept: the app still reads the same data
@@ -115,10 +122,53 @@ exactly where the game will start it. Use **⚑** to flag anything wrong, **✎ 
 correct it straight away, and → / Space / F on the keyboard to go faster. Flagged songs are
 listed at the end and under *Music Library → Flagged*.
 
-### Templates
-Run the same kind of night every week? In the last set-up step, click *Save these choices as a
-template…*, or use *Game History → Save as template…*. Next time, pick it at the top of
-*Create Game → Game details*.
+### Media check — *Music Library → Media check…*
+Checks every video for what can make playback stutter or fail:
+- codec, resolution, frame rate and bitrate;
+- keyframe spacing (slow jumps to the clip start);
+- clip points past the end of the video.
+
+Each video is marked **Ready**, **Needs optimisation**, **Unsupported** or **Missing**, with
+the reason. **Optimise all flagged** makes smaller or simpler copies (your originals are never
+changed). In Low Resource Mode the limits are stricter (720p, 30 fps).
+
+### Choosing each song's clip — *Edit song → Clip*
+Drag the start and end markers over the loudness bars, or:
+- press **20 / 30 / 40 / 60 s / Full**;
+- **▶ Play selection** to hear it;
+- **Set start here** / **Set end here** at the video's current position;
+- **⟲ Reset** to go back to the game's default.
+
+The **loud section** button suggests the loudest stretch after the intro. It is a suggestion:
+loud isn't always the most recognisable part.
+
+### Presets and templates
+At the top of *Create Game* choose a starting point:
+- **Quick Bingo Break** (Fast 5 then One Line, 20 s clips);
+- **Standard Bingo** (One Line → Two Lines → Full House);
+- **Rules Checklist**;
+- **Full Music Bingo Night** (four rounds, 40 s clips);
+- **Custom**, which keeps your own defaults so you choose everything yourself.
+
+Everything stays editable in the next steps. To reuse your own set-up, click *Save these choices
+as one of my presets…* in the cards step (or *Game History → Save as template…*). It then
+appears under **My presets**.
+
+### How long will it take? — the pacing estimate
+In the cards step, Anthem Square simulates 1,500 random shuffles of your playlist against
+simulated cards. It shows, for each round or rule, the song it is usually won by and roughly how
+many minutes that takes. Enter your **planned break** (for example 15 minutes) to see what is
+likely to be won in it. If a rule may not finish before the playlist runs out, it says so. It is
+an estimate only: the real shuffle is never looked at or changed.
+
+### Ready for Bingo?
+Click **✓ Ready for Bingo?** (Dashboard or Host Game) before the night. Everything is checked in
+one place:
+- videos, cards, printing, TV and phone;
+- volume levelling, last backup and memory;
+- a 5-second decode test that plays one of your videos off-screen and counts dropped frames.
+
+Problems come first, each with a button that fixes it.
 
 ### Create the game — *Create Game*
 The wizard has nine steps:
@@ -493,6 +543,19 @@ only when you click.
 - **Game History** lists every game with its winners, claims, played songs and log, and
   can export a text report.
 
+### Automatic and one-click backups
+- **⤓ Back up** (top of Host Game) saves a compact backup straight away, with no file dialog.
+- With **Automatic backups** on (*Backup & Restore*), a compact backup is saved after creating
+  the game, after printing, at the start, after confirming winners and when the game ends.
+  - Never while a song plays: it waits for the next pause or gap.
+  - Saved in *Documents\Anthem Square Backups*, keeping the last 10 per game.
+
+### Music usage report
+*Game History → Music usage (CSV)* lists every song played: date, event, venue, time, title,
+artist, seconds played and how. It opens in Excel. Add **rights details** (ISRC,
+label/publisher, your licence reference) to songs under *Edit song → Rights details* and they
+are included. It is a record to help with licensing returns, not legal advice.
+
 ### Backup & Restore
 - **Game backup**: everything about the game (cards with exact layouts, playlist
   snapshot, progress, claims, credits, winners). Small. Videos need relinking after
@@ -600,6 +663,15 @@ Tips for 4 GB laptops:
 The remote fits any phone. On a **Galaxy Fold's cover screen** it switches to a compact
 layout. **Unfolded**, it uses two columns: playback beside Up Next, and the BINGO keypad
 beside the card result. Add it to your home screen for an app-style icon.
+
+## 10a. Updates, going back, and licensing
+- Updates are installed **only between games**. Each one must carry Anthem Square's
+  signature, which the laptop checks before installing; an unsigned or altered file is never
+  run (you get the download page instead).
+- Your games and settings are copied before each update. **Settings → App updates → Go back to
+  x.y.z** returns to the previous version if something doesn't suit you.
+- Anthem Square is currently **free**: no licence, account or activation. *Settings → Licence &
+  devices* shows this.
 
 ## 11. Troubleshooting
 
