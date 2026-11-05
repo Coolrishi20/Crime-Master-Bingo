@@ -12,7 +12,7 @@ const key = process.env.ANTHEM_UPDATE_SIGNING_KEY;
 if (!key || !/BEGIN PRIVATE KEY/.test(key)) { console.error('ANTHEM_UPDATE_SIGNING_KEY is not set — refusing to publish an unsigned release.'); process.exit(1); }
 const version = require(path.join(__dirname, '..', 'package.json')).version;
 const files = {};
-fs.readdirSync(dir).filter(f => /\.(exe|yml|blockmap)$/i.test(f) && f !== 'builder-debug.yml').sort() // only files that are published.forEach(f => { files[f] = crypto.createHash('sha256').update(fs.readFileSync(path.join(dir, f))).digest('hex'); });
+fs.readdirSync(dir).filter(f => /\.(exe|yml|blockmap)$/i.test(f) && f !== 'builder-debug.yml').sort().forEach(f => { files[f] = crypto.createHash('sha256').update(fs.readFileSync(path.join(dir, f))).digest('hex'); });
 if (!Object.keys(files).length) { console.error('No release files found in ' + dir); process.exit(1); }
 const { text, sig } = signManifest({ app: 'Anthem Square', version, signedAt: new Date().toISOString(), files }, key);
 verifyManifest(text, sig, version, crypto.createPublicKey(key).export({ type: 'spki', format: 'pem' })); // self-check
