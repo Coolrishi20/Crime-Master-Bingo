@@ -1,4 +1,58 @@
-# Anthem Square — Test report (v2.0.0)
+# Anthem Square — Test report (v2.1.0)
+
+## v2.1.0 (Quiz Intermission Mode, phone hardening, safe library relink)
+- **Unit tests: 187 / 187 passed.** New files:
+  - `v23-quiz-night.test.js` (6 tests):
+    - pause mid-song keeps the position, completes nothing and blocks playback;
+    - breaks numbered, wait-for-Play vs play straight away;
+    - no auto-advance during the quiz;
+    - an open claim session survives quiz time;
+    - old games load unchanged;
+    - crash recovery stays in quiz time;
+    - ending the game during quiz time.
+  - `v23-remote.test.js` (4 tests): sequence numbers, state patches, the pairing pause after
+    20 wrong PINs, the quiz/break commands allowed from the phone.
+  - `v23-relink.test.js` (2 tests): renamed identical files relinked; same-name files with
+    different content only suggested; exact matches never lose their file to a weaker one.
+- **New integrated e2e `v23-quiz-night.js`: 28 / 28 passed.** It runs the laptop, the TV
+  window and the phone together:
+  - the TV window is hidden, not closed; video paused at the same point;
+  - quiz screen on the phone;
+  - Play refused during the quiz;
+  - the TV returns without taking focus and resumes from the same position;
+  - Return to Quiz from the phone with a claim session open;
+  - the holding-screen option;
+  - play-straight-away;
+  - 30 rapid switches: no windows created or lost, memory +14 to +28 MB across runs,
+    play order unchanged;
+  - the phone received 50 small patches and 1 full state;
+  - a restart in quiz time opens the TV hidden.
+- **Regression (all re-run on this build):**
+
+  | Suite | Result |
+  |---|---|
+  | v22 | 11/11 |
+  | v21 | 14/14 |
+  | v20 | 26/26 |
+  | v19 | 9/9 |
+  | v18 | 10/10 |
+  | v17 | 22/22 |
+  | v16 | 34/34 |
+  | acceptance | 85/85 |
+  | v15 | 28/28 |
+  | v14 | 38/38 |
+  | v13 | 13/13 |
+  | print | 12/12 |
+  | reveal | 7/7 |
+
+- **Correction to the commercial review:** a 60-second lock after 5 wrong PINs from one phone
+  already existed (and was tested). 2.1 adds a lock across all phones.
+- **Not tested here (needs real hardware):**
+  - hiding and showing a fullscreen TV window on Windows over HDMI, with PowerPoint or
+    Mind It! in front;
+  - a 4 GB laptop;
+  - a phone on venue Wi-Fi.
+
 
 ## v2.0.0 (start-up fix, click-to-update, live TV preview, YouTube Beta)
 - **Unit tests: 175 / 175 passed.** `v21-update.test.js` (3 tests) covers the portable updater:

@@ -53,7 +53,9 @@ video stands out.
 - **Needs attention** shows missing files, unsupported videos and songs without a
   title/artist. **Duplicates** shows repeated files or songs; click *Not a duplicate*
   if a flagged song is fine.
-- Moved your videos? **Relink folder…** finds them by file name.
+- Moved your videos? **Relink folder…** finds them, even if they were renamed. Files that are
+  only *probably* the same (same name or same title and artist) are listed for you to tick;
+  nothing uncertain is relinked without you.
 
 ### YouTube songs (Beta) — *Music Library → ＋ YouTube…*
 Paste YouTube links, one per line (watch, youtu.be, shorts and music.youtube links all
@@ -199,6 +201,19 @@ per game, and the defaults are in Settings → Gameplay.
   every intermission, with the countdown at the bottom.
 - **Second TV:** in big rooms, click **＋ TV 2** at the top of Host Game to mirror the audience
   screen on another display. It's silent and follows the main TV; click again to close it.
+
+### Quiz nights — switch between your quiz and the bingo
+For quizzes where the bingo is played in breaks between quiz rounds.
+1. Start the bingo as usual. Host Game shows an orange **BINGO BREAK** bar.
+2. When it's time for the quiz, press **❚❚ RETURN TO QUIZ** (or **Q**, or the button at the
+   top of the phone). The music pauses exactly where it is and the Anthem Square TV window is
+   hidden, so whatever you run for the quiz shows on the TV.
+3. When the quiz round is over, press **▶ START BINGO BREAK** (on the laptop or the big
+   button on the phone). The TV window comes back; press Play when the room is ready.
+- Everything carries over: cards, rules, winners, history, even an open claim check.
+- Under the bar you can choose what the TV does during the quiz (*hide the window* or *show a
+  still holding screen*) and whether a break *waits for Play* or *plays straight away*.
+- Play, Next and Replay are switched off during quiz time so nothing plays by accident.
 
 ### Connect your phone — *Mobile Host Connection*
 1. Put the phone on the **same Wi-Fi** as the laptop. No internet is needed; a phone

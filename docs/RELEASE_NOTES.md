@@ -1,3 +1,36 @@
+## Anthem Square 2.1.0 — Quiz Intermission Mode
+
+### Quiz Intermission Mode: switch between your quiz and the bingo in one click
+For quiz nights where the bingo runs in breaks between quiz rounds. The whole evening is one
+game, with the same cards all night.
+- **❚❚ Return to Quiz** (on Host Game, on the phone, or the **Q** key) pauses the bingo
+  wherever it is: mid-song, between songs, even with a claim session open. The exact video
+  position is kept, and **the TV window is hidden** so your quiz (PowerPoint, Mind It!…) shows
+  on the TV. Nothing is completed, reshuffled or regenerated.
+- **▶ Start Bingo Break** brings the TV window back without taking the keyboard away from
+  your quiz app. By default it waits for you to press Play. You can choose *Play straight
+  away* instead.
+- Prefer the TV to show something? Choose **Show a still holding screen** (“Bingo is back
+  soon”) instead of hiding the window.
+- Breaks are numbered (Break 1, Break 2…) with the songs played and winners in each; the
+  phone has a new **Winners** tab with tonight's breaks.
+- If the laptop restarts during quiz time, the game reopens in quiz time with the TV hidden.
+- The existing round-based **Intermission** screen is unchanged for venues that use it.
+
+### Phone remote
+- During the quiz the phone shows one big **START BINGO BREAK** button. During a break, a
+  slim orange bar always offers **RETURN TO QUIZ**.
+- Commands carry sequence numbers, so a command that arrives late after a Wi-Fi hiccup is
+  refused instead of running out of order.
+- The phone now receives only what changed, instead of the whole game every time.
+- Pairing pauses for a minute after 20 wrong PINs from any phones (on top of the existing
+  limit of 5 per phone). Making a new PIN on the laptop lifts the pause.
+
+### Safer relinking
+- **Music Library → Relink folder…** used to relink by file name alone, silently. It now
+  relinks only files that are provably the same video (even if renamed); a file with the same
+  name or the same title and artist is shown for you to tick.
+
 ## Anthem Square 2.0.0 — click-to-update, live TV preview, YouTube (Beta) and a start-up fix
 
 2.0 includes everything from 1.9.0 (templates, smart playlists, song check, intermission
