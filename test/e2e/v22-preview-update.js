@@ -9,14 +9,14 @@ let failed = 0; const ok = (c, n, d = '') => { console.log(`${c ? 'PASS' : 'FAIL
 const waitFor = async (fn, ms = 20000) => { const t = Date.now(); while (Date.now() - t < ms) { try { const v = await fn(); if (v) return v; } catch (e) { } await sleep(200); } return null; };
 
 (async () => {
-  /* ---- stand-in release server: 2.1.0 with a 3 MB "portable EXE" and its sha256 */
+  /* ---- stand-in release server: 9.0.0 with a 3 MB "portable EXE" and its sha256 */
   const BIN = crypto.randomBytes(3 * 1024 * 1024); const SHA = crypto.createHash('sha256').update(BIN).digest('hex');
   let corrupt = false, forged = false;
   // 2.4: releases carry a signed manifest; the app is told the stand-in public key
   const KP = crypto.generateKeyPairSync('ed25519'); const OTHER = crypto.generateKeyPairSync('ed25519');
-  const signFor = (key) => { const text = JSON.stringify({ version: '2.1.0', files: { 'AnthemSquare-Portable-2.1.0.exe': SHA } }); return { text, sig: crypto.sign(null, Buffer.from(text), key.privateKey).toString('base64') }; };
+  const signFor = (key) => { const text = JSON.stringify({ version: '9.0.0', files: { 'AnthemSquare-Portable-9.0.0.exe': SHA } }); return { text, sig: crypto.sign(null, Buffer.from(text), key.privateKey).toString('base64') }; };
   const srv = await new Promise(res => { const s = http.createServer((q, r) => {
-    if (q.url === '/latest') { r.writeHead(200, { 'Content-Type': 'application/json' }); return r.end(JSON.stringify({ tag_name: 'v2.1.0', html_url: 'https://example/releases/v2.1.0', assets: [{ name: 'AnthemSquare-Setup-2.1.0.exe', browser_download_url: `http://127.0.0.1:${s.address().port}/setup`, size: 10 }, { name: 'AnthemSquare-Portable-2.1.0.exe', browser_download_url: `http://127.0.0.1:${s.address().port}/portable`, size: BIN.length, digest: 'sha256:' + SHA }, { name: 'release-signature.json', browser_download_url: `http://127.0.0.1:${s.address().port}/sigjson`, size: 1 }, { name: 'release-signature.sig', browser_download_url: `http://127.0.0.1:${s.address().port}/sig`, size: 1 }] })); }
+    if (q.url === '/latest') { r.writeHead(200, { 'Content-Type': 'application/json' }); return r.end(JSON.stringify({ tag_name: 'v9.0.0', html_url: 'https://example/releases/v9.0.0', assets: [{ name: 'AnthemSquare-Setup-9.0.0.exe', browser_download_url: `http://127.0.0.1:${s.address().port}/setup`, size: 10 }, { name: 'AnthemSquare-Portable-9.0.0.exe', browser_download_url: `http://127.0.0.1:${s.address().port}/portable`, size: BIN.length, digest: 'sha256:' + SHA }, { name: 'release-signature.json', browser_download_url: `http://127.0.0.1:${s.address().port}/sigjson`, size: 1 }, { name: 'release-signature.sig', browser_download_url: `http://127.0.0.1:${s.address().port}/sig`, size: 1 }] })); }
     if (q.url === '/sigjson') { r.writeHead(200); return r.end(signFor(forged ? OTHER : KP).text); }
     if (q.url === '/sig') { r.writeHead(200); return r.end(signFor(forged ? OTHER : KP).sig); }
     if (q.url === '/portable') { r.writeHead(200, { 'Content-Length': BIN.length }); const data = corrupt ? Buffer.concat([BIN.slice(0, -1), Buffer.from([BIN[BIN.length - 1] ^ 1])]) : BIN; let i = 0; const step = () => { if (i >= data.length) return r.end(); r.write(data.slice(i, i + 262144)); i += 262144; setTimeout(step, 40); }; return step(); }
@@ -62,7 +62,7 @@ const waitFor = async (fn, ms = 20000) => { const t = Date.now(); while (Date.no
   /* ---------- click-to-update (portable) */
   await inv('update:check');
   const pill = await waitFor(async () => host.$('#updPill'), 5000);
-  ok(pill && /Update to 2\.1\.0/.test(await pill.textContent()), 'Sidebar shows “Update to 2.1.0”');
+  ok(pill && /Update to 9\.0\.0/.test(await pill.textContent()), 'Sidebar shows “Update to 9.0.0”');
   corrupt = true;
   await pill.click(); await host.waitForSelector('#updGo');
   ok(/3 MB/.test(await host.textContent('.modal-back')), 'Update window shows the version and download size');

@@ -1,4 +1,71 @@
-# Anthem Square — Test report (v2.1.0)
+# Anthem Square — Test report (v2.4.0)
+
+## v2.4.0 (media check, presets + pacing, Ready for Bingo?, backups, usage report, onboarding, signed updates)
+- **Unit tests: 210 / 210 passed.** New files:
+
+  | File | Covers |
+  |---|---|
+  | `v24-media` | stream info, MP4 keyframe index, verdicts, optimised-copy arguments, real-file probe |
+  | `v24-clip-gap` | loudness bars, loud-section suggestion, TV holds the last frame in the gap |
+  | `v25-pacing` | per-card qualification, round ordering, more cards win sooner, break estimate, may-not-finish warning, never touches a real game |
+  | `v26-autobackup` | never mid-song, milestones merged, newest N kept, off switch |
+  | `v26-usage` | rows, credits, Excel-safe CSV with formula-injection guard, rights fields |
+  | `v26-licence` | free edition by default; when switched on, signed offline tokens, device binding, expiry, 30-day grace with warning from day 23 |
+  | `v26-updsig` | genuine, edited, wrongly signed and wrong-version manifests; tampered files; the CI script refuses without the right key |
+
+  `v12-features` was updated for the new update policy: updates only between games, and nothing
+  installs before the signature check.
+- **New integrated e2e `v24-commercial.js`: 33 / 33 passed.** It covers:
+  - first-run guide and rights notice;
+  - media check of 51 real videos (codec, size, fps, bitrate, keyframes);
+  - relink wizard: a renamed identical file is pre-ticked, a same-name different file is not
+    ticked, only the ticked one is relinked;
+  - clip editor;
+  - presets and pacing estimate;
+  - a game created from a preset;
+  - automatic backups after creating and at the start, one-click backup;
+  - card footer and font in the print preview;
+  - Ready for Bingo? with fix buttons, and a decode test (150 frames, 0 dropped);
+  - gap presets;
+  - usage CSV;
+  - licence shown as free;
+  - a rehearsal game with 40 generated clips, kept out of history and backups.
+- **`v22-preview-update.js`: 12 / 12** (new: a release signed with a different key is refused
+  before anything is downloaded; the portable update is checked against the signed manifest).
+- **`v17-brand.js`: 22 / 22** (the navigation check now ignores the hidden *Get started* link).
+- **Regression (all re-run on this build):**
+
+  | Suite | Result |
+  |---|---|
+  | v23 | 28/28 |
+  | v21 | 14/14 |
+  | v20 | 26/26 |
+  | v19 | 9/9 |
+  | v18 | 10/10 |
+  | v16 | 34/34 |
+  | acceptance | 85/85 |
+  | v15 | 28/28 |
+  | v14 | 38/38 |
+  | v13 | 13/13 |
+  | print | 12/12 |
+  | reveal | 7/7 |
+
+- **Signing:** the real key pair was tested end to end (CI script signs, the app's built-in key
+  verifies). Releases are signed only once the `ANTHEM_UPDATE_SIGNING_KEY` secret is added to
+  GitHub; until then CI warns and copies from 2.4 on offer updates as a manual download.
+- **Benchmark (2.1.0, normal mode, 75 songs, laptop + TV + phone):**
+  - dropped frames 1.3% (2.0: 1.3%);
+  - RAM after 75 songs 1,031 MB (2.0: 1,024 MB);
+  - phone traffic 84 KB/min (2.0: 402 KB/min);
+  - longest main-process stall 20 ms (2.0: 226 ms).
+- **Not tested here (needs real hardware or accounts):**
+  - Windows update swap, rollback, and the installer signature check on a real update;
+  - SmartScreen (no code-signing certificate yet);
+  - the decode test on Windows GPUs;
+  - a 4 GB laptop;
+  - a real TV with a quiz app in front;
+  - a phone on venue Wi-Fi.
+
 
 ## v2.1.0 (Quiz Intermission Mode, phone hardening, safe library relink)
 - **Unit tests: 187 / 187 passed.** New files:
