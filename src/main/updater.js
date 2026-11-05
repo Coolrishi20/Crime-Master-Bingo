@@ -48,7 +48,7 @@ class UpdateManager {
     const au = o.autoUpdater;
     if (au && o.mode === 'installer') {
       au.autoDownload = false;            // we decide when to download (not during a live game)
-      au.autoInstallOnAppQuit = true;     // a downloaded update installs when the app is closed
+      au.autoInstallOnAppQuit = false;    // 2.4: only after the signed-release check has passed
       au.allowPrerelease = false;
       if (au.logger !== undefined) au.logger = o.log || null;
       au.on('checking-for-update', () => this.set({ state: 'checking' }));
@@ -57,7 +57,11 @@ class UpdateManager {
         this.set({ state: 'available', version: info.version, checkedAt: new Date().toISOString() }); // downloads only when the host clicks Update
       });
       au.on('download-progress', (p) => this.set({ state: 'downloading', percent: Math.round(p.percent || 0) }));
-      au.on('update-downloaded', (info) => this.set({ state: 'downloaded', version: info.version, percent: 100 }));
+      au.on('update-downloaded', async (info) => {
+        this.set({ state: 'verifying', version: info.version, percent: 100 });
+        try { if (o.verifyInstaller) await o.verifyInstaller(info); au.autoInstallOnAppQuit = true; this.set({ state: 'downloaded', version: info.version, percent: 100 }); }
+        catch (e) { au.autoInstallOnAppQuit = false; this.set({ state: 'blocked', version: info.version, url: RELEASES_URL, error: e.message }); }
+      });
       au.on('error', (e) => this.set({ state: this.status.version ? 'available' : 'error', error: friendly(e) }));
     }
   }
@@ -90,8 +94,9 @@ class UpdateManager {
         this.set({ state: 'checking' });
         const latest = await this.o.fetchLatest();
         const asset = latest && (latest.assets || []).find(a => /Portable.*\.exe$/i.test(a.name));
-        if (latest && compareVersions(latest.version, this.current) > 0 && asset && this.o.canSelfUpdate && this.o.canSelfUpdate()) { this.latest = Object.assign({}, latest, { asset }); this.set({ state: 'available', version: latest.version.replace(/^v/, ''), url: latest.url || RELEASES_URL, size: asset.size, checkedAt: new Date().toISOString() }); }
-        else if (latest && compareVersions(latest.version, this.current) > 0) this.set({ state: 'portable-available', version: latest.version.replace(/^v/, ''), url: latest.url || RELEASES_URL, checkedAt: new Date().toISOString() });
+        const signed = !this.o.requireSigned || (latest && (latest.assets || []).some(a => a.name === 'release-signature.json') && (latest.assets || []).some(a => a.name === 'release-signature.sig'));
+        if (latest && compareVersions(latest.version, this.current) > 0 && asset && signed && this.o.canSelfUpdate && this.o.canSelfUpdate()) { this.latest = Object.assign({}, latest, { asset }); this.set({ state: 'available', version: latest.version.replace(/^v/, ''), url: latest.url || RELEASES_URL, size: asset.size, checkedAt: new Date().toISOString() }); }
+        else if (latest && compareVersions(latest.version, this.current) > 0) this.set({ state: 'portable-available', version: latest.version.replace(/^v/, ''), url: latest.url || RELEASES_URL, unsigned: !signed, checkedAt: new Date().toISOString() });
         else this.set({ state: 'up-to-date', checkedAt: new Date().toISOString() });
       }
     } catch (e) {
@@ -103,10 +108,11 @@ class UpdateManager {
 
   async download() {
     if (!['available', 'error'].includes(this.status.state) || !this.status.version) return this.status;
+    if (this.o.isGameLive && this.o.isGameLive()) { this.set({ state: 'available', error: 'Finish or close the game first — updates are installed between games, never during one.' }); return this.status; }
     this.set({ state: 'downloading', percent: 0 });
     if (this.mode === 'portable') {
       try {
-        const file = await this.o.downloadPortable(this.latest.asset, (pct) => { if (pct !== this.status.percent) this.set({ state: 'downloading', percent: pct }); });
+        const file = await this.o.downloadPortable(this.latest.asset, (pct) => { if (pct !== this.status.percent) this.set({ state: 'downloading', percent: pct }); }, this.latest);
         this.set({ state: 'downloaded', percent: 100, file });
       } catch (e) { this.set({ state: 'available', error: e.message || friendly(e) }); }
       return this.status;

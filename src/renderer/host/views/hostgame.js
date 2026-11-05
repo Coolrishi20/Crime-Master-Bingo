@@ -19,7 +19,7 @@ App.register('host', {
         <div><div class="eyebrow" id="hgEyebrow">Host · now playing</div><h1 id="hgName"></h1></div>
         <span class="chip" id="hgRound"></span><span class="badge" id="hgLock"></span><span class="grow"></span>
         <div class="songcount" id="hgCount"></div>
-        <button class="btn" id="hgReady" title="Every pre-game check in one place">✓ Ready?</button><button class="btn" id="hgAud"></button><button class="btn" id="hgTv2" title="Mirror the TV on a second screen (silent)">TV 2</button>
+        <button class="btn" id="hgReady" title="Every pre-game check in one place">✓ Ready?</button><button class="btn" id="hgBackup" title="Compact backup of this game, now (no file dialog)">⤓ Back up</button><button class="btn" id="hgAud"></button><button class="btn" id="hgTv2" title="Mirror the TV on a second screen (silent)">TV 2</button>
       </div>
       <div id="hgNight"></div><div id="hgRecover"></div><div id="hgSession"></div><div id="hgUnavail"></div>
       <div class="cols main-side">
@@ -80,6 +80,7 @@ App.register('host', {
     const el = this.el;
     const g = () => App.game;
     $('#hgReady', el).onclick = () => readyCheck();
+    $('#hgBackup', el).onclick = async () => { const b = $('#hgBackup', el); b.disabled = true; try { const r = await api('backup:quick', {}); if (r) toast('Game backed up — ' + new Date(r.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), 'ok', 4000); } finally { b.disabled = false; } };
     $$('#cGap button', el).forEach(b => b.onclick = async () => {
       let v = b.dataset.g;
       if (v === 'custom') { v = await promptBox('Gap between songs', 'Seconds of pause between songs (0–30)', String(App.game.settings.autoAdvanceGap || 0)); if (v == null || v === '') return; }
@@ -150,6 +151,7 @@ App.register('host', {
     $('#hgLevel', el).textContent = g.settings.audio.levelling ? `Levelling to ${g.settings.audio.targetLufs} LUFS · max boost +${g.settings.audio.maxBoostDb} dB · fade in ${g.settings.audio.fadeIn}s / out ${g.settings.audio.fadeOut}s${g.settings.audio.muted ? ' · MUTED' : ''}` : (g.settings.audio.muted ? 'MUTED' : 'Levelling off — songs play at their original loudness');
     $('#hgLock', el).textContent = g.cardsLocked ? '🔒 CARDS LOCKED' : 'DRAFT CARDS'; $('#hgLock', el).className = 'badge ' + (g.cardsLocked ? 'ok' : 'warn');
     this.drawNight();
+    if (g.rehearsal) { $('#hgRecover', el).innerHTML = `<div class="banner"><div class="grow"><h3>Rehearsal</h3><div class="muted">A practice game with test-pattern clips. Try anything — check card 001 with CHECK BINGO, Return to Quiz, the phone. Nothing is saved to your history.</div></div><button class="btn" id="hgRehEnd">End rehearsal</button></div>` + $('#hgRecover', el).innerHTML; $('#hgRehEnd', el).onclick = async () => { await api('rehearsal:end'); App.show('start'); }; }
     const quizNow = !!(g.night && g.night.phase === 'quiz'); $$('.controls .ctl', el).forEach(b => { if (b.id !== 'cStop') b.disabled = quizNow; });
     const ss = g.session;
     const im = g.intermission;

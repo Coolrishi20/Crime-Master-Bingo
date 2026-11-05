@@ -1,3 +1,7 @@
+function drawLicence() {
+  const box = document.getElementById('licBox'); if (!box) return;
+  api('licence:status').then(l => { box.innerHTML = l.enforced ? `${esc(l.message)}${l.warn ? '<br>' + esc(l.warn) : ''}` : `<span class="badge ok">FREE EDITION</span> Anthem Square is free to use — no licence, account or activation needed. This laptop: <code>${esc(l.device || '')}</code>`; }).catch(() => {});
+}
 App.register('settings', {
   /** Settings → Performance: Low Resource Mode + optional 720p copies for slow laptops. */
   async drawPerf(box) {
@@ -102,11 +106,14 @@ App.register('settings', {
             <label class="field">Fade out (seconds, 0 = off)<input type="number" id="aFo" min="0" max="8" step="0.1" value="${gd.audio.fadeOut}"></label></div>
           <p class="muted small">Every video's loudness is measured once in the background (EBU R128). Playback is then turned up or down so every song sounds equally loud — without touching the original files and never above ${gd.audio.ceilingDbtp} dBTP, so nothing clips. Very quiet videos are boosted by at most the maximum amplification.</p></div>
         <div class="panel"><h2>About</h2><div class="as-about"><img src="../shared/brand/icon.svg" alt="Anthem Square"><div><div class="wm">ANTHEM<em>SQUARE</em></div><div class="muted small" style="margin-top:8px">Music video bingo · version ${esc((App.info && App.info.version) || '')}</div><div class="tl">HEAR IT. MARK IT. <b>OWN IT.</b></div></div></div></div>
+        <div class="panel"><h2>Licence &amp; devices</h2><div id="licBox" class="muted small">…</div>
+          <details style="margin-top:10px"><summary class="small" style="cursor:pointer;font-weight:700">Your music, your responsibility</summary><p class="small" style="margin:8px 0 0">Anthem Square is software only. It does not supply music or videos, and it does not provide music licences or permission to run events or give prizes. You are responsible for using media you have the rights to play in public and for any permissions your event needs. The music usage report is a record to help you; it is not legal advice.</p></details></div>
         <div class="panel"><h2>App updates</h2>
           <div class="row"><span class="muted">Version <b style="color:#fff">${esc(App.info.version)}</b></span><span class="grow"></span><span id="upState" class="small"></span></div>
           <div class="row" style="margin-top:12px">${toggleHtml('upAuto', 'Check for updates automatically', s.updates ? s.updates.auto !== false : true)}</div>
           <div class="row" style="margin-top:12px"><button class="btn sm" id="upCheck">Check now</button><button class="btn sm primary" id="upAct" style="display:none"></button></div>
-          <p class="muted small">Updates come from the Anthem Square releases on GitHub. They download in the background (never during a live game) and install only when you choose “Restart to update” or close the app. No internet? Nothing happens — the app works fully offline.</p></div>
+          <div id="upBack" class="row" style="margin-top:10px"></div>
+          <p class="muted small">Updates come from the Anthem Square releases on GitHub and are installed only between games. Every update must carry Anthem Square's signature, checked on this laptop before anything is installed; an unsigned or altered file is never run. Your games and settings are copied before each update, and you can go back to the previous version. No internet? Nothing happens — the app works fully offline.</p></div>
         <div class="panel" id="perfPanel"></div>
         <div class="panel" id="rulesPanel" style="grid-column:1 / -1"></div>
         <div class="panel"><h2>🏠 Home play</h2>
@@ -121,7 +128,7 @@ App.register('settings', {
     App.drawUpdateSettings = (st) => {
       const box = $('#upState', el); const act = $('#upAct', el); if (!box) return;
       st = st || App.update || {};
-      const L = { idle: '', checking: 'Checking…', 'up-to-date': '✓ You have the latest version', available: `Update ${st.version} available`, downloading: `Downloading ${st.version || ''} — ${st.percent || 0}%`, downloaded: `✓ ${st.version} ready to install`, 'portable-available': `Version ${st.version} is available`, error: st.error || 'Could not check', off: 'Automatic checks are off', disabled: 'Updates are not available in this build' };
+      const L = { idle: '', checking: 'Checking…', 'up-to-date': '✓ You have the latest version', available: `Update ${st.version} available`, downloading: `Downloading ${st.version || ''} — ${st.percent || 0}%`, downloaded: `✓ ${st.version} ready to install`, 'portable-available': st.unsigned ? `Version ${st.version} is available (not signed — download it from the website)` : `Version ${st.version} is available`, verifying: 'Checking the update is genuine…', blocked: st.error || 'The update did not pass its signature check and was not installed', error: st.error || 'Could not check', off: 'Automatic checks are off', disabled: 'Updates are not available in this build' };
       box.textContent = L[st.state] != null ? L[st.state] : '';
       box.style.color = st.state === 'error' ? 'var(--amber)' : (['downloaded', 'available', 'portable-available'].includes(st.state) ? 'var(--green)' : '');
       act.style.display = ['available', 'downloaded', 'portable-available'].includes(st.state) ? '' : 'none';
@@ -129,7 +136,9 @@ App.register('settings', {
       act.onclick = () => App.updateAction();
     };
     $('#upCheck', el).onclick = async () => { App.update = await api('update:check'); App.drawUpdateSettings(App.update); };
-    App.drawUpdateSettings();
+    App.drawUpdateSettings(); drawLicence();
+    api('update:rollbackInfo').then(r => { const b = $('#upBack', el); if (!b || !r.available) return; b.innerHTML = `<button class="btn sm ghost" id="upRoll">Go back to ${esc(r.version)}</button><span class="muted tiny">${r.snapshots.length} data snapshot${r.snapshots.length === 1 ? '' : 's'} kept</span>`;
+      $('#upRoll', el).onclick = async () => { if (!await confirmBox('Go back to ' + esc(r.version) + '?', 'Anthem Square closes and reopens on version ' + esc(r.version) + '. Your games and settings are copied first. Games made with newer features may need this newer version again.', 'Go back')) return; await api('update:rollback'); }; }).catch(() => {});
     $('#sLogo', el).onclick = async () => { await api('settings:pickLogo'); App.settings = await api('settings:get'); App.applyAppearance(); this.render(el); };
     if ($('#sLogoX', el)) $('#sLogoX', el).onclick = async () => { await api('settings:clearLogo'); App.settings = await api('settings:get'); App.applyAppearance(); this.render(el); };
     $('#rGo', el).onclick = (e) => { e.preventDefault(); App.show('mobile'); };

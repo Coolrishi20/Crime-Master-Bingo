@@ -11,16 +11,21 @@ const waitFor = async (fn, ms = 20000) => { const t = Date.now(); while (Date.no
 (async () => {
   /* ---- stand-in release server: 2.1.0 with a 3 MB "portable EXE" and its sha256 */
   const BIN = crypto.randomBytes(3 * 1024 * 1024); const SHA = crypto.createHash('sha256').update(BIN).digest('hex');
-  let corrupt = false;
+  let corrupt = false, forged = false;
+  // 2.4: releases carry a signed manifest; the app is told the stand-in public key
+  const KP = crypto.generateKeyPairSync('ed25519'); const OTHER = crypto.generateKeyPairSync('ed25519');
+  const signFor = (key) => { const text = JSON.stringify({ version: '2.1.0', files: { 'AnthemSquare-Portable-2.1.0.exe': SHA } }); return { text, sig: crypto.sign(null, Buffer.from(text), key.privateKey).toString('base64') }; };
   const srv = await new Promise(res => { const s = http.createServer((q, r) => {
-    if (q.url === '/latest') { r.writeHead(200, { 'Content-Type': 'application/json' }); return r.end(JSON.stringify({ tag_name: 'v2.1.0', html_url: 'https://example/releases/v2.1.0', assets: [{ name: 'AnthemSquare-Setup-2.1.0.exe', browser_download_url: `http://127.0.0.1:${s.address().port}/setup`, size: 10 }, { name: 'AnthemSquare-Portable-2.1.0.exe', browser_download_url: `http://127.0.0.1:${s.address().port}/portable`, size: BIN.length, digest: 'sha256:' + SHA }] })); }
+    if (q.url === '/latest') { r.writeHead(200, { 'Content-Type': 'application/json' }); return r.end(JSON.stringify({ tag_name: 'v2.1.0', html_url: 'https://example/releases/v2.1.0', assets: [{ name: 'AnthemSquare-Setup-2.1.0.exe', browser_download_url: `http://127.0.0.1:${s.address().port}/setup`, size: 10 }, { name: 'AnthemSquare-Portable-2.1.0.exe', browser_download_url: `http://127.0.0.1:${s.address().port}/portable`, size: BIN.length, digest: 'sha256:' + SHA }, { name: 'release-signature.json', browser_download_url: `http://127.0.0.1:${s.address().port}/sigjson`, size: 1 }, { name: 'release-signature.sig', browser_download_url: `http://127.0.0.1:${s.address().port}/sig`, size: 1 }] })); }
+    if (q.url === '/sigjson') { r.writeHead(200); return r.end(signFor(forged ? OTHER : KP).text); }
+    if (q.url === '/sig') { r.writeHead(200); return r.end(signFor(forged ? OTHER : KP).sig); }
     if (q.url === '/portable') { r.writeHead(200, { 'Content-Length': BIN.length }); const data = corrupt ? Buffer.concat([BIN.slice(0, -1), Buffer.from([BIN[BIN.length - 1] ^ 1])]) : BIN; let i = 0; const step = () => { if (i >= data.length) return r.end(); r.write(data.slice(i, i + 262144)); i += 262144; setTimeout(step, 40); }; return step(); }
     r.writeHead(404); r.end(); }).listen(0, '127.0.0.1', () => res(s)); });
   const P = srv.address().port;
   const DATA = fs.mkdtempSync(path.join(os.tmpdir(), 'as-v22-'));
   const APPDIR = fs.mkdtempSync(path.join(os.tmpdir(), 'as-portable-')); const EXE = path.join(APPDIR, 'AnthemSquare-Portable-2.0.0.exe'); fs.writeFileSync(EXE, 'old exe');
   const app = await electron.launch({ executablePath: process.env.CMB_APP_EXE || require('electron'), args: process.env.CMB_APP_EXE ? ['--no-sandbox'] : [ROOT, '--no-sandbox'],
-    env: Object.assign({}, process.env, { CMB_TEST: '1', CMB_SHOW: '1', CMB_DATA_DIR: DATA, CMB_NO_SANDBOX: '1', CMB_NO_REMOTE: '1', CMB_UPDATE_MODE: 'portable', CMB_UPDATE_API: `http://127.0.0.1:${P}/latest`, PORTABLE_EXECUTABLE_FILE: EXE }) });
+    env: Object.assign({}, process.env, { CMB_TEST: '1', CMB_SHOW: '1', CMB_DATA_DIR: DATA, CMB_NO_SANDBOX: '1', CMB_NO_REMOTE: '1', CMB_UPDATE_MODE: 'portable', CMB_UPDATE_API: `http://127.0.0.1:${P}/latest`, CMB_UPDATE_PUBKEY: KP.publicKey.export({ type: 'spki', format: 'pem' }), PORTABLE_EXECUTABLE_FILE: EXE }) });
   const host = await app.firstWindow(); await host.waitForFunction(() => window.App && window.App.settings);
   host.on('pageerror', e => ok(false, 'host page error', e.message));
   await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(1500, 950));
@@ -66,11 +71,15 @@ const waitFor = async (fn, ms = 20000) => { const t = Date.now(); while (Date.no
   ok(!!prog, 'Progress is shown while it downloads', (prog || '').match(/\d+%/) && prog.match(/\d+%/)[0]);
   const bad = await waitFor(async () => /did not pass its safety check/.test(await host.textContent('.modal-back')), 15000);
   ok(!!bad && !fs.existsSync(path.join(APPDIR, '.anthem-square-update.exe')), 'A corrupted download is rejected (SHA-256) and removed');
-  corrupt = false;
+  corrupt = false; forged = true;
+  await host.click('#updGo');
+  const nosig = await waitFor(async () => /not signed by Anthem Square/.test(await host.textContent('.modal-back')), 15000);
+  ok(!!nosig && !fs.existsSync(path.join(APPDIR, '.anthem-square-update.exe')), 'A release signed with someone else\'s key is refused before anything is downloaded');
+  forged = false;
   await host.click('#updGo');
   await host.waitForSelector('#updRestart', { timeout: 20000 });
   const staged = path.join(APPDIR, '.anthem-square-update.exe');
-  ok(fs.existsSync(staged) && crypto.createHash('sha256').update(fs.readFileSync(staged)).digest('hex') === SHA, 'Downloaded next to the app and verified');
+  ok(fs.existsSync(staged) && crypto.createHash('sha256').update(fs.readFileSync(staged)).digest('hex') === SHA, 'Downloaded next to the app, signature and SHA-256 verified');
   ok(/Restart now/.test(await host.textContent('.modal-back')) && /Later/.test(await host.textContent('.modal-back')), 'Choice: Restart now or Later');
   await host.screenshot({ path: path.join(OUT, 'v22-update-ready.png') });
   await host.click('#updRestart'); await sleep(500);

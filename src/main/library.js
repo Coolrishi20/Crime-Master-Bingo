@@ -143,6 +143,7 @@ class Library {
     ['title', 'artist', 'displayTitle', 'printTitle'].forEach(k => { if (k in fields) s[k] = String(fields[k] || '').trim(); });
     if ('year' in fields) { const y = Number(fields.year); s.year = Number.isInteger(y) && y >= 1900 && y <= 2100 ? y : null; }
     if ('tags' in fields) s.tags = cleanTags(fields.tags);
+    if (fields.rights && typeof fields.rights === 'object') { const r = {}; ['isrc', 'label', 'licence'].forEach(k => { const v = String(fields.rights[k] || '').trim().slice(0, 120); if (v) r[k] = k === 'isrc' ? v.toUpperCase().replace(/[^A-Z0-9]/g, '') : v; }); if (Object.keys(r).length) s.rights = r; else delete s.rights; }
     if ('flag' in fields) s.flag = fields.flag && fields.flag.reason ? { reason: String(fields.flag.reason).slice(0, 60), note: String(fields.flag.note || '').slice(0, 200), at: new Date().toISOString() } : null;
     ['clipStart', 'clipEnd'].forEach(k => {
       if (k in fields) {

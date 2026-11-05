@@ -1780,7 +1780,7 @@ class GameEngine {
     const next = nextIdx >= 0 ? this.song(g.order[nextIdx]) : null;
     const played = this.playedSet();
     return {
-      gameId: g.id, name: g.name, venue: g.venue, date: g.date, status: g.status, gamePaused: !!g.gamePaused,
+      gameId: g.id, name: g.name, venue: g.venue, date: g.date, status: g.status, gamePaused: !!g.gamePaused, rehearsal: !!g.rehearsal,
       version: g.version, cardsLocked: !!g.cardsLocked, lockedAt: g.lockedAt || null,
       playback: { status: pb.status, index: pb.index, position: pb.position, clipStart: pb.clipStart, clipEnd: pb.clipEnd, pausedForClaim: !!pb.pausedForClaim, recovered: !!pb.recovered, nextAt: pb.nextAt || null },
       current: this.currentView(),

@@ -208,6 +208,12 @@ async function editSong(s, after) {
       <label class="field">Year<input type="number" min="1900" max="2100" id="eY" value="${s.year || ''}" placeholder="e.g. 1985 — for decade playlists"></label>
       <label class="field">Tags (comma-separated)<input type="text" id="eG" value="${esc((s.tags || []).join(', '))}" placeholder="e.g. Bollywood, Dance, 80s Party"></label>
     </div>
+    <details style="margin:4px 0 10px"${s.rights ? ' open' : ''}><summary class="small" style="cursor:pointer;font-weight:700">Rights details (optional) — shown in the music usage report</summary>
+      <div class="form-grid" style="margin-top:8px">
+        <label class="field">ISRC<input type="text" id="eRi" maxlength="15" value="${esc((s.rights || {}).isrc || '')}" placeholder="e.g. GBAYE0601498"></label>
+        <label class="field">Label / publisher<input type="text" id="eRl" value="${esc((s.rights || {}).label || '')}"></label>
+        <label class="field">Licence reference<input type="text" id="eRr" value="${esc((s.rights || {}).licence || '')}" placeholder="your licence or reporting code"></label>
+      </div></details>
     ${s.audio && s.audio.introEnd > 0 ? `<p class="small" style="margin:0 0 8px"><span class="badge">INTRO ${fmtTime(s.audio.introEnd)}</span> The music starts at about <b>${fmtTime(s.audio.introEnd)}</b>. With <i>Skip quiet intros</i> on, clips start there unless you set a clip start.</p>` : ''}
     <p class="muted small">File: ${esc(s.path)} <button class="btn sm ghost" id="eReveal">📂 Show in folder</button>${s.converted && s.converted.optimised ? ' <button class="btn sm ghost" id="eOrig">Use the original file again</button>' : ''}</p>
     </div>`;
@@ -222,7 +228,7 @@ async function editSong(s, after) {
     body.querySelector('#eTabClip').hidden = b.dataset.t !== 'clip'; body.querySelector('#eTabDetails').hidden = b.dataset.t === 'clip';
     if (b.dataset.t === 'clip' && body.querySelector('#eClip')) { if (!clipUi) clipUi = await mountClipEditor(body.querySelector('#eClip'), s, v, body.querySelector('#eS'), body.querySelector('#eE')); else clipUi.redraw(); }
   });
-  const r = await modal({ title: 'Edit song', size: 'mid', body, buttons: [{ label: 'Cancel', value: null }, { label: 'Save', kind: 'primary', value: (b) => ({ title: b.querySelector('#eT').value, artist: b.querySelector('#eA').value, displayTitle: b.querySelector('#eD').value, printTitle: b.querySelector('#eP').value, year: b.querySelector('#eY').value || null, tags: b.querySelector('#eG').value, clipStart: b.querySelector('#eS').value, clipEnd: b.querySelector('#eE').value }) }] });
+  const r = await modal({ title: 'Edit song', size: 'mid', body, buttons: [{ label: 'Cancel', value: null }, { label: 'Save', kind: 'primary', value: (b) => ({ rights: { isrc: b.querySelector('#eRi').value, label: b.querySelector('#eRl').value, licence: b.querySelector('#eRr').value }, title: b.querySelector('#eT').value, artist: b.querySelector('#eA').value, displayTitle: b.querySelector('#eD').value, printTitle: b.querySelector('#eP').value, year: b.querySelector('#eY').value || null, tags: b.querySelector('#eG').value, clipStart: b.querySelector('#eS').value, clipEnd: b.querySelector('#eE').value }) }] });
   v.pause(); v.removeAttribute('src');
   if (!r) return;
   if (!r.title.trim() || !r.artist.trim()) toast('Title and artist are required before the song can be used in a game', 'err', 5000);

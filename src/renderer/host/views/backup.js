@@ -5,12 +5,34 @@ App.register('backup', {
     this.games = games;
     if (!this.gameId || !games.find(g => g.id === this.gameId)) this.gameId = App.game ? App.game.gameId : (games[0] && games[0].id);
     el.innerHTML = `<div class="page-head"><div><div class="eyebrow">Portable games</div><h1>Backup &amp; Restore</h1><p>Move a complete game — cards, progress, winners — to another laptop, or keep a safe copy.</p></div></div>
+      <div class="panel" id="abBox" style="margin-bottom:18px"></div>
       <div class="cols c2">
         <div class="panel" id="bkBox"></div>
         <div class="panel" id="rsBox"></div>
       </div>
       <div class="panel" id="rlBox" style="margin-top:18px"></div>`;
-    this.drawBackup(); this.drawRestore(); this.drawRelink();
+    this.drawAuto(); this.drawBackup(); this.drawRestore(); this.drawRelink();
+  },
+  on_autobackup() { this.drawAuto(); },
+  /* 2.4: one-click compact backup + automatic backups at safe moments */
+  async drawAuto() {
+    const box = $('#abBox', this.el); if (!box) return;
+    const gid = this.gameId; const g = (this.games || []).find(x => x.id === gid);
+    const a = await api('backup:auto', { id: gid });
+    const when = (iso) => { const d = new Date(iso); return d.toLocaleDateString() === new Date().toLocaleDateString() ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : d.toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }); };
+    box.innerHTML = `<h2>${g ? esc(g.name) + ' — back up this game' : 'Back up a game'} <span class="badge ${a.last ? 'ok' : 'warn'}">${a.last ? 'LAST BACKUP ' + when(a.last.at) + (a.last.auto ? ' · AUTO' : '') : 'NOT BACKED UP YET'}</span></h2>
+      <div class="row" style="gap:12px;align-items:stretch">
+        <div class="ab-card"><b>Compact backup</b><span class="muted small">Game, cards, rules, history, claims, winners and video locations. No videos — small and quick.</span><button class="btn primary" id="abNow" ${g ? '' : 'disabled'}>⤓ Back up game</button></div>
+        <div class="ab-card"><b>Full portable backup</b><span class="muted small">Everything plus your videos, to move the night to another laptop.</span><button class="btn" id="abFull" ${g ? '' : 'disabled'}>Choose drive…</button></div>
+        <div class="ab-card grow"><label class="toggle"><input type="checkbox" id="abAuto" ${a.settings.auto !== false ? 'checked' : ''}><span class="sw"></span><b>Automatic backups</b></label>
+          <span class="muted small">After creating the game · after printing · at the start · after confirming winners · when the game ends. Never while a song is playing. Keeps the last <input type="number" id="abKeep" min="1" max="50" value="${a.settings.keep || 10}" style="width:52px"> per game in <a href="#" id="abDir">${esc(a.settings.dir)}</a>.</span></div>
+      </div>
+      ${a.files.length ? `<details style="margin-top:10px"><summary class="muted small">${a.files.length} backup${a.files.length === 1 ? '' : 's'} of this game in the folder</summary>${a.files.map(f => `<div class="muted tiny">${esc(when(f.at))} · ${esc(f.name)} · ${(f.bytes / 1024).toFixed(0)} KB</div>`).join('')}</details>` : ''}`;
+    $('#abNow', box).onclick = async () => { const b = $('#abNow', box); b.disabled = true; try { const r = await api('backup:quick', { id: gid }); if (r) toast('Backed up: ' + r.file.split(/[\\/]/).pop(), 'ok', 5000); } finally { b.disabled = false; this.drawAuto(); } };
+    $('#abFull', box).onclick = () => { const r = $('input[name=bkType][value=full]', this.el); if (r) { r.checked = true; r.dispatchEvent(new Event('change')); } const go = $('#bkGo', this.el); if (go) go.scrollIntoView({ behavior: 'smooth', block: 'center' }); };
+    $('#abAuto', box).onchange = async (e) => { App.settings = await api('settings:update', { backups: { auto: e.target.checked } }); toast(e.target.checked ? 'Automatic backups on' : 'Automatic backups off', 'ok'); };
+    $('#abKeep', box).onchange = async (e) => { App.settings = await api('settings:update', { backups: { keep: Math.max(1, Math.min(50, Number(e.target.value) || 10)) } }); };
+    $('#abDir', box).onclick = (e) => { e.preventDefault(); api('backup:openFolder'); };
   },
   on_backup(p) {
     const bar = $('#bkProg', this.el) || $('#rsProg', this.el); if (!bar) return;
@@ -36,7 +58,7 @@ App.register('backup', {
       const mb = (b) => b > 1073741824 ? (b / 1073741824).toFixed(2) + ' GB' : (b / 1048576).toFixed(1) + ' MB';
       $('#bkEst', box).innerHTML = `Estimated size: <b style="color:#fff">${mb(e.totalBytes)}</b> · ${e.songs} songs · ${e.cards} cards${full && e.missing.length ? `<div style="color:var(--amber)">⚠ ${e.missing.length} video file(s) are missing and will not be included.</div>` : ''}${full && e.totalBytes > 4294967296 ? '<div style="color:var(--amber)">Large backup — make sure the destination drive has enough space (FAT32 USB sticks cannot hold files over 4 GB).</div>' : ''}`;
     };
-    $$('input[name=bkType]', box).forEach(r => r.onchange = est); $('#bkGame', box).onchange = (e) => { this.gameId = e.target.value; est(); };
+    $$('input[name=bkType]', box).forEach(r => r.onchange = est); $('#bkGame', box).onchange = (e) => { this.gameId = e.target.value; est(); this.drawAuto(); };
     $('#bkEnc', box).onchange = (e) => { $('#bkPw', box).style.display = e.target.checked ? 'grid' : 'none'; };
     est();
     $('#bkGo', box).onclick = async () => {

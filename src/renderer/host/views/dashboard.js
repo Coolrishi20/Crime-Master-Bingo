@@ -8,7 +8,7 @@ App.register('dashboard', {
     const active = App.game;
     el.innerHTML = `${info.recommendLowResource ? `<div class="banner" id="lrmRec" style="border-color:var(--amber);background:rgba(255,200,87,.12)"><div class="grow"><h3>💡 This laptop has ${info.totalRamGB} GB of memory</h3><div class="muted">Turn on <b style="color:#fff">Low Resource Mode</b> for smoother video on 4 GB laptops. Every game feature stays on — only decorative effects and background work are reduced.</div></div><button class="btn primary" id="lrmOn">Turn on</button><button class="btn ghost" id="lrmNo">Not now</button></div>` : ''}
       <div class="page-head"><div><div class="eyebrow">Anthem Square</div><h1>Dashboard</h1><p>Music video bingo for live nights — run it from the laptop or your phone.</p></div>
-        <div class="row"><button class="btn" id="dReady" title="Every pre-game check in one place">✓ Ready for Bingo?</button><button class="btn" id="dImport">Import videos</button><button class="btn primary" id="dNew">✚ New game</button></div></div>
+        <div class="row"><button class="btn ghost" id="dStart" title="The first-time guide and a rehearsal game">Get started guide</button><button class="btn" id="dReady" title="Every pre-game check in one place">✓ Ready for Bingo?</button><button class="btn" id="dImport">Import videos</button><button class="btn primary" id="dNew">✚ New game</button></div></div>
       <div class="as-hero"><img src="../shared/brand/icon.svg" alt="" width="74" height="74"><div><h2>Anthem Square</h2><p class="tl">HEAR IT. MARK IT. <b>OWN IT.</b></p></div></div>
       ${rec && !active ? `<div class="banner"><div class="grow"><h3>${rec.crashed ? 'RESUME LAST GAME' : 'Continue your last game'}</h3>
         <div class="muted">${rec.crashed ? 'Anthem Square did not close normally. ' : ''}<b style="color:#fff">${esc(rec.name)}</b> — Round ${rec.round || '–'}, ${rec.played} songs played. Cards, history, claims and winners are all saved.</div></div>
@@ -31,6 +31,7 @@ App.register('dashboard', {
         </div>
       </div>`;
     if ($('#dReady', el)) $('#dReady', el).onclick = () => readyCheck();
+    if ($('#dStart', el)) $('#dStart', el).onclick = () => App.show('start');
     $('#dImport', el).onclick = () => App.show('library');
     $('#dNew', el).onclick = () => App.show('create');
     if ($('#dResume', el)) $('#dResume', el).onclick = async () => { await api('games:open', { id: rec.gameId }); toast('Game restored — press Play when you are ready', 'ok'); App.show('host'); };

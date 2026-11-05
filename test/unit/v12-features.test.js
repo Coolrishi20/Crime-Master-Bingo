@@ -27,23 +27,28 @@ test('version comparison', () => {
 test('installer: click-to-update — finds it, downloads only when the host clicks, installs only when asked', async () => {
   const au = fakeUpdater({ version: '1.3.0' }); const seen = [];
   const u = new UpdateManager(Object.assign({ currentVersion: '1.2.0', mode: 'installer', autoUpdater: au, isGameLive: () => false, isGamePlaying: () => false, onChange: (s) => seen.push(s.state) }, noTimers));
-  assert.strictEqual(au.autoDownload, false); assert.strictEqual(au.autoInstallOnAppQuit, true);
+  assert.strictEqual(au.autoDownload, false); assert.strictEqual(au.autoInstallOnAppQuit, false, '2.4: nothing installs on quit before the signature check');
   await u.check(false); await new Promise(r => setImmediate(r));
   assert.strictEqual(u.status.state, 'available', 'found, not downloaded by itself'); assert.ok(!au.calls.includes('download'));
-  await u.download(); await new Promise(r => setImmediate(r));
+  await u.download(); await new Promise(r => setImmediate(r)); await new Promise(r => setImmediate(r));
   assert.ok(seen.includes('downloading'), 'progress shown');
+  assert.ok(seen.includes('verifying'), 'signature checked');
   assert.strictEqual(u.status.state, 'downloaded'); assert.strictEqual(u.status.version, '1.3.0');
+  assert.strictEqual(au.autoInstallOnAppQuit, true, 'verified → may install on quit');
   assert.ok(!au.calls.includes('install'), 'never installs by itself');
   u.install(false);
   assert.ok(au.calls.includes('install'));
 });
 
-test('installer: no background download while a game is live; install refused while music plays', async () => {
+test('installer: updates only between games; install refused while music plays; an unsigned installer is never installed', async () => {
   const au = fakeUpdater({ version: '1.3.0' }); let live = true; let playing = true;
   const u = new UpdateManager(Object.assign({ currentVersion: '1.2.0', mode: 'installer', autoUpdater: au, isGameLive: () => live, isGamePlaying: () => playing }, noTimers));
   await u.check(false);
   assert.strictEqual(u.status.state, 'available'); assert.ok(!au.calls.includes('download'));
   await u.download();
+  assert.ok(u.status.state === 'available' && /between games/.test(u.status.error) && !au.calls.includes('download'), '2.4: not during a game');
+  live = false;
+  await u.download(); await new Promise(r => setImmediate(r)); await new Promise(r => setImmediate(r));
   assert.strictEqual(u.status.state, 'downloaded');
   assert.throws(() => u.install(false), /playing/);
   assert.ok(!au.calls.includes('install'));
@@ -96,4 +101,13 @@ test('delayed title reveal is a clamped overlay setting sent to the TV only', ()
   eng.dispatch('setOverlay', { revealDelay: 10 });
   eng.dispatch('startRound', { round: 1 });
   assert.ok(eng.hostState().current.title, 'host still sees the title immediately');
+});
+
+test('installer: a download that fails the signature check is blocked and never installed', async () => {
+  const au = fakeUpdater({ version: '1.3.0' });
+  const u = new UpdateManager(Object.assign({ currentVersion: '1.2.0', mode: 'installer', autoUpdater: au, isGameLive: () => false, isGamePlaying: () => false, verifyInstaller: async () => { throw new Error('This update is not signed by Anthem Square — it was not installed.'); } }, noTimers));
+  await u.check(false); await u.download(); await new Promise(r => setImmediate(r)); await new Promise(r => setImmediate(r));
+  assert.strictEqual(u.status.state, 'blocked'); assert.match(u.status.error, /not signed/);
+  assert.strictEqual(au.autoInstallOnAppQuit, false);
+  assert.throws(() => u.install(true), /No update/); assert.ok(!au.calls.includes('install'));
 });

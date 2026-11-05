@@ -30,7 +30,7 @@ const IS_TEST = !!process.env.CMB_TEST;
 if (process.env.CMB_NO_SANDBOX) app.commandLine.appendSwitch('no-sandbox');
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 
-let store, library, settings, remote, analyser, updater, converter;
+let store, library, settings, remote, analyser, updater, converter, licensing;
 let hostWin = null, audienceWin = null, previewWin = null;
 let engine = null;          // engine for the active game
 let powerBlock = null;
@@ -55,6 +55,7 @@ function defaultSettings() {
     library: { autoConvert: true },
     updates: { auto: true },
     home: { shareImages: false, phoneCards: false, joinOnTv: true },
+    backups: { auto: true, dir: null, keep: 10 },
     performance: { lowResource: false, decided: false },
     customPatterns: [],   // host-designed 5×5 patterns (Settings → Bingo Rules)
     rulePresets: [],      // saved rule sets for the three rounds
@@ -69,7 +70,7 @@ function loadSettings() {
   const d = defaultSettings();
   const s = store.read('settings', d);
   const merged = Object.assign({}, d, s);
-  ['appearance', 'video', 'cards', 'remote', 'updates', 'library', 'home', 'performance'].forEach(k => { merged[k] = Object.assign({}, d[k], s[k] || {}); });
+  ['appearance', 'video', 'cards', 'remote', 'updates', 'library', 'home', 'performance', 'backups'].forEach(k => { merged[k] = Object.assign({}, d[k], s[k] || {}); });
   merged.gameDefaults = Object.assign(appGameDefaults(), s.gameDefaults || {});
   merged.gameDefaults.overlay = Object.assign(appGameDefaults().overlay, (s.gameDefaults || {}).overlay || {});
   merged.gameDefaults.crawler = Object.assign(appGameDefaults().crawler, (s.gameDefaults || {}).crawler || {});
@@ -413,12 +414,26 @@ function sendAudience(ch, data) {
 }
 let mirrorWin = null;
 
+/* Automatic backups at safe moments (2.4) — written only between songs */
+let autoBackup = null;
+function backupMilestone(action, roundBefore) {
+  if (!autoBackup || !engine || engine.game.rehearsal) return;
+  const id = engine.game.id;
+  if (action === 'startRound' && roundBefore === 0) autoBackup.request(id, 'started');
+  else if (action === 'confirmClaim') autoBackup.request(id, 'winner');
+  else if (action === 'endGame') autoBackup.request(id, 'ended');
+}
+function backupDir() { return (settings.backups && settings.backups.dir) || (IS_TEST ? path.join(DATA_DIR, 'auto-backups') : path.join(app.getPath('documents'), 'Anthem Square Backups')); }
+
 /* Single ordered command path for desktop + phone */
 let cmdQueue = Promise.resolve();
 function dispatch(action, args, source) {
   const p = cmdQueue.then(() => {
     if (!engine) throw new Error('No game is loaded. Create or resume a game first.');
-    return engine.dispatch(action, args, source);
+    const before = engine.game.round.number;
+    const r = engine.dispatch(action, args, source);
+    backupMilestone(action, before);
+    return r;
   });
   cmdQueue = p.catch(() => {});
   return p;
@@ -573,7 +588,7 @@ function getGameObj(id) { if (engine && engine.game.id === id) return engine.gam
 
 /* ======================================================================= IPC */
 const handlers = {
-  'app:info': () => ({ version: app.getVersion(), dataDir: DATA_DIR, recovery: recoveryInfo, platform: process.platform, isTest: IS_TEST, totalRamGB: TOTAL_RAM_GB, recommendLowResource: LOW_RAM && !settings.performance.lowResource && !settings.performance.decided }),
+  'app:info': () => ({ onboarding: { autoOpen: !(settings.onboarding && (settings.onboarding.dismissed || settings.onboarding.done)) && (!IS_TEST || !!process.env.CMB_ONBOARD) }, version: app.getVersion(), dataDir: DATA_DIR, recovery: recoveryInfo, platform: process.platform, isTest: IS_TEST, totalRamGB: TOTAL_RAM_GB, recommendLowResource: LOW_RAM && !settings.performance.lowResource && !settings.performance.decided }),
   'library:optimise': ({ ids, maxHeight }) => ({ queued: converter.optimise(ids && ids.length ? ids : library.songs().map(s => s.id), Number(maxHeight) || 720) }),
   /** Media check: Ready / Needs optimisation / Unsupported / Missing for the library or a playlist. */
   'media:report': ({ ids, playlistId } = {}) => { const pl = playlistId ? library.playlists().find(p => p.id === playlistId) : null; return mediaReport(pl ? pl.songIds : ids); },
@@ -585,7 +600,7 @@ const handlers = {
   'settings:get': () => settings,
   'settings:update': (patch) => {
     if (patch.performance) patch.performance.decided = true;
-    ['appearance', 'video', 'cards', 'remote', 'updates', 'library', 'home', 'performance'].forEach(k => { if (patch[k]) Object.assign(settings[k], patch[k]); });
+    ['appearance', 'video', 'cards', 'remote', 'updates', 'library', 'home', 'performance', 'backups'].forEach(k => { if (patch[k]) Object.assign(settings[k], patch[k]); });
     if (patch.performance) { sendAudience('app-settings', audienceAppSettings()); updateBackgroundWork(); }
     if (Array.isArray(patch.customPatterns)) settings.customPatterns = patch.customPatterns.map(p => { try { const r = rules.normaliseRule({ id: 'custom', name: p.name, cells: p.cells }); return { id: String(p.id || 'cp_' + Date.now().toString(36)).slice(0, 40), name: r.name, cells: r.cells }; } catch (e) { return null; } }).filter(Boolean).slice(0, 50);
     if (Array.isArray(patch.checklistPresets)) settings.checklistPresets = patch.checklistPresets.map(p => ({ name: String(p.name || 'Checklist').trim().slice(0, 40) || 'Checklist', items: normaliseChecklist(p.items) })).filter(p => p.items.length).slice(0, 30);
@@ -736,7 +751,7 @@ const handlers = {
   'playlists:validate': ({ id }) => summariseValidation(library.validatePlaylist(id)),
 
   /* games */
-  'games:list': () => store.listGames().map(gameSummary).sort((a, b) => String(b.updatedAt || b.createdAt).localeCompare(String(a.updatedAt || a.createdAt))),
+  'games:list': () => store.listGames().filter(g => !g.rehearsal).map(gameSummary).sort((a, b) => String(b.updatedAt || b.createdAt).localeCompare(String(a.updatedAt || a.createdAt))),
   'templates:list': () => settings.templates.map(t => Object.assign({}, t, { playlistName: (library.playlist(t.playlistId) || {}).name || null })),
   'templates:save': ({ name, fromGameId, playlistId, cards, venue, settings: st }) => {
     name = String(name || '').trim().slice(0, 60); if (!name) throw new Error('Give the template a name.');
@@ -770,7 +785,15 @@ const handlers = {
     return sim;
   },
   'templates:delete': ({ id }) => { settings.templates = settings.templates.filter(t => t.id !== id); saveSettings(); return true; },
+  /* ---- first-time host guide (2.4) */
+  'onboarding:status': () => onboardingStatus(),
+  'onboarding:set': (patch) => { settings.onboarding = Object.assign({}, settings.onboarding || {}, patch || {}); saveSettings(); return onboardingStatus(); },
+  'rehearsal:start': () => startRehearsal(),
+  'rehearsal:end': () => endRehearsal(),
+  'licence:status': () => Object.assign({ device: licensing ? licensing.deviceId() : null }, licensing ? licensing.status() : { edition: 'free', enforced: false, canStartGame: true }),
+  'notice:accept': () => { settings.noticeAcceptedAt = new Date().toISOString(); saveSettings(); return true; },
   'games:create': (opts) => {
+    if (licensing && !licensing.canStartNewGame()) throw new Error(licensing.status().message); // never true while licensing is off
     const v = library.validatePlaylist(opts.playlistId);
     if (!v.ok) throw new Error(`This playlist has ${v.uniquePlayable} playable unique songs. Add ${v.needed} more song${v.needed === 1 ? '' : 's'} (minimum 40).`);
     const gs = JSON.parse(JSON.stringify(settings.gameDefaults));
@@ -780,6 +803,7 @@ const handlers = {
     if (opts.cards) game.cards = cardsLib.generateCards(game.order, Number(opts.cards), []);
     saveGame(game);
     activateGame(game);
+    if (autoBackup) autoBackup.request(game.id, 'created');
     return gameSummary(game);
   },
   'games:open': ({ id }) => { const g = readGame(id); if (!g) throw new Error('Game not found'); activateGame(g); return gameSummary(g); },
@@ -794,6 +818,18 @@ const handlers = {
       claims: g.claims.map(c => Object.assign({}, c, { cardLabel: cardsLib.formatCardNo(c.cardNo) })),
       log: g.log.slice(-200)
     });
+  },
+  /** Music usage report (CSV): one game, or every game between two dates. */
+  'usage:export': async ({ id, from, to } = {}) => {
+    const usage = require('../core/usage');
+    const games = id ? [getGameObj(id)] : store.listGames().filter(g => g && (!from || g.date >= from) && (!to || g.date <= to));
+    const rows = []; games.sort((a, b) => String(a.date).localeCompare(String(b.date))).forEach(g => rows.push(...usage.usageRows(g, (sid) => library.get(sid))));
+    if (!rows.length) throw new Error('No songs have been played in ' + (id ? 'this game' : 'those games') + ' yet.');
+    const name = id ? `${games[0].name.replace(/[^\w -]/g, '')}-${games[0].date}-music-usage.csv` : `music-usage-${from || 'all'}${to ? '-to-' + to : ''}.csv`;
+    const r = await dialog.showSaveDialog(hostWin, { title: 'Save music usage report', defaultPath: name, filters: [{ name: 'CSV (Excel)', extensions: ['csv'] }] });
+    if (r.canceled) return null;
+    fs.writeFileSync(r.filePath, usage.toCsv(rows));
+    return { file: r.filePath, rows: rows.length, games: games.length, songs: usage.summary(rows).length };
   },
   'games:exportReport': async ({ id }) => {
     const g = getGameObj(id);
@@ -856,13 +892,14 @@ const handlers = {
     const out = await renderPrintJob(g, opts, 'pdf');
     issueCards(g, out.numbers, 'laptop');
     fs.writeFileSync(file + '.partial', out.pdf); fs.renameSync(file + '.partial', file);
+    if (autoBackup) autoBackup.request(g.id, 'printed');
     return { file, cards: out.count, sheets: Math.ceil(out.count / 2), overflow: out.info.overflow, warnings: out.info.warnings, minFont: out.info.minFont };
   },
   'cards:print': async (opts) => {
     const g = getGameObj(opts.id);
     requireLockConsent(g, opts);
     const out = await renderPrintJob(g, opts, 'print');
-    if (out.printed) issueCards(g, out.numbers, 'laptop');
+    if (out.printed) { issueCards(g, out.numbers, 'laptop'); if (autoBackup) autoBackup.request(g.id, 'printed'); }
     return { printed: out.printed, reason: out.reason, cards: out.count, sheets: Math.ceil(out.count / 2) };
   },
   /**
@@ -991,6 +1028,8 @@ const handlers = {
   /* app updates */
   'update:status': () => (updater ? updater.status : { state: 'disabled' }),
   'update:check': () => updater.check(true),
+  'update:rollbackInfo': () => rollbackInfo(),
+  'update:rollback': () => rollback(),
   'update:download': () => updater.download(),
   'update:install': ({ force }) => updater.install(!!force),
   'update:openPage': () => { shell.openExternal(updater && updater.status.url || RELEASES_URL); return true; },
@@ -1015,6 +1054,10 @@ const handlers = {
     recordBackup(g.id, { file, kind: includeMedia ? 'full' : 'compact', auto: false });
     return res;
   },
+  /** One-click compact backup into the backups folder (no dialog). */
+  'backup:quick': async ({ id }) => { const gid = id || (engine && engine.game.id); if (!gid) throw new Error('No game is loaded.'); if (engine && engine.game.id === gid) store.flush(); return autoBackup.now(gid, 'manual'); },
+  'backup:auto': ({ id }) => { const gid = id || (engine && engine.game.id); const g = gid ? (engine && engine.game.id === gid ? engine.game : readGame(gid)) : null; return { settings: Object.assign({}, settings.backups, { dir: backupDir() }), last: gid ? (settings.backupLog || {})[gid] || null : null, files: g ? autoBackup.list(g) : [] }; },
+  'backup:openFolder': () => { fs.mkdirSync(backupDir(), { recursive: true }); shell.openPath(backupDir()); return true; },
   'backup:pickFile': async () => {
     const r = await dialog.showOpenDialog(hostWin, { title: 'Choose an Anthem Square backup', properties: ['openFile'], filters: [{ name: 'Anthem Square backup', extensions: ['cmbbackup'] }] });
     return r.canceled ? null : r.filePaths[0];
@@ -1247,7 +1290,68 @@ async function decodeTest() {
   } finally { try { w.destroy(); } catch (e) { /* */ } }
   return lastDecodeTest;
 }
+/* First-time host guide: the nine set-up steps tick themselves from what the host has done. */
+function onboardingStatus() {
+  const ob = settings.onboarding || {};
+  const songs = library.songs(); const pls = library.playlists();
+  const games = store.listGames().filter(g => !g.rehearsal);
+  const ri = remote ? remote.info() : { devices: [] };
+  const steps = [
+    { key: 'import', label: 'Import your videos', done: songs.length > 0, go: 'library' },
+    { key: 'playlist', label: 'Make a playlist (40+)', done: pls.some(p => library.validatePlaylist(p.id).ok), go: 'playlists' },
+    { key: 'clips', label: 'Prepare clips', done: !!ob.clips || songs.some(s => s.clipStart != null), go: 'library' },
+    { key: 'cards', label: 'Generate cards', done: games.some(g => (g.cards || []).length), go: 'create' },
+    { key: 'print', label: 'Print cards', done: games.some(g => (g.cards || []).some(c => c.printed)), go: 'cards' },
+    { key: 'tv', label: 'Connect the TV', done: !!ob.tv || screen.getAllDisplays().length > 1, go: 'settings' },
+    { key: 'phone', label: 'Pair your phone', done: (ri.devices || []).length > 0, go: 'mobile' },
+    { key: 'rehearse', label: 'Rehearsal game', done: !!ob.rehearsed, go: 'rehearse' },
+    { key: 'claim', label: 'Check a sample claim', done: !!ob.claimChecked, go: 'rehearse' }
+  ];
+  return { steps, done: steps.filter(s => s.done).length, total: steps.length, dismissed: !!ob.dismissed, noticeAccepted: !!settings.noticeAcceptedAt, rehearsal: engine && engine.game.rehearsal ? { id: engine.game.id, claims: engine.game.claims.length } : null };
+}
+/* Rehearsal: a practice game with generated test-pattern clips (no commercial music), never
+   listed in Game History and deleted when the rehearsal ends. */
+async function makeRehearsalClips() {
+  const dir = path.join(DATA_DIR, 'rehearsal'); fs.mkdirSync(dir, { recursive: true });
+  const ff = converter && converter.ffmpeg; if (!ff) throw new Error('The video tool (ffmpeg) is missing, so practice clips cannot be made.');
+  const colours = ['testsrc2', 'smptebars', 'rgbtestsrc', 'testsrc'];
+  const out = [];
+  for (let i = 1; i <= 40; i++) {
+    const f = path.join(dir, `practice-${String(i).padStart(2, '0')}.mp4`); out.push(f);
+    if (fs.existsSync(f) && fs.statSync(f).size > 1000) continue;
+    await new Promise((res, rej) => {
+      const p = require('child_process').spawn(ff, ['-v', 'error', '-y', '-f', 'lavfi', '-i', `${colours[i % 4]}=size=640x360:rate=25`, '-f', 'lavfi', '-i', `sine=frequency=${220 + i * 11}`, '-t', '8', '-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-shortest', f + '.partial.mp4'], { windowsHide: true });
+      p.on('close', (c) => { if (c === 0) { fs.renameSync(f + '.partial.mp4', f); res(); } else rej(new Error('Could not make practice clip ' + i)); }); p.on('error', rej);
+    });
+    sendHost('rehearsal-progress', { done: i, total: 40 });
+  }
+  return out;
+}
+async function startRehearsal() {
+  if (engine && engine.game.status === 'live' && !engine.game.rehearsal) throw new Error('A real game is in progress — finish or close it before rehearsing.');
+  const files = await makeRehearsalClips();
+  const { fingerprint } = require('./library');
+  const songs = files.map((f, i) => { const fp = fingerprint(f); return { id: 'rh' + String(i + 1).padStart(2, '0'), title: 'Practice Song ' + (i + 1), artist: 'Test Pattern ' + String.fromCharCode(65 + (i % 8)), path: f, fileName: path.basename(f), duration: 8, size: fp.size, fingerprint: fp.fp }; });
+  const gs = JSON.parse(JSON.stringify(settings.gameDefaults)); gs.clipMode = 'full'; gs.autoAdvanceGap = 2; gs.screens = Object.assign({}, gs.screens, { welcome: false, end: false });
+  const game = createGame({ name: 'Rehearsal (practice — not saved to history)', songs, playlistId: null, playlistName: 'Practice clips', settings: gs });
+  game.rehearsal = true;
+  game.cards = cardsLib.generateCards(game.order, 10, []);
+  saveGame(game); activateGame(game);
+  return gameSummary(game);
+}
+function endRehearsal() {
+  const g = engine && engine.game; const ob = settings.onboarding = Object.assign({}, settings.onboarding || {});
+  if (g && g.rehearsal) {
+    ob.rehearsed = ob.rehearsed || g.played.length > 0;
+    ob.claimChecked = ob.claimChecked || g.claims.length > 0;
+    store.flush(); engine.cancelAdvance(); sendAudience('player', { cmd: 'clear' }); const id = g.id; engine = null; lastHostJson = lastTvJson = null; sendHost('state', { game: null }); if (remote) remote.broadcastState();
+    try { store.deleteGame(id); } catch (e) { /* */ }
+  }
+  saveSettings();
+  return onboardingStatus();
+}
 function recordBackup(gameId, info) {
+  if (engine && engine.game.id === gameId && engine.game.rehearsal) return;
   settings.backupLog = settings.backupLog || {};
   settings.backupLog[gameId] = Object.assign({ at: new Date().toISOString() }, info);
   saveSettings();
@@ -1308,7 +1412,28 @@ function preflight() {
 
 /* ---- portable self-update: download next to the EXE, verify, swap in after the app closes */
 function portableExe() { return process.env.PORTABLE_EXECUTABLE_FILE || process.execPath; }
-async function downloadPortableUpdate(asset, onProgress) {
+const updsig = require('./updsig');
+/** Fetch and check the signed manifest of a release (throws if missing or not genuine). */
+async function signedManifest(release) {
+  const a = (release.assets || []).find(x => x.name === updsig.MANIFEST); const b = (release.assets || []).find(x => x.name === updsig.SIGNATURE);
+  if (!a || !b) throw new Error('This update is not signed — download it from the website instead.');
+  const get = async (u) => { const r = await net.fetch(u, { headers: { 'User-Agent': 'Anthem-Square-Updater' } }); if (!r.ok) throw new Error('The update signature could not be downloaded (' + r.status + ').'); return r.text(); };
+  return updsig.verifyManifest(await get(a.url), await get(b.url), release.version, (IS_TEST && process.env.CMB_UPDATE_PUBKEY) || updsig.PUBLIC_KEY);
+}
+/* Before every update: a copy of settings, library and games (JSON only), newest 5 kept. */
+function snapshotData(reason) {
+  try {
+    const dir = path.join(DATA_DIR, 'snapshots', `${app.getVersion()}-${new Date().toISOString().replace(/[:.]/g, '-')}`);
+    fs.mkdirSync(path.join(dir, 'games'), { recursive: true });
+    fs.readdirSync(DATA_DIR).filter(f => f.endsWith('.json')).forEach(f => fs.copyFileSync(path.join(DATA_DIR, f), path.join(dir, f)));
+    const gd = path.join(DATA_DIR, 'games'); if (fs.existsSync(gd)) fs.readdirSync(gd).filter(f => f.endsWith('.json')).forEach(f => fs.copyFileSync(path.join(gd, f), path.join(dir, 'games', f)));
+    fs.writeFileSync(path.join(dir, 'snapshot.json'), JSON.stringify({ reason, version: app.getVersion(), at: new Date().toISOString() }));
+    const all = fs.readdirSync(path.join(DATA_DIR, 'snapshots')).sort(); all.slice(0, Math.max(0, all.length - 5)).forEach(d => { try { fs.rmSync(path.join(DATA_DIR, 'snapshots', d), { recursive: true, force: true }); } catch (e) { /* */ } });
+    return dir;
+  } catch (e) { console.error('Snapshot failed:', e.message); return null; }
+}
+async function downloadPortableUpdate(asset, onProgress, release) {
+  const manifest = release ? await signedManifest(release) : null; // refuse before downloading anything unsigned
   const dir = path.dirname(portableExe());
   const tmp = path.join(dir, '.anthem-square-update.download'); const done = path.join(dir, '.anthem-square-update.exe');
   const res = await net.fetch(asset.url, { headers: { 'User-Agent': 'Anthem-Square-Updater' } });
@@ -1328,6 +1453,7 @@ async function downloadPortableUpdate(asset, onProgress) {
   await new Promise((r, j) => out.end(err => (err ? j(err) : r())));
   if (asset.size && got !== asset.size) { try { fs.unlinkSync(tmp); } catch (x) { /* */ } throw new Error('The download was incomplete. Please try again.'); }
   if (asset.digest && /^sha256:/i.test(asset.digest) && asset.digest.slice(7).toLowerCase() !== hash.digest('hex')) { try { fs.unlinkSync(tmp); } catch (x) { /* */ } throw new Error('The downloaded file did not pass its safety check. Please try again.'); }
+  if (manifest) { try { await updsig.checkFile(manifest, asset.name, tmp); } catch (e) { try { fs.unlinkSync(tmp); } catch (x) { /* */ } throw e; } }
   try { fs.unlinkSync(done); } catch (x) { /* */ }
   fs.renameSync(tmp, done);
   return done;
@@ -1337,13 +1463,43 @@ function installPortableUpdate(file, relaunch) {
   const exe = portableExe();
   const helper = path.join(os.tmpdir(), 'anthem-square-update-' + Date.now() + '.cmd');
   const script = ['@echo off', 'setlocal', 'set "OLD=%~1"', 'set "NEW=%~2"', 'set n=0',
-    ':move', 'timeout /t 1 /nobreak >nul', 'move /Y "%NEW%" "%OLD%" >nul 2>&1', 'if not errorlevel 1 goto moved',
+    ':move', 'timeout /t 1 /nobreak >nul', 'copy /Y "%OLD%" "%~dp1.anthem-square-previous.exe" >nul 2>&1', 'move /Y "%NEW%" "%OLD%" >nul 2>&1', 'if not errorlevel 1 goto moved',
     'set /a n+=1', 'if %n% geq 90 goto done', 'goto move',
     ':moved', relaunch ? 'start "" "%OLD%"' : 'rem no relaunch', ':done', '(goto) 2>nul & del "%~f0"'].join('\r\n') + '\r\n';
   fs.writeFileSync(helper, script);
   if (IS_TEST) { global.__updateInstall = { helper, exe, file, relaunch, script }; return; } // tests: inspect, don't quit
   require('child_process').spawn('cmd.exe', ['/c', helper, exe, file], { detached: true, stdio: 'ignore', windowsHide: true }).unref();
   if (relaunch) { app.isQuiting = true; app.quit(); }
+}
+
+async function fetchRelease(tag) {
+  const base = (IS_TEST && process.env.CMB_UPDATE_API) ? process.env.CMB_UPDATE_API.replace(/\/latest$/, '/tags/') : `https://api.github.com/repos/${REPO.owner}/${REPO.repo}/releases/tags/`;
+  const r = await net.fetch(base + encodeURIComponent(tag), { headers: { 'User-Agent': 'Anthem-Square-Updater', Accept: 'application/vnd.github+json' } });
+  if (!r.ok) throw new Error('Version ' + tag + ' could not be found (' + r.status + ').');
+  const j = await r.json();
+  return { version: j.tag_name, url: j.html_url, assets: (j.assets || []).map(a => ({ name: a.name, url: a.browser_download_url, size: a.size, digest: a.digest || null })) };
+}
+/* Rollback: go back to the version before the last update. Portable keeps the previous EXE;
+   the installer build downloads that version's signed installer. Never during a game. */
+function rollbackInfo() {
+  const prev = settings.updates && settings.updates.previous;
+  const portablePrev = !!process.env.PORTABLE_EXECUTABLE_DIR && fs.existsSync(path.join(path.dirname(portableExe()), '.anthem-square-previous.exe'));
+  return { available: !!prev, version: prev ? prev.version : null, at: prev ? prev.at : null, portableCopy: portablePrev, snapshots: (() => { try { return fs.readdirSync(path.join(DATA_DIR, 'snapshots')).sort().reverse(); } catch (e) { return []; } })() };
+}
+async function rollback() {
+  const info = rollbackInfo(); if (!info.available) throw new Error('There is no earlier version to go back to on this laptop.');
+  if (engine && engine.game.status === 'live') throw new Error('Finish or close the game first — versions are only changed between games.');
+  snapshotData('before going back to ' + info.version);
+  if (info.portableCopy) { const prev = path.join(path.dirname(portableExe()), '.anthem-square-previous.exe'); const tmp = prev + '.swap.exe'; fs.copyFileSync(prev, tmp); installPortableUpdate(tmp, true); return { ok: true, version: info.version }; }
+  const rel = await fetchRelease('v' + info.version); const m = await signedManifest(rel);
+  const setup = rel.assets.find(a => /Setup.*\.exe$/i.test(a.name)); if (!setup) throw new Error('That version has no installer to go back to.');
+  const file = path.join(os.tmpdir(), setup.name); const r = await net.fetch(setup.url, { headers: { 'User-Agent': 'Anthem-Square-Updater' } });
+  if (!r.ok) throw new Error('The download could not start (' + r.status + ').');
+  fs.writeFileSync(file, Buffer.from(await r.arrayBuffer()));
+  await updsig.checkFile(m, setup.name, file);
+  if (IS_TEST) { global.__rollback = { file, version: info.version }; return { ok: true, version: info.version }; }
+  shell.openPath(file); app.isQuiting = true; setTimeout(() => app.quit(), 1500);
+  return { ok: true, version: info.version };
 }
 
 /* App updates — optional; offline simply means "nothing to report". */
@@ -1363,11 +1519,18 @@ function createUpdater() {
       return { version: j.tag_name, url: j.html_url, assets: (j.assets || []).map(a => ({ name: a.name, url: a.browser_download_url, size: a.size, digest: a.digest || null })) };
     },
     canSelfUpdate: () => { try { fs.accessSync(path.dirname(portableExe()), fs.constants.W_OK); return true; } catch (e) { return false; } },
-    downloadPortable: (asset, onProgress) => downloadPortableUpdate(asset, onProgress),
+    downloadPortable: (asset, onProgress, release) => downloadPortableUpdate(asset, onProgress, release),
+    requireSigned: true,
+    verifyInstaller: async (info) => {
+      const rel = await fetchRelease('v' + String(info.version).replace(/^v/, ''));
+      const m = await signedManifest(rel);
+      const got = await updsig.sha256File(info.downloadedFile);
+      if (!Object.keys(m.files).some(n => /Setup.*\.exe$/i.test(n) && m.files[n] === got)) { try { fs.unlinkSync(info.downloadedFile); } catch (e) { /* */ } throw new Error('The downloaded installer does not match the signed release — it was deleted and not installed.'); }
+    },
     installPortable: (file, relaunch) => installPortableUpdate(file, relaunch),
     isGameLive: () => !!(engine && engine.game.status === 'live'),
     isGamePlaying: () => !!(engine && ['playing', 'loading', 'between'].includes(engine.game.playback.status)),
-    beforeInstall: () => { app.isQuiting = true; try { store.flush(); settings.cleanShutdown = true; store.writeNow('settings', settings); } catch (e) { /* */ } },
+    beforeInstall: () => { snapshotData('before update'); settings.updates.previous = { version: app.getVersion(), at: new Date().toISOString() }; app.isQuiting = true; try { store.flush(); settings.cleanShutdown = true; store.writeNow('settings', settings); } catch (e) { /* */ } },
     onChange: (st) => sendHost('update', st)
   });
   u.start(settings.updates.auto !== false);
@@ -1408,6 +1571,13 @@ app.whenReady().then(async () => {
     store = new Store(DATA_DIR);
     settings = loadSettings();
     library = new Library(store);
+    licensing = new (require('./licence').Licensing)({ dataDir: DATA_DIR, enabled: false }); // free for now — framework only
+    autoBackup = new (require('./autobackup').AutoBackup)({ dir: backupDir, keep: () => settings.backups.keep, enabled: () => settings.backups.auto !== false,
+      getGame: (gid) => (engine && engine.game.id === gid ? engine.game : readGame(gid)),
+      isBusy: () => !!(engine && ['playing', 'loading'].includes(engine.game.playback.status)),
+      createBackup: (game, o) => backup.createBackup(game, Object.assign({ appVersion: app.getVersion() }, o)),
+      onDone: (info) => { recordBackup(info.gameId, { file: info.file, kind: 'compact', auto: info.auto, why: info.why }); sendHost('autobackup', info); },
+      onError: (e) => console.error('Automatic backup failed:', e.message) });
     library.checkFiles();
     updater = createUpdater();
     converter = new Converter({ dataDir: DATA_DIR, library, ffmpeg: require('./audio').findFfmpeg(process.resourcesPath), isAuto: () => settings.library.autoConvert !== false,

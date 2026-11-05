@@ -27,6 +27,8 @@
       // loudness progress: redraw the library at most every 1.5 s (not once per analysed song)
       let audT = null; window.cmb.on('library-audio', (a) => { if (App.view === 'library' && views.library) { views.library.audio = a; views.library.drawAudio(); clearTimeout(audT); audT = setTimeout(() => { if (App.view === 'library') views.library.on_library(); }, 1500); } });
       window.cmb.on('backup-progress', (p) => this.emit('backup', p));
+      window.cmb.on('autobackup', (p) => this.emit('autobackup', p));
+      window.cmb.on('rehearsal-progress', (p) => this.emit('rehearsalProgress', p));
       window.cmb.on('cards-images', (p) => this.emit('cardsImages', p));
       window.cmb.on('players', (p) => { this.players = p; this.emit('players', p); });
       window.cmb.on('event', (e) => {
@@ -44,7 +46,9 @@
       this.audience = await api('audience:status');
       this.updateSide();
       this.bindKeys();
-      if (!this.view) this.show(this.game ? 'host' : 'dashboard'); // don't override a screen the host already opened during start-up
+      const ob = (this.info && this.info.onboarding) || {};
+      const ns = document.getElementById('navStart'); if (ns) ns.hidden = !ob.autoOpen;
+      if (!this.view) this.show(this.game ? 'host' : (ob.autoOpen ? 'start' : 'dashboard')); // don't override a screen the host already opened during start-up
       // media probing now happens in a separate, recycled window (main process drives it)
       let libT = null; window.cmb.on('library-probed', () => { clearTimeout(libT); libT = setTimeout(() => this.emit('library'), 400); });
     },
