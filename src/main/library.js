@@ -7,6 +7,8 @@ const path = require('path');
 const crypto = require('crypto');
 const { readMp4Tags, parseFilename } = require('./mp4meta');
 const { MIN_SONGS } = require('../core/cards');
+const m3u = require('./m3u');
+const AUDIO_EXT = ['.mp3', '.m4a', '.aac', '.flac', '.wav', '.ogg', '.oga', '.wma', '.opus', '.aif', '.aiff'];
 
 const PLAYABLE_EXT = ['.mp4', '.m4v', '.mov', '.webm', '.mkv', '.ogv'];
 const KNOWN_VIDEO_EXT = PLAYABLE_EXT.concat(['.avi', '.wmv', '.flv', '.mpg', '.mpeg', '.3gp', '.ts', '.vob', '.divx', '.m2ts']);
@@ -222,6 +224,60 @@ class Library {
       out.push({ name: pl.name, playlistId: pl.id, created, videos: vids.length, added: r.added.length, already: ids.length - r.added.length - r.rejected.length, rejected: r.rejected, total: pl.songIds.length });
     }
     return { playlists: out, totals: total };
+  }
+
+  /**
+   * Import an .m3u / .m3u8 playlist: its videos join the library (same checks, conversion and
+   * duplicate rules as any import) and a playlist with the M3U's name keeps the M3U's order.
+   * Re-importing the same M3U only adds what is new. Nothing in the M3U file is changed.
+   */
+  async importM3U(file) {
+    const pl = m3u.parseFile(file);
+    const rep = { name: pl.name, file, entries: pl.entries.length, missing: [], streams: [], audio: [], notVideo: [], relocated: 0, unsupported: [], duplicates: 0, newToLibrary: 0, converting: 0, addedToPlaylist: 0, alreadyInPlaylist: 0, rejected: [], playlistId: null, created: false };
+    if (!pl.entries.length) throw new Error('This playlist file has no songs in it.');
+    const vids = []; const seen = new Set();
+    pl.entries.forEach(e => {
+      const label = e.label || e.raw;
+      if (e.url) return rep.streams.push({ line: e.line, label });
+      if (e.missing) return rep.missing.push({ line: e.line, label, path: e.path });
+      const ext = path.extname(e.path).toLowerCase();
+      if (AUDIO_EXT.includes(ext)) return rep.audio.push({ line: e.line, label });
+      if (!KNOWN_VIDEO_EXT.includes(ext)) return rep.notVideo.push({ line: e.line, label });
+      if (e.relocated) rep.relocated++;
+      const k = path.resolve(e.path).toLowerCase(); if (seen.has(k)) return; seen.add(k);
+      vids.push(e);
+    });
+    const imp = vids.length ? await this.importPaths(vids.map(e => e.path)) : { added: [], duplicates: [], unsupported: [], converting: 0 };
+    rep.newToLibrary = imp.added.length; rep.duplicates = imp.duplicates.length; rep.unsupported = imp.unsupported; rep.converting = imp.converting || 0;
+    const byPath = new Map();
+    this.data.songs.forEach(x => { byPath.set(path.resolve(x.path).toLowerCase(), x); if (x.originalPath) byPath.set(path.resolve(x.originalPath).toLowerCase(), x); });
+    const fresh = new Set(imp.added); let changed = false;
+    const ids = [];
+    vids.forEach(e => {
+      const s = byPath.get(path.resolve(e.path).toLowerCase()); if (!s) return;
+      // #EXTINF "Artist - Title" fills in when the file name alone doesn't give both; it never replaces
+      // embedded tags, a clean "Artist - Title" file name, or your own edits
+      if (fresh.has(s.id) && e.title) { const g = parseFilename(s.path); if (!(g.artist && g.title) && (!s.title || s.title === g.title) && (!s.artist || s.artist === g.artist)) { s.title = e.title; if (e.artist) s.artist = e.artist; changed = true; } }
+      if (!ids.includes(s.id)) ids.push(s.id);
+    });
+    if (changed) this.save();
+    let p = this.pl.playlists.find(x => x.name.trim().toLowerCase() === pl.name.trim().toLowerCase());
+    rep.created = !p; if (!p) p = this.createPlaylist(pl.name);
+    const before = new Set(p.songIds);
+    const r = this.addToPlaylist(p.id, ids);
+    rep.playlistId = p.id; rep.playlistName = p.name; rep.addedToPlaylist = r.added.length;
+    rep.alreadyInPlaylist = ids.filter(id => before.has(id)).length;
+    rep.rejected = r.rejected.filter(x => !/already in this playlist/.test(x.reason));
+    rep.total = p.songIds.length;
+    return rep;
+  }
+
+  /** Write a playlist as UTF-8 extended M3U (opens in VLC, Windows Media Player, foobar2000…). */
+  exportM3U(id, file, opts = {}) {
+    const p = this.playlist(id); if (!p) throw new Error('Playlist not found');
+    const songs = p.songIds.map(x => this.get(x)).filter(Boolean);
+    fs.writeFileSync(file, m3u.buildText(p.name, songs.map(s => ({ path: s.path, title: s.title, artist: s.artist, duration: s.duration })), file, opts), 'utf8');
+    return { file, count: songs.length, missing: songs.filter(s => s.status === 'missing').length };
   }
 
   isPlayable(s) { return s && s.status === 'ok' && !!String(s.title || '').trim() && !!String(s.artist || '').trim(); }

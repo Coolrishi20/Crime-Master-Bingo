@@ -1,14 +1,26 @@
 App.register('playlists', {
   current: null,
+  leave() { if (this.el) { this.el.ondragover = this.el.ondrop = null; } },
   async render(el) {
     this.el = el;
     el.innerHTML = `
       <div class="page-head"><div><div class="eyebrow">Music bingo videos</div><h1>Playlists</h1><p>Every game needs at least <b>40 unique, playable songs</b>. 75+ gives longer, fairer games.</p></div>
-        <div class="row"><button class="btn" id="pFolders" title="Each sub-folder becomes a playlist">Import folders as playlists…</button><button class="btn primary" id="pNew">✚ New playlist</button></div></div>
+        <div class="row"><button class="btn" id="pM3U" title="VLC, Windows Media Player, Winamp… (.m3u / .m3u8)">Import M3U…</button><button class="btn" id="pFolders" title="Each sub-folder becomes a playlist">Import folders as playlists…</button><button class="btn primary" id="pNew">✚ New playlist</button></div></div>
       <div class="cols" style="grid-template-columns: 300px minmax(0,1fr)">
         <div class="panel"><h2>Playlists</h2><div id="pList"></div></div>
         <div id="pDetail"></div>
       </div>`;
+    $('#pM3U', el).onclick = async () => { const r = await api('playlists:importM3U'); if (r) { m3uReport(r); const ok = r.find(x => x.playlistId); if (ok) this.current = ok.playlistId; this.load(); } };
+    // drop .m3u / .m3u8 files (or videos) onto this page
+    el.ondragover = (e) => { if (e.dataTransfer && Array.from(e.dataTransfer.items || []).some(i => i.kind === 'file')) e.preventDefault(); };
+    el.ondrop = async (e) => {
+      const files = Array.from((e.dataTransfer && e.dataTransfer.files) || []); if (!files.length) return;
+      e.preventDefault();
+      const paths = files.map(f => window.cmb.pathForFile ? window.cmb.pathForFile(f) : f.path).filter(Boolean);
+      const lists = paths.filter(p => /\.m3u8?$/i.test(p));
+      if (!lists.length) return toast('Drop .m3u or .m3u8 playlist files here — videos go in the Music Library', 'err');
+      const r = await api('playlists:importM3UFiles', { files: lists }); m3uReport(r); const ok = r.find(x => x.playlistId); if (ok) this.current = ok.playlistId; this.load();
+    };
     $('#pFolders', el).onclick = async () => { const r = await api('library:pickFolderPlaylists'); if (r) { folderPlaylistReport(r); this.load(); } };
     $('#pNew', el).onclick = async () => { const name = await promptBox('New playlist', 'Name (e.g. 80s Classics, Bollywood Bingo)'); if (!name) return; const p = await api('playlists:create', { name }); this.current = p.id; this.load(); };
     await this.load();
@@ -17,6 +29,7 @@ App.register('playlists', {
     const [pls, lib] = await Promise.all([api('playlists:list'), api('library:list')]);
     this.pls = pls; this.lib = new Map(lib.songs.map(s => [s.id, s])); this.libAll = lib.songs;
     if (!this.current || !pls.find(p => p.id === this.current)) this.current = pls[0] ? pls[0].id : null;
+    if (!$('#pList', this.el)) return; // the page was redrawn or left while loading — the newer draw takes over
     $('#pList', this.el).innerHTML = pls.length ? pls.map(p => `<div class="check-row" data-id="${p.id}" style="cursor:pointer;${p.id === this.current ? 'outline:1px solid var(--pink)' : ''}">
       <div class="grow"><b>${esc(p.name)}</b><div class="muted small">${p.songIds.length} songs</div></div>
       ${p.validation.ok ? '<span class="badge ok">READY</span>' : `<span class="badge warn">${p.validation.needed} MORE</span>`}</div>`).join('') : '<div class="empty">No playlists yet.</div>';
@@ -32,7 +45,7 @@ App.register('playlists', {
     d.innerHTML = `
       <div class="panel" style="margin-bottom:14px"><div class="row">
         <div class="grow"><div class="eyebrow">Playlist</div><div class="display" style="font-size:30px">${esc(p.name)}</div></div>
-        <button class="btn sm" id="pRen">Rename</button><button class="btn sm" id="pDup">Duplicate</button><button class="btn sm danger" id="pDel">Delete</button></div>
+        <button class="btn sm" id="pRen">Rename</button><button class="btn sm" id="pDup">Duplicate</button><button class="btn sm" id="pExp" title="Opens in VLC, Windows Media Player, foobar2000…">Export M3U…</button><button class="btn sm danger" id="pDel">Delete</button></div>
         <div class="row" style="margin-top:12px">
           <div class="stat"><span class="k">Unique playable songs</span><span class="big-num" style="color:${v.ok ? 'var(--green)' : 'var(--amber)'}">${v.uniquePlayable}</span></div>
           <div class="grow" style="padding-left:16px">${v.ok ? `<span class="badge ok">✓ READY FOR A GAME</span><div class="muted small" style="margin-top:6px">Minimum 40 met${v.uniquePlayable < 75 ? ' · 75+ recommended for longer games' : ''}.</div>` : `<span class="badge warn">ADD ${v.needed} MORE SONG${v.needed === 1 ? '' : 'S'}</span><div class="muted small" style="margin-top:6px">A game cannot be created until this playlist has 40 unique, playable songs with title and artist.</div>`}
@@ -60,6 +73,7 @@ App.register('playlists', {
     });
     $('#pRen', d).onclick = async () => { const n = await promptBox('Rename playlist', 'Name', p.name); if (n) { await api('playlists:rename', { id: p.id, name: n }); this.load(); } };
     $('#pDup', d).onclick = async () => { const c = await api('playlists:duplicate', { id: p.id }); this.current = c.id; this.load(); };
+    $('#pExp', d).onclick = async () => { const r = await api('playlists:exportM3U', { id: p.id }); if (!r) return; toast(`Exported ${r.count} song(s) to ${r.file.split(/[\\/]/).pop()}${r.missing ? ` — ${r.missing} file(s) are currently missing` : ''}`, r.missing ? 'err' : 'ok', 6000); };
     $('#pDel', d).onclick = async () => { if (await confirmBox('Delete playlist?', `Delete “${esc(p.name)}”? Songs stay in your library; games already created are not affected.`, 'Delete', true)) { await api('playlists:delete', { id: p.id }); this.current = null; this.load(); } };
     $('#pAdd', d).onclick = () => this.addSongs(p);
   },

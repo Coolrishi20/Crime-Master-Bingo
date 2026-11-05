@@ -1,8 +1,33 @@
-## Anthem Square 1.7.0 (release candidate 1) — the new name and look
+## Anthem Square 1.7.0 — the new name and look, plus M3U playlists
 
 **Crime Master Bingo is now Anthem Square.** *Music video bingo. Hear it. Mark it. Own it.*
-This is a release candidate, published as a GitHub pre-release. Game rules, cards, printing,
-the phone remote, the TV and saved games all work as before.
+This is a full release and includes everything from 1.5 and 1.6 (Low Resource Mode, custom
+rounds and patterns, Rules Checklist Mode). Game rules, cards, printing, the phone remote, the TV
+and saved games all work as before. Hardware note: it has been run on a 32 GB Windows laptop and
+in an integrated test environment. A real **4 GB** laptop test is still recommended
+(*docs/PERFORMANCE.md*).
+
+### New: M3U / M3U8 playlists
+- **Import:** *Playlists → Import M3U…*, or drop `.m3u` / `.m3u8` files on the Playlists or
+  Music Library page. *Import videos…* in the Music Library also accepts them.
+  - Works with playlists from VLC, Windows Media Player, Winamp, foobar2000, MusicBee and iTunes
+    exports.
+  - Reads UTF-8, UTF-16 and old Windows-1252 files.
+  - Understands relative, absolute and `file://` paths.
+- **Order and names:** the playlist keeps the M3U's order and name. `#EXTINF` "Artist - Title"
+  fills in names a file name lacks; it never replaces embedded tags or your edits.
+- **Moved files:** if the videos moved with the playlist (another USB drive letter or folder),
+  they're found next to it automatically.
+- **Clear report:** missing files (with their line in the M3U), audio-only files and online
+  streams are listed; nothing is silently dropped. Importing the same M3U again only adds
+  what's new.
+- **Export:** *Playlists → Export M3U…* writes a UTF-8 `.m3u8` with paths relative to the
+  playlist, so a USB stick of videos plus the playlist opens in VLC.
+
+### Fixes
+- Clicking another page in the first second after start-up no longer jumps back to the
+  Dashboard.
+
 
 ### Your data comes with you
 Install it over your existing copy. The library, playlists, saved games, settings, backups,

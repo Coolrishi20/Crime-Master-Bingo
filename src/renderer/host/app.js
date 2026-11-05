@@ -44,7 +44,7 @@
       this.audience = await api('audience:status');
       this.updateSide();
       this.bindKeys();
-      this.show(this.game ? 'host' : 'dashboard');
+      if (!this.view) this.show(this.game ? 'host' : 'dashboard'); // don't override a screen the host already opened during start-up
       // media probing now happens in a separate, recycled window (main process drives it)
       let libT = null; window.cmb.on('library-probed', () => { clearTimeout(libT); libT = setTimeout(() => this.emit('library'), 400); });
     },

@@ -64,6 +64,8 @@ App.register('library', {
   },
   report(r) {
     if (!r) return;
+    if (r.m3u && r.m3u.length) m3uReport(r.m3u);
+    if (r.m3u && !r.added.length && !r.alreadyInLibrary.length && !r.duplicates.length && !(r.unsupported || []).length) { this.load && this.load(); return; }
     const parts = [`${r.added.length} imported`];
     if (r.alreadyInLibrary.length) parts.push(`${r.alreadyInLibrary.length} already in library`);
     if (r.duplicates.length) parts.push(`${r.duplicates.length} possible duplicates flagged`);
@@ -197,3 +199,21 @@ function folderPlaylistReport(r) {
     `<p class="muted small" style="margin-top:12px">${t.added} new video(s) imported${t.converting ? ` · ${t.converting} being converted to MP4 in the background` : ''}${t.alreadyInLibrary ? ` · ${t.alreadyInLibrary} were already in the library` : ''}. Importing again later only adds new videos.</p>` });
 }
 window.folderPlaylistReport = folderPlaylistReport;
+
+/** What happened when M3U playlists were imported (one block per file). */
+function m3uReport(list) {
+  const lineList = (arr, max) => arr.slice(0, max).map(x => `<li><span class="muted">line ${x.line}</span> · ${esc(x.label)}</li>`).join('') + (arr.length > max ? `<li class="muted">…and ${arr.length - max} more</li>` : '');
+  const body = list.map(r => {
+    if (r.error) return `<div class="check-row"><span class="ic bad">✕</span><div class="grow"><b>${esc(r.name)}</b><div class="small" style="color:var(--red)">${esc(r.error)}</div></div></div>`;
+    const skipped = [];
+    if (r.missing.length) skipped.push(`<div class="small" style="margin-top:6px"><b>${r.missing.length} file(s) not found</b> — moved, renamed or on a drive that isn't connected:<ul class="small" style="margin:4px 0 0 18px">${lineList(r.missing, 8)}</ul></div>`);
+    if (r.audio.length) skipped.push(`<div class="small muted" style="margin-top:4px">${r.audio.length} audio-only file(s) skipped — Anthem Square needs music <b>videos</b>.</div>`);
+    if (r.streams.length) skipped.push(`<div class="small muted" style="margin-top:4px">${r.streams.length} online stream(s) skipped — only files on this laptop or a connected drive can be played.</div>`);
+    if (r.notVideo.length) skipped.push(`<div class="small muted" style="margin-top:4px">${r.notVideo.length} other file(s) skipped (not a video).</div>`);
+    if (r.rejected.length) skipped.push(`<div class="small muted" style="margin-top:4px">${r.rejected.length} duplicate song(s) not added twice: ${r.rejected.slice(0, 4).map(x => esc(x.title || '')).join(', ')}${r.rejected.length > 4 ? '…' : ''}</div>`);
+    return `<div class="check-row" style="align-items:flex-start"><span class="ic ok">✓</span><div class="grow"><b>${esc(r.playlistName || r.name)}</b> ${r.created ? '<span class="badge pink">NEW</span>' : '<span class="badge">UPDATED</span>'}
+      <div class="small">${r.addedToPlaylist} song(s) added to the playlist (now ${r.total})${r.alreadyInPlaylist ? ` · ${r.alreadyInPlaylist} were already in it` : ''} · ${r.newToLibrary} new video(s) imported${r.converting ? ` · ${r.converting} converting to MP4` : ''}${r.relocated ? ` · ${r.relocated} found next to the playlist (moved drive or folder)` : ''}</div>${skipped.join('')}</div></div>`;
+  }).join('');
+  modal({ title: list.length > 1 ? `${list.length} M3U playlists imported` : 'M3U playlist imported', size: 'mid', body: body + '<p class="muted small" style="margin-top:12px">The order from the M3U file is kept. New videos are checked in the background; a playlist is ready for a game once it has 40 unique playable songs.</p>', buttons: [{ label: 'Done', kind: 'primary', value: true }] });
+}
+window.m3uReport = m3uReport;

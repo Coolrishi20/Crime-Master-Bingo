@@ -60,6 +60,22 @@ Create a playlist (e.g. *80s Classics*) and **Add songs**. Drag rows to reorder.
 A game needs **at least 40 unique, playable songs**. The playlist shows exactly how
 many more you need. Duplicates are never added silently.
 
+### M3U playlists (VLC, Windows Media Player, Winamp…)
+- **Import:** *Playlists → Import M3U…*, or drag `.m3u` / `.m3u8` files onto the Playlists or
+  Music Library page.
+- **What happens:** the videos in it join your library (checked and converted like any import)
+  and a playlist with the same name keeps the same order. "Artist - Title" from the M3U fills in
+  song names that the file names don't give.
+- **If videos moved** to another drive letter or folder along with the playlist, they're found
+  next to it.
+- **The report** lists anything it couldn't use: missing files (with their line number),
+  audio-only files and online streams. Anthem Square plays music **videos** from this laptop or a
+  connected drive.
+- **Importing again** only adds what's new.
+- **Export:** *Playlists → Export M3U…* saves a `.m3u8` that opens in VLC or Windows Media Player.
+  Paths are relative to where you save it, so a USB stick with the videos and the playlist works
+  on any PC.
+
 ### Create the game — *Create Game*
 The wizard has nine steps:
 1. **Details**: name, date, venue, logo.

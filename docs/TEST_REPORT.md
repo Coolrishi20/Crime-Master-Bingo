@@ -1,4 +1,32 @@
-# Anthem Square — Test report (v1.7.0-rc.1)
+# Anthem Square — Test report (v1.7.0)
+
+## v1.7.0 (full release: Anthem Square + M3U playlists)
+- **Unit tests: 162 / 162 passed.** `v18-m3u.test.js` has 6 new tests:
+  - decoding UTF-8 (with and without BOM), UTF-16 LE/BE and Windows-1252;
+  - `#EXTINF` duration, "Artist - Title" and attributes containing commas;
+  - path styles: relative with / and \, absolute, `file://` with percent-encoding, streams, a relocated drive letter, missing files;
+  - library import: M3U order, `#EXTINF` names, the report of missing, audio and stream entries, re-import adding nothing twice, your edits kept;
+  - a plain Windows-1252 Winamp-style list;
+  - an export → re-import round trip with relative paths.
+- **New e2e `v18-m3u.js`: 10 / 10 passed** (and on 4 consecutive runs):
+  - *Import M3U…* with a 50-video VLC-style playlist: report, missing file with its line number, skipped stream, order kept;
+  - the playlist becomes ready for a game and a game is created from it;
+  - re-import; *Export M3U…* with relative paths;
+  - Music Library *Import videos…* with an .m3u, and an .m3u dropped together with videos.
+- **Fix found while testing:** opening another page during the first second after start-up was overridden by the Dashboard. Start-up now keeps the page you opened, and the Playlists page ignores a stale load.
+- **Regression (all re-run on this build):**
+
+  | Suite | Result |
+  |---|---|
+  | v17-brand | 22/22 |
+  | v16-checklist | 34/34 |
+  | acceptance | 85/85 |
+  | v15 | 28/28 |
+  | v14 | 38/38 |
+  | v13 | 13/13 |
+  | print | 12/12 |
+  | reveal | 7/7 |
+
 
 ## v1.7.0-rc.1 (rebrand to Anthem Square, approved redesign)
 - **Unit tests: 156 / 156 passed.** The game logic is unchanged; one message test was updated for the new name.

@@ -10,6 +10,7 @@ const { Store } = require('./store');
 const { Library } = require('./library');
 const { RemoteServer } = require('./remote');
 const { GameEngine, createGame, defaultGameSettings, normaliseChecklist, DEFAULT_CHECKLIST } = require('../core/engine');
+const m3u = require('./m3u');
 const cardsLib = require('../core/cards');
 const rules = require('../core/rules');
 const locking = require('../core/locking');
@@ -260,6 +261,21 @@ function fullHostState() {
   return { game: st };
 }
 
+/** Library import that also understands .m3u/.m3u8 files (dropped, picked or passed together with videos). */
+async function importM3UFiles(files) {
+  const out = [];
+  for (const f of files) { try { out.push(await library.importM3U(f)); } catch (e) { out.push({ file: f, name: path.basename(f), error: e.message }); } }
+  updateBackgroundWork();
+  return out;
+}
+async function importAny(paths) {
+  const lists = (paths || []).filter(p => m3u.isM3U(p) && (() => { try { return fs.statSync(p).isFile(); } catch (e) { return false; } })());
+  const rest = (paths || []).filter(p => !lists.includes(p));
+  const rep = rest.length ? await library.importPaths(rest) : { added: [], alreadyInLibrary: [], duplicates: [], unsupported: [], ignored: 0 };
+  if (lists.length) rep.m3u = await importM3UFiles(lists);
+  return rep;
+}
+
 function remoteState() {
   if (!engine) return { game: null, theme: uiTheme() };
   const st = enrichUpNext(engine.hostState(), true);
@@ -478,14 +494,27 @@ const handlers = {
   'library:list': () => ({ songs: library.songs() }),
   'library:nextUnchecked': () => library.nextUnchecked(),
   'library:pickFiles': async () => {
-    const r = await dialog.showOpenDialog(hostWin, { title: 'Import music videos', properties: ['openFile', 'multiSelections'], filters: [{ name: 'Music videos', extensions: ['mp4', 'm4v', 'mov', 'webm', 'mkv', 'ogv'] }, { name: 'All files', extensions: ['*'] }] });
-    return r.canceled ? null : library.importPaths(r.filePaths);
+    const r = await dialog.showOpenDialog(hostWin, { title: 'Import music videos or M3U playlists', properties: ['openFile', 'multiSelections'], filters: [{ name: 'Music videos and playlists', extensions: ['mp4', 'm4v', 'mov', 'webm', 'mkv', 'ogv', 'avi', 'wmv', 'flv', 'mpg', 'mpeg', 'm3u', 'm3u8'] }, { name: 'M3U playlists', extensions: ['m3u', 'm3u8'] }, { name: 'All files', extensions: ['*'] }] });
+    return r.canceled ? null : importAny(r.filePaths);
   },
   'library:pickFolder': async () => {
     const r = await dialog.showOpenDialog(hostWin, { title: 'Import a folder of music videos', properties: ['openDirectory'] });
     return r.canceled ? null : library.importPaths(r.filePaths);
   },
-  'library:importPaths': (paths) => library.importPaths(paths),
+  'library:importPaths': (paths) => importAny(paths),
+  'playlists:importM3U': async () => {
+    const r = await dialog.showOpenDialog(hostWin, { title: 'Import M3U playlists', properties: ['openFile', 'multiSelections'], filters: [{ name: 'M3U playlists', extensions: ['m3u', 'm3u8'] }, { name: 'All files', extensions: ['*'] }] });
+    return r.canceled ? null : importM3UFiles(r.filePaths);
+  },
+  'playlists:importM3UFiles': ({ files }) => importM3UFiles(files || []),
+  'playlists:exportM3U': async ({ id, file }) => {
+    const p = library.playlist(id); if (!p) throw new Error('Playlist not found');
+    if (!file) {
+      const r = await dialog.showSaveDialog(hostWin, { title: 'Export playlist as M3U', defaultPath: path.join(app.getPath('documents'), p.name.replace(/[<>:"/\\|?*]+/g, '').trim() + '.m3u8'), filters: [{ name: 'M3U playlist (UTF-8)', extensions: ['m3u8'] }, { name: 'M3U playlist', extensions: ['m3u'] }] });
+      if (r.canceled) return null; file = r.filePath;
+    }
+    return library.exportM3U(id, file);
+  },
   'library:pickFolderPlaylists': async () => {
     const r = await dialog.showOpenDialog(hostWin, { title: 'Choose the top folder — each sub-folder becomes a playlist', properties: ['openDirectory'] });
     return r.canceled ? null : library.importFolderAsPlaylists(r.filePaths[0]);

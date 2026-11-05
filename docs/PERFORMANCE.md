@@ -132,7 +132,8 @@ How to read the table:
   absolute values against Windows Task Manager.
 - **A 4 GB RAM machine was not available.** The app is designed to fit (see the numbers),
   but **the 4 GB / 8 GB / 16 GB / 2 GB hardware matrix is still outstanding** and must be run
-  on real laptops before calling 1.5.0 final. That's why this build is a release candidate.
+  on real laptops. At the owner's request, 1.7.0 is published as a full release (it has run
+  smoothly on a 32 GB Windows laptop). The 4 GB check is still recommended and has not been done.
 - Test videos are synthetic 1080p30 H.264/AAC at ~6 Mbps, 12 s each, so 75 songs take
   about 17 minutes. A real night with 3-minute songs is longer; the 75-song run checks for
   growth over many song changes, not hours of wall-clock time.
