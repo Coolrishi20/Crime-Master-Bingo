@@ -88,7 +88,7 @@ const waitFor = async (fn, ms = 20000) => { const t = Date.now(); while (Date.no
   await inv('game:cmd', { action: 'setHandedOut', args: { spec: '1-48' } });
   await sleep(400);
   ok(/Handed out tonight:.*001-048/.test(await host.textContent('#hoLine')), 'Host Game shows “Handed out tonight: 001-048”');
-  await host.evaluate(() => App.openChecker('57')); await sleep(1200);
+  await host.evaluate(() => { App.openChecker('57'); }); await sleep(1500);
   const warn = await host.textContent('.modal-back');
   ok(/Card 057 wasn't handed out tonight/.test(warn), 'Checking card 57 warns it wasn\'t handed out (the check still runs)');
   await host.screenshot({ path: path.join(OUT, 'v26-check-warning.png') });
