@@ -1530,24 +1530,53 @@ function installPortableUpdate(file, relaunch) {
   portableSwapStarted = true;
   const exe = portableExe();
   const stamp = Date.now();
-  const helper = path.join(os.tmpdir(), 'anthem-square-update-' + stamp + '.cmd');
-  const script = ['@echo off', 'setlocal', 'set "OLD=%~1"', 'set "NEW=%~2"', 'set n=0',
-    'copy /Y "%OLD%" "%~dp1.anthem-square-previous.exe" >nul 2>&1', // the version being replaced, for "Go back" (once)
-    ':move', 'if not exist "%NEW%" goto done', 'timeout /t 1 /nobreak >nul', 'move /Y "%NEW%" "%OLD%" >nul 2>&1', 'if not errorlevel 1 goto moved',
-    'set /a n+=1', 'if %n% geq 90 goto done', 'goto move',
-    ':moved', relaunch ? 'start "" "%OLD%"' : 'rem no relaunch', ':done', '(goto) 2>nul & del "%~f0"'].join('\r\n') + '\r\n';
+  /* 2.6.9: the swap runs entirely in Windows Script Host (wscript.exe, a windowless program).
+     No cmd.exe and no console at all, so nothing can flash, including on Windows 11 where the
+     default terminal can briefly show a console that was started hidden. Paths are passed as
+     arguments, never written into the script. */
+  const helper = path.join(os.tmpdir(), 'anthem-square-update-' + stamp + '.vbs');
+  const script = [
+    "' Anthem Square portable update: once the old EXE has closed, put the new one in its place and reopen it.",
+    'On Error Resume Next',
+    'Dim fso, sh, a, oldExe, newExe, prev, relaunch, n, moved',
+    'Set fso = CreateObject("Scripting.FileSystemObject")',
+    'Set sh = CreateObject("WScript.Shell")',
+    'Set a = WScript.Arguments',
+    'oldExe = a(0): newExe = a(1): relaunch = (a(2) = "1")',
+    'prev = fso.BuildPath(fso.GetParentFolderName(oldExe), ".anthem-square-previous.exe")',
+    "Err.Clear: fso.CopyFile oldExe, prev, True   ' the version being replaced, kept once for Go back",
+    'moved = False: n = 0',
+    'Do While fso.FileExists(newExe) And n < 90',
+    '  WScript.Sleep 1000',
+    '  Err.Clear',
+    '  If fso.FileExists(oldExe) Then fso.DeleteFile oldExe, True',
+    '  If Err.Number = 0 Then',
+    '    fso.MoveFile newExe, oldExe',
+    '    If Err.Number = 0 Then moved = True',
+    '  End If',
+    '  If moved Then Exit Do',
+    '  n = n + 1',
+    'Loop',
+    "' never leave the folder without the app: put the previous version back if the swap failed",
+    'If Not fso.FileExists(oldExe) And fso.FileExists(prev) Then Err.Clear: fso.CopyFile prev, oldExe, True',
+    'If moved And relaunch Then sh.Run Chr(34) & oldExe & Chr(34), 1, False',
+    'fso.DeleteFile WScript.ScriptFullName, True'
+  ].join('\r\n') + '\r\n';
   fs.writeFileSync(helper, script);
-  // Run it hidden: a tiny Windows Script Host launcher starts cmd with a hidden console, so the
-  // one-second waits never open a window. If Script Host is unavailable, start cmd directly.
-  const vbs = path.join(os.tmpdir(), 'anthem-square-update-' + stamp + '.vbs');
-  // cmd /c ""a" "b" "c"" — the outer pair is stripped by cmd, so paths with spaces stay intact; VBS doubles each quote
-  const cmdline = 'cmd.exe /c ""' + [helper, exe, file].map(x => String(x).replace(/"/g, '')).join('" "') + '""';
-  fs.writeFileSync(vbs, 'CreateObject("WScript.Shell").Run "' + cmdline.replace(/"/g, '""') + '", 0, False\r\n' +
-    'CreateObject("Scripting.FileSystemObject").DeleteFile WScript.ScriptFullName, True\r\n');
-  if (IS_TEST) { global.__updateInstall = { helper, vbs, exe, file, relaunch, script, launcher: fs.readFileSync(vbs, 'utf8') }; return; } // tests: inspect, don't quit
+  const args = ['//B', '//NoLogo', helper, exe, file, relaunch ? '1' : '0'];
+  if (IS_TEST) { global.__updateInstall = { helper, exe, file, relaunch, script, args }; return; } // tests: inspect, don't quit
   const cp = require('child_process');
-  const direct = () => { try { cp.spawn('cmd.exe', ['/c', helper, exe, file], { detached: true, stdio: 'ignore', windowsHide: true }).unref(); } catch (e) { /* */ } };
-  try { const w = cp.spawn(path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'wscript.exe'), ['//B', '//NoLogo', vbs], { detached: true, stdio: 'ignore', windowsHide: true }); w.on('error', direct); w.unref(); }
+  // Fallback only if Windows Script Host is missing: cmd with a windowless console (not detached,
+  // so the waits get a console that has no window).
+  const direct = () => {
+    try {
+      const c = helper.replace(/\.vbs$/, '.cmd');
+      fs.writeFileSync(c, ['@echo off', 'set n=0', 'copy /Y "%~1" "%~dp1.anthem-square-previous.exe" >nul 2>&1', ':move', 'if not exist "%~2" goto done', 'ping -n 2 127.0.0.1 >nul',
+        'move /Y "%~2" "%~1" >nul 2>&1', 'if not errorlevel 1 goto moved', 'set /a n+=1', 'if %n% geq 90 goto done', 'goto move', ':moved', relaunch ? 'start "" "%~1"' : 'rem', ':done', '(goto) 2>nul & del "%~f0"'].join('\r\n') + '\r\n');
+      cp.spawn('cmd.exe', ['/d', '/c', c, exe, file], { stdio: 'ignore', windowsHide: true }).unref();
+    } catch (e) { /* */ }
+  };
+  try { const w = cp.spawn(path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'wscript.exe'), args, { detached: true, stdio: 'ignore', windowsHide: true }); w.on('error', direct); w.unref(); }
   catch (e) { direct(); }
   if (relaunch) { app.isQuiting = true; setTimeout(() => app.quit(), 300); }
 }

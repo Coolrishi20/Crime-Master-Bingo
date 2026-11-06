@@ -84,9 +84,10 @@ const waitFor = async (fn, ms = 20000) => { const t = Date.now(); while (Date.no
   await host.screenshot({ path: path.join(OUT, 'v22-update-ready.png') });
   await host.click('#updRestart'); await sleep(500);
   const inst = await app.evaluate(() => global.__updateInstall);
-  ok(inst && inst.exe === EXE && inst.file === staged && inst.relaunch === true && /move \/Y "%NEW%" "%OLD%"/.test(inst.script) && /start "" "%OLD%"/.test(inst.script), 'Restart now swaps the EXE in place (same name, shortcuts keep working) and reopens it');
-  ok(inst.launcher.includes('.Run "cmd.exe /c ' + '""""') && inst.launcher.includes(', 0, False') && inst.script.indexOf('copy /Y') < inst.script.indexOf(':move') && inst.script.includes('if not exist "%NEW%" goto done'),
-    'The swap helper runs hidden (no console windows), keeps the old version once, and stops as soon as the swap is done', inst.launcher.trim());
+  ok(inst && inst.exe === EXE && inst.file === staged && inst.relaunch === true && /fso\.MoveFile newExe, oldExe/.test(inst.script) && /sh\.Run Chr\(34\) & oldExe/.test(inst.script) && inst.args.slice(3).join('|') === [EXE, staged, '1'].join('|'),
+    'Restart now swaps the EXE in place (same name, shortcuts keep working) and reopens it');
+  ok(/\.vbs$/.test(inst.helper) && inst.args[0] === '//B' && !/cmd\.exe|timeout|%~/.test(inst.script) && !inst.script.includes(EXE) && inst.script.indexOf('CopyFile oldExe, prev') < inst.script.indexOf('Do While') && /If Not fso\.FileExists\(oldExe\) And fso\.FileExists\(prev\)/.test(inst.script),
+    'The swap runs in Windows Script Host only (no console, nothing can flash), keeps the old version once, never leaves the folder without the app, and paths are passed as arguments', inst.args.slice(0, 2).join(' '));
   await app.evaluate(() => global.__cmb.updater.onQuit());
   const again = await app.evaluate(() => global.__updateInstall.helper);
   ok(again === inst.helper, 'Closing the app after Restart now does not start a second helper');
